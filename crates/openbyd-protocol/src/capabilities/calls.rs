@@ -144,11 +144,25 @@ pub fn scripted_error(description: &Value) -> Result<Error, ParityError> {
 
 /// An error as the traces show it: its class and pyBYD's attributes
 /// (`null` where the class has no such attribute).
+///
+/// A validation failure whose validator let an exception escape that
+/// [`ErrorKind`] has no member for (`OverflowError`, `OSError`) is a
+/// `ValidationError` here; its message, from [`validation_error`], starts
+/// with the escaping class, which is reported.
 pub fn describe_error(error: &Error) -> Value {
     let api = error.is_a(ErrorKind::BydApiError);
     let transport = error.is_a(ErrorKind::BydTransportError);
+    let class = match error.kind() {
+        ErrorKind::ValidationError => error
+            .message()
+            .split_once(" (")
+            .map(|(class, _)| class)
+            .filter(|class| class.ends_with("Error") && !class.contains(' '))
+            .unwrap_or("ValidationError"),
+        _ => error.class_name(),
+    };
     json!({
-        "class": error.class_name(),
+        "class": class,
         "code": if api { json!(error.code()) } else { Value::Null },
         "endpoint": if api || transport { json!(error.endpoint()) } else { Value::Null },
         "status_code": if transport { json!(error.status_code()) } else { Value::Null },

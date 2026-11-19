@@ -22,7 +22,9 @@ pub fn unsupported(message: impl Into<String>, endpoint: &str) -> Error {
 }
 
 /// A model validation failure as the error pyBYD raises: pydantic's
-/// `ValidationError`, or the exception a validator let escape.
+/// `ValidationError`, or the exception a validator let escape. An escaping
+/// exception [`ErrorKind`] has no member for (`OverflowError`, `OSError`)
+/// becomes a `ValidationError` whose message starts with its class name.
 pub fn validation_error(error: ValidationError) -> Error {
     let kind = ErrorKind::from_class_name(error.exception).unwrap_or(ErrorKind::ValidationError);
     Error::new(kind, error.to_string())

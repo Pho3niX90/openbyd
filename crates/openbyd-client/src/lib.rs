@@ -9,7 +9,10 @@
 //! The HTTP environment, the session manager and MQTT are not ported yet.
 
 pub mod api;
+pub mod client;
 pub mod env;
+pub mod http;
+pub mod mqtt;
 pub mod parity;
 #[doc(hidden)]
 pub mod scripted;

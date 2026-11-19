@@ -413,12 +413,6 @@ pub struct Observed<E> {
     observer: Option<RequestObserver>,
 }
 
-impl<E: fmt::Debug> fmt::Debug for Observed<E> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.env.fmt(f)
-    }
-}
-
 fn outcome_of(result: &Result<Value, Error>) -> RequestOutcome {
     match result {
         Ok(reply) => RequestOutcome::Reply {
@@ -1444,5 +1438,265 @@ impl<E: ClientEnv> MqttSink for Inner<E> {
         if let Some(inner) = self.me.upgrade() {
             BydClient { inner }.on_mqtt_connected();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use openbyd_protocol::aes::aes_encrypt_hex;
+
+    use super::*;
+    use crate::scripted::{MqttDelivery, Reply, ScriptedEnv, ScriptedMqtt, block_on};
+
+    const VIN: &str = "TESTVIN0000000001";
+
+    fn config() -> BydConfig {
+        let mut config = BydConfig::new("user@example.com", "p");
+        config.mqtt_enabled = false;
+        config
+    }
+
+    fn scripted(replies: Vec<Reply>, options: ClientOptions) -> BydClient<Arc<ScriptedEnv>> {
+        BydClient::new(
+            config(),
+            Arc::new(ScriptedEnv::new(1_000_000, "s", replies)),
+            options,
+        )
+    }
+
+    fn tokens(ttl_remaining: Option<f64>) -> SessionTokens {
+        SessionTokens {
+            user_id: "1".into(),
+            sign_token: "sign".into(),
+            encry_token: "encry".into(),
+            ttl_remaining,
+            guest_vins: HashMap::from([(VIN.to_owned(), true)]),
+        }
+    }
+
+    fn sealed(data: Value) -> Reply {
+        let key = openbyd_protocol::hashing::md5_hex("encry");
+        Reply::Outer(json!({
+            "code": "0",
+            "respondData": aes_encrypt_hex(&data.to_string(), &key).unwrap(),
+        }))
+    }
+
+    fn posts(client: &BydClient<Arc<ScriptedEnv>>) -> usize {
+        client
+            .env()
+            .steps()
+            .iter()
+            .filter(|step| step.get("post").is_some())
+            .count()
+    }
+
+    #[test]
+    fn a_never_policy_refuses_without_sending() {
+        let mut options = ClientOptions::default();
+        options.relogin = ReloginPolicy::Never;
+        let client = scripted(vec![], options);
+        block_on(client.import_session(tokens(Some(0.0)))).unwrap();
+        let error = block_on(client.get_hvac_status(VIN)).unwrap().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::BydSessionExpiredError);
+        assert_eq!(error.code(), "relogin_disabled");
+        assert_eq!(posts(&client), 0);
+        // MQTT recovery stays idle as well.
+        client.schedule_mqtt_reauth();
+        assert_eq!(posts(&client), 0);
+    }
+
+    #[test]
+    fn a_handler_policy_hands_over_a_session() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let counted = Arc::clone(&calls);
+        let mut options = ClientOptions::default();
+        options.relogin = ReloginPolicy::Handler(Arc::new(move || {
+            let call = counted.fetch_add(1, Ordering::SeqCst);
+            Box::pin(async move {
+                if call == 0 {
+                    Ok(tokens(None))
+                } else {
+                    Err(Error::new(ErrorKind::BydError, "no more"))
+                }
+            })
+        }));
+        let client = scripted(vec![sealed(json!({}))], options);
+        block_on(client.get_hvac_status(VIN)).unwrap().unwrap();
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        let exported = client.export_session().unwrap();
+        assert_eq!(exported.ttl_remaining, None);
+        assert!(exported.guest_vins[VIN]);
+        client.invalidate_session();
+        let error = block_on(client.get_hvac_status(VIN)).unwrap().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::BydError);
+        assert!(client.export_session().is_none());
+    }
+
+    #[test]
+    fn the_observer_sees_every_outcome() {
+        let outcomes = Arc::new(Mutex::new(Vec::new()));
+        let seen = Arc::clone(&outcomes);
+        let mut options = ClientOptions::default();
+        options.request_observer = Some(Arc::new(move |record: &RequestRecord| {
+            seen.lock().unwrap().push(record.outcome.clone());
+        }));
+        let client = scripted(
+            vec![
+                sealed(json!({})),
+                Reply::TransportError(Some(502)),
+                Reply::Outer(json!([])),
+            ],
+            options,
+        );
+        block_on(client.import_session(tokens(None))).unwrap();
+        for _ in 0..4 {
+            let _ = block_on(client.get_hvac_status(VIN)).unwrap();
+        }
+        assert_eq!(
+            outcomes.lock().unwrap().clone(),
+            [
+                RequestOutcome::Reply {
+                    code: Some("0".into())
+                },
+                RequestOutcome::Transport { status: Some(502) },
+                RequestOutcome::Reply { code: None },
+                RequestOutcome::Failed(ErrorKind::ScriptExhausted),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_panicking_callback_does_not_reach_the_client() {
+        let mut options = ClientOptions::default();
+        options.on_mqtt_connect = Some(Arc::new(|| panic!("callback bug")));
+        options.request_observer = Some(Arc::new(|_: &RequestRecord| panic!("observer bug")));
+        let env = Arc::new(ScriptedEnv::new(0, "s", vec![sealed(json!({}))]).with_mqtt(
+            vec![ScriptedMqtt {
+                index: 0,
+                at: 0.0,
+                delivery: MqttDelivery::Connected,
+            }],
+            vec![],
+        ));
+        let client = BydClient::new(config(), Arc::clone(&env), options);
+        block_on(client.import_session(tokens(None))).unwrap();
+        client.state().mqtt_started = true;
+        let sink: Weak<dyn MqttSink> = client.inner.me.clone();
+        env.install_mqtt(sink);
+        env.drain();
+        assert!(block_on(client.get_hvac_status(VIN)).unwrap().is_ok());
+    }
+
+    #[test]
+    fn small_accessors_and_metadata() {
+        let mut options = ClientOptions::default();
+        options.command_retries = 1;
+        let client = scripted(vec![], options);
+        assert_eq!(client.options().command_retries, 1);
+        assert!(!client.config().mqtt_enabled);
+        assert!(format!("{client:?}").contains("BydClient"));
+        assert!(format!("{:?}", client.options()).contains("command_retries: 1"));
+        let failing: ReloginHandler =
+            Arc::new(|| Box::pin(async { Err(Error::new(ErrorKind::BydError, "x")) }));
+        for (policy, name) in [
+            (ReloginPolicy::Password, "Password"),
+            (ReloginPolicy::Never, "Never"),
+            (ReloginPolicy::Handler(failing), "Handler"),
+        ] {
+            assert_eq!(format!("{policy:?}"), name);
+        }
+        client
+            .seed_vehicle_metadata(VIN, EnergyType::Hybrid, Some("SONG"))
+            .unwrap();
+        let vehicle = client.vehicle_metadata(VIN).unwrap();
+        assert_eq!(
+            (vehicle.energy_type, vehicle.model_name.as_str()),
+            (EnergyType::Hybrid, "SONG")
+        );
+        assert!(client.vehicle_metadata("OTHER").is_none());
+        // Without a session nothing starts.
+        block_on(client.start_mqtt()).unwrap();
+        assert!(!client.mqtt_is_running());
+        assert!(client.export_session().is_none());
+        assert!(client.session().is_none());
+    }
+
+    #[test]
+    fn a_closed_client_does_not_start_mqtt() {
+        let mut config = config();
+        config.mqtt_enabled = true;
+        let client = BydClient::new(
+            config,
+            Arc::new(ScriptedEnv::new(0, "s", vec![])),
+            ClientOptions::default(),
+        );
+        // The broker lookup finds no reply: MQTT stays off, quietly.
+        block_on(client.import_session(tokens(None))).unwrap();
+        assert!(!client.mqtt_is_running());
+        client.async_close();
+        block_on(client.start_mqtt()).unwrap();
+        assert_eq!(posts(&client), 1);
+    }
+
+    #[test]
+    fn a_guest_map_before_any_session_is_kept() {
+        let client = scripted(vec![], ClientOptions::default());
+        client.state().guest_vins.insert("OTHER".into(), false);
+        block_on(client.import_session(tokens(None))).unwrap();
+        let guests = client.export_session().unwrap().guest_vins;
+        assert_eq!(guests.len(), 2);
+        let mut state = client.state();
+        state.guest_owner = None;
+        state.guest_setdefault("NEW", true);
+        state.guest_setdefault("NEW", false);
+        assert!(state.guest_vins["NEW"]);
+    }
+
+    #[test]
+    fn a_dropped_client_ignores_late_deliveries() {
+        let client = scripted(vec![], ClientOptions::default());
+        let inner = Arc::clone(&client.inner);
+        drop(client);
+        // A sink whose client is gone does nothing.
+        let orphan = Inner {
+            env: Observed {
+                env: Arc::new(ScriptedEnv::new(0, "s", vec![])),
+                observer: None,
+            },
+            config: config(),
+            options: ClientOptions::default(),
+            me: Weak::new(),
+            state: Mutex::new(State::default()),
+        };
+        let event = MqttEvent {
+            event: "vehicleInfo".into(),
+            vin: Some(VIN.into()),
+            topic: "t".into(),
+            payload: Map::new(),
+        };
+        orphan.on_event(&event);
+        orphan.on_decrypt_error();
+        orphan.on_connack_refused(3);
+        orphan.on_connected();
+        drop(inner);
+    }
+
+    #[tokio::test]
+    async fn connect_builds_a_production_client() {
+        let pool = HttpPool::new();
+        let client = BydClient::connect(BydConfig::new("user@example.com", "p"), &pool);
+        assert!(!client.mqtt_is_running());
+        let mut options = ClientOptions::default();
+        options.command_retries = 1;
+        let other =
+            BydClient::connect_with(BydConfig::new("user@example.com", "p"), &pool, options);
+        assert_eq!(other.options().command_retries, 1);
+        assert_eq!(
+            other.env().http().base_url(),
+            client.env().http().base_url()
+        );
     }
 }

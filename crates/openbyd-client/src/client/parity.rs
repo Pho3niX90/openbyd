@@ -555,3 +555,156 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
     let method = name.strip_prefix("client.")?;
     Some(client_call(method, args))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn base() -> Value {
+        json!({
+            "config": {"username": "user@example.com", "password": "p", "mqtt_enabled": false},
+            "now_ms": 1_000_000, "seed": "s", "replies": [], "args": {"vin": "V"},
+        })
+    }
+
+    fn with(key: &str, value: Value) -> Value {
+        let mut args = base();
+        args[key] = value;
+        args
+    }
+
+    fn kind(name: &str, args: &Value) -> String {
+        parity_call(name, args).unwrap().unwrap_err().kind
+    }
+
+    #[test]
+    fn arguments_are_checked() {
+        assert!(parity_call("api.something", &base()).is_none());
+        assert_eq!(kind("client.nothing", &base()), "UnknownCall");
+        assert_eq!(
+            kind("client.login", &with("replies", json!(1))),
+            "BadArguments"
+        );
+        assert_eq!(
+            kind("client.login", &with("mqtt", json!(1))),
+            "BadArguments"
+        );
+        assert_eq!(
+            kind("client.login", &with("config", json!(null))),
+            "BadArguments"
+        );
+        assert_eq!(
+            kind("client.login", &with("callbacks", json!(1))),
+            "BadArguments"
+        );
+        assert_eq!(
+            kind("client.login", &with("options", json!([]))),
+            "BadArguments"
+        );
+        for options in [
+            json!({"command_ack_ttl_seconds": "x"}),
+            json!({"command_retries": 1.5}),
+            json!({"gate_bypass": "x"}),
+            json!({"gate_bypass": [1]}),
+            json!({"pin_passthrough": 1}),
+        ] {
+            assert_eq!(
+                kind("client.login", &with("options", options)),
+                "BadArguments"
+            );
+        }
+        for state in [
+            json!({"guest_vins": {"V": 1}}),
+            json!({"session": {"user_id": "1", "sign_token": "s", "encry_token": "e"}, "user_type_settled": [[1, 2]]}),
+            json!({"commands_enabled": "yes"}),
+            json!({"session": []}),
+        ] {
+            assert_eq!(kind("client.login", &with("state", state)), "BadArguments");
+        }
+        assert_eq!(
+            kind("client.login", &with("state", json!({"vehicles": [[]]}))),
+            "ValidationError"
+        );
+        assert_eq!(
+            kind("client.login", &with("setup", json!([{"args": {}}]))),
+            "BadArguments"
+        );
+        assert_eq!(
+            kind(
+                "client.login",
+                &with("setup", json!([{"method": "nothing"}]))
+            ),
+            "UnknownCall"
+        );
+        let call = |method: &str, args: Value| {
+            let mut case = base();
+            case["args"] = args;
+            kind(method, &case)
+        };
+        assert_eq!(
+            call(
+                "client.get_ac_current_limit",
+                json!({"vin": "V", "energy_type": 1.5})
+            ),
+            "BadArguments"
+        );
+        assert_eq!(
+            call("client.get_notifications", json!({"category": 9})),
+            "BadArguments"
+        );
+        assert_eq!(
+            call("client.get_latest_configs", json!({"vins": "V"})),
+            "BadArguments"
+        );
+        assert_eq!(
+            call("client.start_climate", json!({"vin": "V", "params": 1})),
+            "BadArguments"
+        );
+        assert_eq!(
+            call(
+                "client.get_gps_info",
+                json!({"vin": "V", "poll_interval": "x"})
+            ),
+            "BadArguments"
+        );
+        assert_eq!(
+            call(
+                "client.get_gps_info",
+                json!({"vin": "V", "mqtt_timeout": "x"})
+            ),
+            "BadArguments"
+        );
+        assert_eq!(
+            call("client.set_push_state", json!({"vin": "V", "enable": 1})),
+            "BadArguments"
+        );
+        assert_eq!(call("client.get_hvac_status", json!({})), "BadArguments");
+    }
+
+    #[test]
+    fn traces_carry_the_state() {
+        let mut case = with(
+            "state",
+            json!({
+                "session": {"user_id": "1", "sign_token": "s", "encry_token": "e", "created_at": 1000.0, "ttl": 0.0},
+                "guest_vins": {"V": true},
+                "user_type_settled": [["V", "/e"]],
+                "capabilities": {"V": {"cfFixedList": [{"functionNo": "1005"}]}},
+            }),
+        );
+        case["options"] = json!({"pin_passthrough": true, "gate_bypass": ["function_no_missing"]});
+        case["setup"] = json!([{"advance": 1.0}, {"method": "invalidate_session"}]);
+        let trace = parity_call("client.commands_enabled", &case)
+            .unwrap()
+            .unwrap();
+        assert_eq!(trace["result"], json!(false));
+        assert_eq!(trace["state"]["session"], Value::Null);
+        assert_eq!(trace["state"]["guest_vins"], json!({"V": true}));
+        assert_eq!(number(f64::NAN), json!("nan"));
+        assert_eq!(number(f64::NEG_INFINITY), json!("-inf"));
+        let error = Error::new(ErrorKind::ValueError, "OverflowError: too big");
+        assert_eq!(error_trace(&error)["class"], json!("OverflowError"));
+        assert!(is_hex32("0123456789abcdef0123456789ABCDEF"));
+        assert!(!is_hex32("x"));
+    }
+}

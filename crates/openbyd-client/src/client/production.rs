@@ -218,3 +218,148 @@ impl ClientEnv for ProductionEnv {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use openbyd_protocol::mqtt::MqttEvent;
+
+    use super::*;
+    use crate::http::HttpPool;
+
+    #[derive(Default)]
+    struct Recorder(Mutex<Vec<String>>);
+
+    impl MqttSink for Recorder {
+        fn on_event(&self, event: &MqttEvent) {
+            self.0
+                .lock()
+                .unwrap()
+                .push(format!("event {}", event.event));
+        }
+        fn on_decrypt_error(&self) {
+            self.0.lock().unwrap().push("decrypt".into());
+        }
+        fn on_connack_refused(&self, consecutive: u32) {
+            self.0
+                .lock()
+                .unwrap()
+                .push(format!("refused {consecutive}"));
+        }
+        fn on_connected(&self) {
+            self.0.lock().unwrap().push("connected".into());
+        }
+    }
+
+    fn env() -> ProductionEnv {
+        ProductionEnv::new(HttpEnv::new(&HttpPool::new(), "http://127.0.0.1:9"))
+    }
+
+    #[test]
+    fn durations_tokio_accepts() {
+        assert_eq!(duration(1.5), Some(Duration::from_millis(1500)));
+        assert_eq!(duration(f64::INFINITY), None);
+        assert_eq!(duration(f64::NAN), None);
+        assert_eq!(duration(-1.0), None);
+        assert_eq!(duration(1e12), None);
+    }
+
+    #[tokio::test]
+    async fn waits_sleeps_and_randomness() {
+        let env = env();
+        assert_eq!(env.wait_for(Box::pin(async { 7 }), 1.0).await, Some(7));
+        assert_eq!(
+            env.wait_for(Box::pin(std::future::pending::<()>()), 0.01)
+                .await,
+            None
+        );
+        assert_eq!(
+            env.wait_for(Box::pin(async { 1 }), f64::INFINITY).await,
+            Some(1)
+        );
+        for _ in 0..100 {
+            let draw = env.uniform(0.8, 1.2);
+            assert!((0.8..=1.2).contains(&draw), "{draw}");
+        }
+        env.sleep(0.0).await;
+        assert!(env.now_ms() > 0 && env.monotonic() >= 0.0);
+        assert_ne!(env.random_bytes(), env.random_bytes());
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        env.spawn(Box::pin(async move {
+            let _ = sender.send(3);
+        }));
+        assert_eq!(receiver.await.unwrap(), 3);
+        let error = env.post_secure("/x", &Map::new()).await.unwrap_err();
+        assert!(error.is_a(ErrorKind::BydTransportError));
+    }
+
+    #[tokio::test]
+    async fn without_a_channel_nothing_runs() {
+        let env = env();
+        assert!(!env.mqtt_running());
+        assert!(env.mqtt_runtime().is_none());
+        env.update_mqtt_key("00112233445566778899AABBCCDDEEFF");
+        env.stop_mqtt();
+        assert!(format!("{env:?}").contains("mqtt_running: false"));
+        assert_eq!(env.http().base_url(), "http://127.0.0.1:9");
+        let bootstrap = MqttBootstrap {
+            user_id: "1".into(),
+            broker_host: "127.0.0.1".into(),
+            broker_port: 70_000,
+            topic: "t".into(),
+            client_id: "c".into(),
+            username: "1".into(),
+            password: "p".into(),
+        };
+        let sink: Arc<dyn MqttSink> = Arc::new(Recorder::default());
+        let error = env
+            .start_mqtt(&bootstrap, "00", 120, Arc::downgrade(&sink))
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::BydError);
+        assert!(!env.mqtt_running());
+    }
+
+    #[tokio::test]
+    async fn notices_reach_the_sink_until_it_goes() {
+        let (sender, receiver) = tokio::sync::broadcast::channel(4);
+        let recorder = Arc::new(Recorder::default());
+        let sink: Arc<dyn MqttSink> = recorder.clone();
+        let event = MqttEvent {
+            event: "vehicleInfo".into(),
+            vin: None,
+            topic: "t".into(),
+            payload: Map::new(),
+        };
+        // Five notices into a channel of four: the first is lost (lagged).
+        sender.send(MqttNotice::Connected).unwrap();
+        sender.send(MqttNotice::Event(Arc::new(event))).unwrap();
+        sender
+            .send(MqttNotice::ConnackRefused {
+                consecutive: 3,
+                reason: "NotAuthorized".into(),
+            })
+            .unwrap();
+        sender.send(MqttNotice::DecryptFailed).unwrap();
+        sender
+            .send(MqttNotice::Disconnected {
+                reason: "gone".into(),
+            })
+            .unwrap();
+        drop(sender);
+        forward(receiver, Arc::downgrade(&sink)).await;
+        assert_eq!(
+            recorder.0.lock().unwrap().clone(),
+            ["event vehicleInfo", "refused 3", "decrypt"]
+        );
+
+        // A sink that is gone ends the forwarding at the next notice.
+        let (sender, receiver) = tokio::sync::broadcast::channel(2);
+        let gone: Arc<dyn MqttSink> = Arc::new(Recorder::default());
+        let weak = Arc::downgrade(&gone);
+        drop(gone);
+        sender.send(MqttNotice::Connected).unwrap();
+        forward(receiver, weak).await;
+    }
+}

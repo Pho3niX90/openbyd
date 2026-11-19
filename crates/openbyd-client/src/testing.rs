@@ -29,6 +29,8 @@
 
 #![cfg(feature = "testing")]
 
+pub mod broker;
+
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::net::SocketAddr;

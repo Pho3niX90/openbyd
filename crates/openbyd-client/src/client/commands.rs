@@ -143,9 +143,7 @@ impl<E: ClientEnv> BydClient<E> {
         if resolved.is_empty() {
             return Err(no_pin());
         }
-        let result = self
-            .authed_call(async |cx| verify_control_password(cx, vin, &resolved).await)
-            .await?;
+        let result = authed!(self, |cx| verify_control_password(cx, vin, &resolved))?;
         self.state().commands_enabled = true;
         log::info!("Command access verified");
         Ok(result)
@@ -226,31 +224,34 @@ impl<E: ClientEnv> BydClient<E> {
             command_retries: self.inner.options.command_retries,
             ..RemoteControlOptions::default()
         };
-        self.call_with_reauth(async || {
-            let session = self.ensure_session().await?;
-            self.require_transport()?;
-            let waiter = ResultWaiter { client: self, vin };
-            let dispatched = |serial: &Value| {
-                if truthy(serial) {
-                    self.register_pending_command(vin, serial, command.as_str());
-                }
-            };
-            let hooks = CommandHooks {
-                mqtt_result_waiter: Some(&waiter),
-                on_trigger_dispatched: Some(&dispatched),
-            };
-            poll_remote_control(
-                self.context(&session),
-                vin,
-                command,
-                params.as_ref(),
-                command_pwd,
-                options,
-                hooks,
-            )
+        with_reauth!(
+            self,
+            async {
+                let session = self.ensure_session().await?;
+                self.require_transport()?;
+                let waiter = ResultWaiter { client: self, vin };
+                let dispatched = |serial: &Value| {
+                    if truthy(serial) {
+                        self.register_pending_command(vin, serial, command.as_str());
+                    }
+                };
+                let hooks = CommandHooks {
+                    mqtt_result_waiter: Some(&waiter),
+                    on_trigger_dispatched: Some(&dispatched),
+                };
+                poll_remote_control(
+                    self.context(&session),
+                    vin,
+                    command,
+                    params.as_ref(),
+                    command_pwd,
+                    options,
+                    hooks,
+                )
+                .await
+            }
             .await
-        })
-        .await
+        )
     }
 
     async fn command(
@@ -446,42 +447,45 @@ impl<E: ClientEnv> BydClient<E> {
             charge_way,
             enabled,
         );
-        self.call_with_reauth(async || {
-            let raw = self
-                .trigger_and_poll(TriggeredRead {
-                    vin,
-                    trigger_endpoint: SAVE_ENDPOINT,
-                    poll_endpoint: RESULT_ENDPOINT,
-                    fetch: ReadFetch::Save(&fetch),
-                    label: "SaveChargingSchedule",
-                    mqtt_event_type: Some("smartCharge"),
-                    mqtt_timeout: settings.mqtt_timeout,
-                    poll_attempts: settings.poll_attempts,
-                    poll_interval: settings.poll_interval,
-                    signal_retries: 2,
-                })
-                .await?;
-            let result: ChargeChangeResult = parse_model(&raw)?;
-            match result.res {
-                Some(2) => Ok(result),
-                None => Err(Error::api(
-                    ErrorKind::BydRemoteControlError,
-                    "smartCharge saveOrUpdate timed out without a terminal result",
-                    "timeout",
-                    RESULT_ENDPOINT,
-                )),
-                Some(res) => Err(Error::api(
-                    ErrorKind::BydRemoteControlError,
-                    format!(
-                        "smartCharge saveOrUpdate rejected by cloud (res={res}, message={:?})",
-                        result.message
-                    ),
-                    res.to_string(),
-                    RESULT_ENDPOINT,
-                )),
+        with_reauth!(
+            self,
+            async {
+                let raw = self
+                    .trigger_and_poll(TriggeredRead {
+                        vin,
+                        trigger_endpoint: SAVE_ENDPOINT,
+                        poll_endpoint: RESULT_ENDPOINT,
+                        fetch: ReadFetch::Save(&fetch),
+                        label: "SaveChargingSchedule",
+                        mqtt_event_type: Some("smartCharge"),
+                        mqtt_timeout: settings.mqtt_timeout,
+                        poll_attempts: settings.poll_attempts,
+                        poll_interval: settings.poll_interval,
+                        signal_retries: 2,
+                    })
+                    .await?;
+                let result: ChargeChangeResult = parse_model(&raw)?;
+                match result.res {
+                    Some(2) => Ok(result),
+                    None => Err(Error::api(
+                        ErrorKind::BydRemoteControlError,
+                        "smartCharge saveOrUpdate timed out without a terminal result",
+                        "timeout",
+                        RESULT_ENDPOINT,
+                    )),
+                    Some(res) => Err(Error::api(
+                        ErrorKind::BydRemoteControlError,
+                        format!(
+                            "smartCharge saveOrUpdate rejected by cloud (res={res}, message={:?})",
+                            result.message
+                        ),
+                        res.to_string(),
+                        RESULT_ENDPOINT,
+                    )),
+                }
             }
-        })
-        .await
+            .await
+        )
     }
 
     /// Turns smart charging on or off (pyBYD's `toggle_smart_charging`).
@@ -490,8 +494,7 @@ impl<E: ClientEnv> BydClient<E> {
         vin: &str,
         enable: bool,
     ) -> Result<CommandAck, Error> {
-        self.authed_call(async |cx| toggle_smart_charging(cx, vin, enable).await)
-            .await
+        authed!(self, |cx| toggle_smart_charging(cx, vin, enable))
     }
 
     /// Starts charging now and waits for the change to settle (pyBYD's
@@ -505,7 +508,9 @@ impl<E: ClientEnv> BydClient<E> {
         self.charge_gate(vin, "start_charging", TOGGLE_ENDPOINT)
             .await?;
         let fetch = make_change_charge_fetch_fn(true);
-        self.call_with_reauth(async || {
+        with_reauth!(
+                    self,
+                    async {
             let raw = self
                 .trigger_and_poll(TriggeredRead {
                     vin,
@@ -553,8 +558,9 @@ impl<E: ClientEnv> BydClient<E> {
                     res.to_string(),
                 )),
             }
-        })
-        .await
+            }
+            .await
+        )
     }
 
     /// Not supported: BYD's stop-charge request answers success but the car

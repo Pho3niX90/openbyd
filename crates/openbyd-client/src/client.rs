@@ -50,6 +50,50 @@
 //! layer (`crate::car`); the client routes MQTT pushes to it through a
 //! [`CarRouter`].
 
+/// pyBYD's `_call_with_reauth`: evaluates `$call` (an expression with
+/// `.await`), and once more after a fresh session when it fails with
+/// `BydSessionExpiredError`; a failing re-login is the error.
+///
+/// A macro, not a method taking an async closure: the compiler cannot yet
+/// prove such closures' futures `Send` for every lifetime, and every client
+/// method must be `Send`.
+macro_rules! with_reauth {
+    ($client:expr, $call:expr) => {{
+        let mut retried = false;
+        loop {
+            match $call {
+                Err(error)
+                    if !retried
+                        && error
+                            .is_a(openbyd_protocol::error::ErrorKind::BydSessionExpiredError) =>
+                {
+                    retried = true;
+                    $client.invalidate_session();
+                    $client.ensure_session().await?;
+                }
+                other => break other,
+            }
+        }
+    }};
+}
+
+/// pyBYD's `_authed_call`: runs the flow `$flow` with `$cx`, the context of
+/// the current session, under [`with_reauth`].
+macro_rules! authed {
+    ($client:expr, |$cx:ident| $flow:expr) => {
+        with_reauth!(
+            $client,
+            async {
+                let session = $client.ensure_session().await?;
+                $client.require_transport()?;
+                let $cx = $client.context(&session);
+                $flow.await
+            }
+            .await
+        )
+    };
+}
+
 mod commands;
 pub(crate) mod parity;
 mod production;
@@ -823,36 +867,6 @@ impl<E: ClientEnv> BydClient<E> {
         })
     }
 
-    /// Runs `call`, and once more after a fresh session when it fails with
-    /// `BydSessionExpiredError` (pyBYD's `_call_with_reauth`).
-    async fn call_with_reauth<T>(
-        &self,
-        call: impl AsyncFn() -> Result<T, Error>,
-    ) -> Result<T, Error> {
-        match call().await {
-            Err(error) if error.is_a(ErrorKind::BydSessionExpiredError) => {
-                self.invalidate_session();
-                self.ensure_session().await?;
-                call().await
-            }
-            other => other,
-        }
-    }
-
-    /// Runs a flow with the current session, with [`Self::call_with_reauth`]
-    /// (pyBYD's `_authed_call`).
-    async fn authed_call<T>(
-        &self,
-        flow: impl AsyncFn(Context<'_, Observed<E>>) -> Result<T, Error>,
-    ) -> Result<T, Error> {
-        self.call_with_reauth(async || {
-            let session = self.ensure_session().await?;
-            self.require_transport()?;
-            flow(self.context(&session)).await
-        })
-        .await
-    }
-
     // -----------------------------------------------------------------------
     // Vehicles and caches
     // -----------------------------------------------------------------------
@@ -860,9 +874,7 @@ impl<E: ClientEnv> BydClient<E> {
     /// The account's vehicles. Refreshes the metadata cache and seeds the
     /// guest map for VINs it does not know yet (pyBYD's `get_vehicles`).
     pub async fn get_vehicles(&self) -> Result<Vec<Vehicle>, Error> {
-        let vehicles = self
-            .authed_call(async |cx| vehicle::fetch_vehicle_list(cx).await)
-            .await?;
+        let vehicles = authed!(self, |cx| vehicle::fetch_vehicle_list(cx))?;
         let mut state = self.state();
         state.vehicles.clear();
         for vehicle in vehicles.iter().filter(|vehicle| !vehicle.vin.is_empty()) {
@@ -939,8 +951,7 @@ impl<E: ClientEnv> BydClient<E> {
         &self,
         vins: &[String],
     ) -> Result<Vec<(String, VehicleLatestConfig)>, Error> {
-        self.authed_call(async |cx| latest_config::fetch_latest_config(cx, vins).await)
-            .await
+        authed!(self, |cx| latest_config::fetch_latest_config(cx, vins))
     }
 
     /// The latest config of one VIN; `BydDataUnavailableError` (code
@@ -1112,65 +1123,68 @@ impl<E: ClientEnv> BydClient<E> {
     ) -> Result<VehicleRealtimeData, Error> {
         let energy_type = self.energy_type_for(vin).await?;
         let context = json!({"energy_type": {"EnergyType": energy_type.value()}});
-        self.call_with_reauth(async || {
-            let raw = self
-                .trigger_and_poll(TriggeredRead {
-                    vin,
-                    trigger_endpoint: "/vehicleInfo/vehicle/vehicleRealTimeRequest",
-                    poll_endpoint: "/vehicleInfo/vehicle/vehicleRealTimeResult",
-                    fetch: ReadFetch::Realtime(energy_type),
-                    label: "Realtime",
-                    mqtt_event_type: Some("vehicleInfo"),
-                    mqtt_timeout: settings.mqtt_timeout,
-                    poll_attempts: settings.poll_attempts,
-                    poll_interval: settings.poll_interval,
-                    signal_retries: settings.signal_retries,
-                })
-                .await?;
-            VehicleRealtimeData::parse(&raw, &context).map_err(crate::api::vehicle::model_error)
-        })
-        .await
+        with_reauth!(
+            self,
+            async {
+                let raw = self
+                    .trigger_and_poll(TriggeredRead {
+                        vin,
+                        trigger_endpoint: "/vehicleInfo/vehicle/vehicleRealTimeRequest",
+                        poll_endpoint: "/vehicleInfo/vehicle/vehicleRealTimeResult",
+                        fetch: ReadFetch::Realtime(energy_type),
+                        label: "Realtime",
+                        mqtt_event_type: Some("vehicleInfo"),
+                        mqtt_timeout: settings.mqtt_timeout,
+                        poll_attempts: settings.poll_attempts,
+                        poll_interval: settings.poll_interval,
+                        signal_retries: settings.signal_retries,
+                    })
+                    .await?;
+                VehicleRealtimeData::parse(&raw, &context).map_err(crate::api::vehicle::model_error)
+            }
+            .await
+        )
     }
 
     /// The vehicle's position: triggers a fix, waits for the MQTT push with
     /// its serial, and polls over HTTP if it does not come (pyBYD's `get_gps_info`).
     pub async fn get_gps_info(&self, vin: &str, settings: PollSettings) -> Result<GpsInfo, Error> {
-        self.call_with_reauth(async || {
-            let raw = self
-                .trigger_and_poll(TriggeredRead {
-                    vin,
-                    trigger_endpoint: "/control/getGpsInfo",
-                    poll_endpoint: "/control/getGpsInfoResult",
-                    fetch: ReadFetch::Gps,
-                    label: "GPS",
-                    mqtt_event_type: None,
-                    mqtt_timeout: settings.mqtt_timeout,
-                    poll_attempts: settings.poll_attempts,
-                    poll_interval: settings.poll_interval,
-                    signal_retries: settings.signal_retries,
-                })
-                .await?;
-            parse_model(&raw)
-        })
-        .await
+        with_reauth!(
+            self,
+            async {
+                let raw = self
+                    .trigger_and_poll(TriggeredRead {
+                        vin,
+                        trigger_endpoint: "/control/getGpsInfo",
+                        poll_endpoint: "/control/getGpsInfoResult",
+                        fetch: ReadFetch::Gps,
+                        label: "GPS",
+                        mqtt_event_type: None,
+                        mqtt_timeout: settings.mqtt_timeout,
+                        poll_attempts: settings.poll_attempts,
+                        poll_interval: settings.poll_interval,
+                        signal_retries: settings.signal_retries,
+                    })
+                    .await?;
+                parse_model(&raw)
+            }
+            .await
+        )
     }
 
     /// Climate status (pyBYD's `get_hvac_status`).
     pub async fn get_hvac_status(&self, vin: &str) -> Result<HvacStatus, Error> {
-        self.authed_call(async |cx| hvac::fetch_hvac_status(cx, vin).await)
-            .await
+        authed!(self, |cx| hvac::fetch_hvac_status(cx, vin))
     }
 
     /// Charging status (pyBYD's `get_charging_status`).
     pub async fn get_charging_status(&self, vin: &str) -> Result<ChargingStatus, Error> {
-        self.authed_call(async |cx| charging::fetch_charging_status(cx, vin).await)
-            .await
+        authed!(self, |cx| charging::fetch_charging_status(cx, vin))
     }
 
     /// The smart charging schedule (pyBYD's `get_charging_schedule`).
     pub async fn get_charging_schedule(&self, vin: &str) -> Result<SmartChargingSchedule, Error> {
-        self.authed_call(async |cx| smart_charging::fetch_charging_schedule(cx, vin).await)
-            .await
+        authed!(self, |cx| smart_charging::fetch_charging_schedule(cx, vin))
     }
 
     /// Live charging state and schedule from one `homePage` call (pyBYD's
@@ -1179,9 +1193,7 @@ impl<E: ClientEnv> BydClient<E> {
         &self,
         vin: &str,
     ) -> Result<(ChargingStatus, SmartChargingSchedule), Error> {
-        let raw = self
-            .authed_call(async |cx| charging::fetch_charging_homepage(cx, vin).await)
-            .await?;
+        let raw = authed!(self, |cx| charging::fetch_charging_homepage(cx, vin))?;
         let status: ChargingStatus = parse_model(&Value::Object(raw.clone()))?;
         let schedule: SmartChargingSchedule =
             parse_model(&crate::api::control::with_vin(vin, &raw, false))?;
@@ -1199,10 +1211,11 @@ impl<E: ClientEnv> BydClient<E> {
             Some(energy_type) => energy_type,
             None => self.energy_type_for(vin).await?.into(),
         };
-        self.authed_call(async |cx| {
-            smart_charging::fetch_ac_current_limit(cx, vin, energy_type.clone()).await
-        })
-        .await
+        authed!(self, |cx| smart_charging::fetch_ac_current_limit(
+            cx,
+            vin,
+            energy_type.clone()
+        ))
     }
 
     /// Energy consumption, asked with the vehicle's energy type and model
@@ -1214,16 +1227,17 @@ impl<E: ClientEnv> BydClient<E> {
                 .into_iter()
                 .find(|name| !name.is_empty())
         });
-        self.authed_call(async |cx| {
-            energy::fetch_energy_consumption(cx, vin, power_type, auto_model_name.as_deref()).await
-        })
-        .await
+        authed!(self, |cx| energy::fetch_energy_consumption(
+            cx,
+            vin,
+            power_type,
+            auto_model_name.as_deref()
+        ))
     }
 
     /// Push notification state (pyBYD's `get_push_state`).
     pub async fn get_push_state(&self, vin: &str) -> Result<PushNotificationState, Error> {
-        self.authed_call(async |cx| push_notifications::fetch_push_state(cx, vin).await)
-            .await
+        authed!(self, |cx| push_notifications::fetch_push_state(cx, vin))
     }
 
     /// Turns a push notification type on or off; pyBYD's default type is
@@ -1234,10 +1248,9 @@ impl<E: ClientEnv> BydClient<E> {
         enable: bool,
         push_type: i64,
     ) -> Result<CommandAck, Error> {
-        self.authed_call(async |cx| {
-            push_notifications::set_push_state(cx, vin, enable, push_type).await
-        })
-        .await
+        authed!(self, |cx| push_notifications::set_push_state(
+            cx, vin, enable, push_type
+        ))
     }
 
     /// The account's unread inbox messages of one category (pyBYD's
@@ -1246,9 +1259,7 @@ impl<E: ClientEnv> BydClient<E> {
         &self,
         category: NotificationCategory,
     ) -> Result<Vec<VehicleMsgItemInfo>, Error> {
-        let response = self
-            .authed_call(async |cx| message_center::fetch_notifications(cx, category).await)
-            .await?;
+        let response = authed!(self, |cx| message_center::fetch_notifications(cx, category))?;
         Ok(response.messages)
     }
 
@@ -1266,14 +1277,12 @@ impl<E: ClientEnv> BydClient<E> {
 
     /// Renames the vehicle (pyBYD's `rename_vehicle`).
     pub async fn rename_vehicle(&self, vin: &str, name: &str) -> Result<CommandAck, Error> {
-        self.authed_call(async |cx| vehicle_settings::rename_vehicle(cx, vin, name).await)
-            .await
+        authed!(self, |cx| vehicle_settings::rename_vehicle(cx, vin, name))
     }
 
     /// The scheduled-climate timers (pyBYD's `get_booking_list`).
     pub async fn get_booking_list(&self, vin: &str) -> Result<BookingList, Error> {
-        self.authed_call(async |cx| booking::fetch_booking_list(cx, vin).await)
-            .await
+        authed!(self, |cx| booking::fetch_booking_list(cx, vin))
     }
 
     // -----------------------------------------------------------------------

@@ -11,7 +11,16 @@ exclude = ["tests/"]
 
 [features]
 # The fake BYD server (`openbyd_client::testing`) for tests, bindings and benchmarks.
-testing = ["dep:openbyd-crypto", "hyper/server", "tokio/net"]
+# Also the TLS MQTT test broker (`openbyd_client::testing::broker`).
+testing = [
+    "dep:openbyd-crypto",
+    "dep:bytes",
+    "dep:rcgen",
+    "dep:tokio-rustls",
+    "hyper/server",
+    "tokio/net",
+    "tokio/io-util",
+]
 
 [dependencies]
 openbyd-protocol.workspace = true
@@ -31,6 +40,10 @@ hyper-util = { version = "0.1", default-features = false, features = ["client-le
 # MQTT push channel (`mqtt.rs`): MQTT v5 with the platform's root certificates, as paho uses.
 rumqttc = { version = "0.25.1", default-features = false, features = ["use-rustls-no-provider"] }
 rustls-native-certs = "0.8"
+# The test broker (feature `testing`).
+bytes = { version = "1", optional = true }
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem"], optional = true }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"], optional = true }
 
 [dev-dependencies]
 bytes = "1"

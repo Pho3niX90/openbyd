@@ -1,377 +1,30 @@
-//! The MQTT runtime against a small MQTT v5 broker running in this process,
-//! over TLS on 127.0.0.1 with a certificate made for the test.
-//!
-//! The broker speaks just enough MQTT v5 for the runtime (CONNECT, SUBSCRIBE,
-//! PUBLISH, PINGREQ, DISCONNECT), records everything it is sent, and can
-//! refuse connections, publish to subscribers, drop every connection and
-//! restart.
+//! The MQTT runtime against the test broker of `openbyd_client::testing::broker`,
+//! a small MQTT v5 broker running in this process over TLS on 127.0.0.1 with
+//! a certificate made for the test.
 
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+#![cfg(feature = "testing")]
+
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use bytes::BytesMut;
 use openbyd_client::mqtt::{
     EventFilter, MqttBootstrap, MqttNotice, MqttRuntime, MqttRuntimeOptions, MqttStartError,
     WaitError, client_config, rustls,
 };
+use openbyd_client::testing::broker::{Seen, TestBroker as Broker, WAIT, runtime_options, sealed};
 use openbyd_protocol::aes::aes_encrypt_hex;
 use rumqttc::v5::mqttbytes::QoS;
-use rumqttc::v5::mqttbytes::v5::{
-    ConnAck, ConnectReturnCode, Packet, PingResp, Publish, SubAck, SubscribeReasonCode,
-};
 use serde_json::{Value, json};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
-use tokio::sync::{broadcast, mpsc};
-use tokio::task::JoinHandle;
-use tokio_rustls::TlsAcceptor;
+use tokio::sync::broadcast;
 
 const KEY: &str = "00112233445566778899AABBCCDDEEFF";
 const OTHER_KEY: &str = "FFEEDDCCBBAA99887766554433221100";
 const VIN: &str = "TESTVIN0000000001";
-const WAIT: Duration = Duration::from_secs(10);
-
-// ---------------------------------------------------------------------------
-// TLS for the test
-// ---------------------------------------------------------------------------
-
-struct TestTls {
-    server: TlsAcceptor,
-    client: Arc<rustls::ClientConfig>,
-}
-
-fn tls() -> &'static TestTls {
-    static TLS: OnceLock<TestTls> = OnceLock::new();
-    TLS.get_or_init(|| {
-        let certified =
-            rcgen::generate_simple_self_signed(vec!["127.0.0.1".to_owned()]).expect("certificate");
-        let cert = certified.cert.der().clone();
-        let key =
-            rustls::pki_types::PrivateKeyDer::Pkcs8(certified.signing_key.serialize_der().into());
-        let provider = Arc::new(rustls::crypto::ring::default_provider());
-        let server = rustls::ServerConfig::builder_with_provider(provider)
-            .with_safe_default_protocol_versions()
-            .expect("protocol versions")
-            .with_no_client_auth()
-            .with_single_cert(vec![cert.clone()], key)
-            .expect("server config");
-        let mut roots = rustls::RootCertStore::empty();
-        roots.add(cert).expect("root");
-        TestTls {
-            server: TlsAcceptor::from(Arc::new(server)),
-            client: client_config(roots).expect("client config"),
-        }
-    })
-}
 
 /// Options for tests: the test CA, and quick reconnects.
 fn options() -> MqttRuntimeOptions {
-    let mut options = MqttRuntimeOptions::default();
-    options.tls = Some(Arc::clone(&tls().client));
-    options.reconnect_min_delay = Duration::from_millis(20);
-    options.reconnect_max_delay = Duration::from_millis(200);
-    options.connect_timeout = Duration::from_secs(10);
-    options
-}
-
-// ---------------------------------------------------------------------------
-// The broker
-// ---------------------------------------------------------------------------
-
-/// Something the broker saw.
-#[derive(Debug, Clone, PartialEq)]
-enum Seen {
-    Connect {
-        conn: u64,
-        client_id: String,
-        username: Option<String>,
-        password: Option<String>,
-        keep_alive: u16,
-        clean_start: bool,
-        max_packet_size: Option<u32>,
-    },
-    Subscribe {
-        conn: u64,
-        topic: String,
-        qos: QoS,
-    },
-    PingReq {
-        conn: u64,
-    },
-    Disconnect {
-        conn: u64,
-    },
-    Closed {
-        conn: u64,
-    },
-}
-
-enum Command {
-    Publish(Box<Publish>),
-    Drop,
-}
-
-struct Peer {
-    topics: Vec<String>,
-    commands: mpsc::UnboundedSender<Command>,
-}
-
-#[derive(Default)]
-struct BrokerState {
-    seen: Mutex<Vec<Seen>>,
-    peers: Mutex<HashMap<u64, Peer>>,
-    next_conn: AtomicU64,
-    /// How many of the next CONNECTs to refuse.
-    refuse: Mutex<usize>,
-    /// Connections whose socket is still open on the broker's side.
-    open: AtomicUsize,
-}
-
-struct Broker {
-    port: u16,
-    state: Arc<BrokerState>,
-    acceptor: Mutex<Option<JoinHandle<()>>>,
-}
-
-impl Broker {
-    async fn start() -> Arc<Self> {
-        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
-        let port = listener.local_addr().expect("address").port();
-        let broker = Arc::new(Self {
-            port,
-            state: Arc::new(BrokerState::default()),
-            acceptor: Mutex::new(None),
-        });
-        broker.listen(listener);
-        broker
-    }
-
-    fn listen(&self, listener: TcpListener) {
-        let state = Arc::clone(&self.state);
-        let task = tokio::spawn(async move {
-            loop {
-                let Ok((socket, _)) = listener.accept().await else {
-                    continue;
-                };
-                let state = Arc::clone(&state);
-                tokio::spawn(async move {
-                    if let Ok(stream) = tls().server.accept(socket).await {
-                        serve(state, stream).await;
-                    }
-                });
-            }
-        });
-        *self.acceptor.lock().unwrap() = Some(task);
-    }
-
-    /// Stops accepting, drops every connection, and listens again on the same port.
-    async fn restart(&self) {
-        let acceptor = self.acceptor.lock().unwrap().take();
-        if let Some(task) = acceptor {
-            task.abort();
-            let _ = task.await;
-        }
-        self.drop_all();
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        let listener = TcpListener::bind(("127.0.0.1", self.port))
-            .await
-            .expect("rebind");
-        self.listen(listener);
-    }
-
-    fn drop_all(&self) {
-        for peer in self.state.peers.lock().unwrap().values() {
-            let _ = peer.commands.send(Command::Drop);
-        }
-    }
-
-    fn refuse_next(&self, count: usize) {
-        *self.state.refuse.lock().unwrap() = count;
-    }
-
-    /// Sends `payload` to every connection subscribed to `topic`; returns how many.
-    fn publish(&self, topic: &str, payload: impl Into<bytes::Bytes>) -> usize {
-        let payload = payload.into();
-        let peers = self.state.peers.lock().unwrap();
-        let mut sent = 0;
-        for peer in peers.values() {
-            if peer.topics.iter().any(|subscribed| subscribed == topic) {
-                let publish = Publish::new(topic, QoS::AtMostOnce, payload.clone(), None);
-                if peer
-                    .commands
-                    .send(Command::Publish(Box::new(publish)))
-                    .is_ok()
-                {
-                    sent += 1;
-                }
-            }
-        }
-        sent
-    }
-
-    fn seen(&self) -> Vec<Seen> {
-        self.state.seen.lock().unwrap().clone()
-    }
-
-    fn open(&self) -> usize {
-        self.state.open.load(Ordering::SeqCst)
-    }
-
-    fn subscribers(&self, topic: &str) -> usize {
-        let peers = self.state.peers.lock().unwrap();
-        peers
-            .values()
-            .filter(|peer| peer.topics.iter().any(|subscribed| subscribed == topic))
-            .count()
-    }
-
-    /// Waits until `condition` holds for what the broker saw.
-    async fn until(&self, what: &str, condition: impl Fn(&[Seen]) -> bool) {
-        let deadline = Instant::now() + WAIT;
-        while !condition(&self.seen()) {
-            assert!(
-                Instant::now() < deadline,
-                "timed out waiting for {what}; saw {:#?}",
-                self.seen()
-            );
-            tokio::time::sleep(Duration::from_millis(5)).await;
-        }
-    }
-}
-
-async fn serve(
-    state: Arc<BrokerState>,
-    mut stream: tokio_rustls::server::TlsStream<tokio::net::TcpStream>,
-) {
-    let conn = state.next_conn.fetch_add(1, Ordering::SeqCst);
-    state.open.fetch_add(1, Ordering::SeqCst);
-    let record = |seen: Seen| state.seen.lock().unwrap().push(seen);
-    let (commands, mut inbox) = mpsc::unbounded_channel();
-    let mut buffer = BytesMut::with_capacity(1024);
-    let mut chunk = [0u8; 4096];
-    'connection: loop {
-        // Every complete packet in the buffer.
-        loop {
-            // rumqttc writes a plain DISCONNECT as `E0 00`, which its own
-            // decoder rejects (it wants a reason code), so read it here.
-            if buffer.starts_with(&[0xE0, 0x00]) {
-                record(Seen::Disconnect { conn });
-                break 'connection;
-            }
-            match Packet::read(&mut buffer, None) {
-                Ok(packet) => {
-                    let reply = match packet {
-                        Packet::Connect(connect, _, login) => {
-                            record(Seen::Connect {
-                                conn,
-                                client_id: connect.client_id.clone(),
-                                username: login.as_ref().map(|login| login.username.clone()),
-                                password: login.as_ref().map(|login| login.password.clone()),
-                                keep_alive: connect.keep_alive,
-                                clean_start: connect.clean_start,
-                                max_packet_size: connect
-                                    .properties
-                                    .as_ref()
-                                    .and_then(|properties| properties.max_packet_size),
-                            });
-                            let refuse = {
-                                let mut left = state.refuse.lock().unwrap();
-                                let refuse = *left > 0;
-                                *left = left.saturating_sub(1);
-                                refuse
-                            };
-                            if refuse {
-                                let refused = Packet::ConnAck(ConnAck {
-                                    session_present: false,
-                                    code: ConnectReturnCode::NotAuthorized,
-                                    properties: None,
-                                });
-                                let _ = write(&mut stream, &refused).await;
-                                break 'connection;
-                            }
-                            state.peers.lock().unwrap().insert(
-                                conn,
-                                Peer {
-                                    topics: Vec::new(),
-                                    commands: commands.clone(),
-                                },
-                            );
-                            Some(Packet::ConnAck(ConnAck {
-                                session_present: false,
-                                code: ConnectReturnCode::Success,
-                                properties: None,
-                            }))
-                        }
-                        Packet::Subscribe(subscribe) => {
-                            let mut codes = Vec::new();
-                            for filter in subscribe.filters {
-                                record(Seen::Subscribe {
-                                    conn,
-                                    topic: filter.path.clone(),
-                                    qos: filter.qos,
-                                });
-                                if let Some(peer) = state.peers.lock().unwrap().get_mut(&conn) {
-                                    peer.topics.push(filter.path);
-                                }
-                                codes.push(SubscribeReasonCode::Success(QoS::AtMostOnce));
-                            }
-                            Some(Packet::SubAck(SubAck {
-                                pkid: subscribe.pkid,
-                                return_codes: codes,
-                                properties: None,
-                            }))
-                        }
-                        Packet::PingReq(_) => {
-                            record(Seen::PingReq { conn });
-                            Some(Packet::PingResp(PingResp))
-                        }
-                        Packet::Disconnect(_) => {
-                            record(Seen::Disconnect { conn });
-                            break 'connection;
-                        }
-                        _ => None,
-                    };
-                    if let Some(reply) = reply
-                        && write(&mut stream, &reply).await.is_err()
-                    {
-                        break 'connection;
-                    }
-                }
-                Err(rumqttc::v5::mqttbytes::Error::InsufficientBytes(_)) => break,
-                Err(_) => break 'connection,
-            }
-        }
-        tokio::select! {
-            read = stream.read(&mut chunk) => match read {
-                Ok(0) | Err(_) => break 'connection,
-                Ok(count) => buffer.extend_from_slice(&chunk[..count]),
-            },
-            command = inbox.recv() => match command {
-                Some(Command::Publish(publish)) => {
-                    if write(&mut stream, &Packet::Publish(*publish)).await.is_err() {
-                        break 'connection;
-                    }
-                }
-                Some(Command::Drop) | None => break 'connection,
-            },
-        }
-    }
-    state.peers.lock().unwrap().remove(&conn);
-    drop(stream);
-    record(Seen::Closed { conn });
-    state.open.fetch_sub(1, Ordering::SeqCst);
-}
-
-async fn write(
-    stream: &mut tokio_rustls::server::TlsStream<tokio::net::TcpStream>,
-    packet: &Packet,
-) -> std::io::Result<()> {
-    let mut out = BytesMut::new();
-    packet.write(&mut out, None).expect("encodable packet");
-    stream.write_all(&out).await?;
-    stream.flush().await
+    runtime_options()
 }
 
 // ---------------------------------------------------------------------------
@@ -382,18 +35,12 @@ fn bootstrap(broker: &Broker, user: &str) -> MqttBootstrap {
     MqttBootstrap {
         user_id: user.to_owned(),
         broker_host: "127.0.0.1".to_owned(),
-        broker_port: i64::from(broker.port),
+        broker_port: i64::from(broker.port()),
         topic: format!("oversea/res/{user}"),
         client_id: format!("oversea_{user}"),
         username: user.to_owned(),
         password: format!("1700000000secret{user}"),
     }
-}
-
-fn sealed(body: &Value, key: &str) -> Vec<u8> {
-    aes_encrypt_hex(&body.to_string(), key)
-        .expect("encrypts")
-        .into_bytes()
 }
 
 fn vehicle_info(marker: i64) -> Value {

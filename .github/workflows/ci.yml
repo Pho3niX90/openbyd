@@ -9,11 +9,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
+  # Whether the surface audit fails (test_surface.py) when a pyBYD symbol has
+  # no parity call. "0" while the port is in progress: the gap is reported and
+  # the test skips. Switch to "1" once the port is complete.
+  OPENBYD_SURFACE_STRICT: "0"
 
 jobs:
   rust:
@@ -26,8 +30,33 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace --exclude openbyd-py
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --workspace --exclude openbyd-py --all-features
+
+  coverage:
+    name: Rust coverage (at least 90% of lines)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+      - name: Run the tests with coverage
+        run: cargo llvm-cov --workspace --exclude openbyd-py --all-features --no-report
+      - name: Write the lcov file
+        run: cargo llvm-cov report --lcov --output-path lcov.info
+      - name: Per-file summary, and the 90% gate
+        run: cargo llvm-cov report --summary-only --fail-under-lines 90
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: rust-lcov
+          path: lcov.info
+          if-no-files-found: warn
 
   parity:
     name: Parity with pyBYD
@@ -39,13 +68,37 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            parity/UPSTREAM_COMMIT
       - name: Install openbyd and the pinned pyBYD
         run: |
           python -m pip install --upgrade pip
-          pip install . pytest "pybyd @ git+https://github.com/jkaberg/pyBYD@$(cat parity/UPSTREAM_COMMIT)"
+          pip install . pytest pytest-cov "pybyd @ git+https://github.com/jkaberg/pyBYD@$(cat parity/UPSTREAM_COMMIT)"
       - name: Recorded vectors are what pyBYD answers
         run: python parity/generate.py --check
-      - run: pytest -v
+      - name: Surface audit report
+        run: |
+          python parity/surface.py
+          echo "OPENBYD_SURFACE_STRICT=$OPENBYD_SURFACE_STRICT"
+          pytest python/tests/test_surface.py -v -rs
+      - name: Tests, with coverage of python/openbyd (at least 90% of lines)
+        run: pytest -v --cov --cov-report=term-missing --cov-report=xml:coverage.xml
+      - name: Random comparison with a fresh seed
+        env:
+          OPENBYD_FUZZ: "2000"
+          OPENBYD_PARITY_SEED: ${{ github.run_id }}
+        run: |
+          echo "Seed: $OPENBYD_PARITY_SEED, cases per group: $OPENBYD_FUZZ"
+          echo "To reproduce: OPENBYD_FUZZ=$OPENBYD_FUZZ OPENBYD_PARITY_SEED=$OPENBYD_PARITY_SEED pytest python/tests/test_parity.py"
+          pytest -v python/tests/test_parity.py
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: python-coverage
+          path: coverage.xml
+          if-no-files-found: ignore
 
   wheel:
     name: Linux wheel (${{ matrix.target }})

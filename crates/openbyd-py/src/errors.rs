@@ -39,7 +39,8 @@ fn raise(class: PyResult<Bound<'_, PyAny>>, message: &str, keywords: &Bound<'_, 
 /// Python's own classes that pyBYD lets through (`ValueError`, `TypeError`,
 /// `json.JSONDecodeError`, ...) are raised as themselves; a pydantic
 /// `ValidationError` becomes `openbyd.ValidationError`. The parity tests'
-/// `ScriptExhausted` becomes a `RuntimeError`.
+/// `ScriptExhausted` becomes a `RuntimeError`, and a cancelled wait becomes
+/// `asyncio.CancelledError`.
 pub fn to_py_err(py: Python<'_>, error: &Error) -> PyErr {
     let message = error.message();
     match error.kind() {
@@ -49,6 +50,15 @@ pub fn to_py_err(py: Python<'_>, error: &Error) -> PyErr {
         ErrorKind::AssertionError => PyAssertionError::new_err(message.to_owned()),
         ErrorKind::ScriptExhausted => {
             PyRuntimeError::new_err(format!("ScriptExhausted: {message}"))
+        }
+        ErrorKind::CancelledError => {
+            let class = py
+                .import("asyncio")
+                .and_then(|asyncio| asyncio.getattr("CancelledError"));
+            match class.and_then(|class| class.call1((message,))) {
+                Ok(instance) => PyErr::from_value(instance),
+                Err(error) => error,
+            }
         }
         ErrorKind::JsonDecodeError => {
             let class = py

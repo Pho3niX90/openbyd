@@ -112,9 +112,10 @@ ERROR_KINDS = [
     "BydControlPasswordError", "BydEndpointNotSupportedError", "BydDataUnavailableError",
     "BydRateLimitError", "BydServiceBusyError", "ValueError", "JSONDecodeError",
     "UnicodeDecodeError", "ValidationError", "TypeError", "AttributeError", "AssertionError",
-    "ScriptExhausted",
+    "ScriptExhausted", "CancelledError",
 ]
 BUILTIN = {
+    "CancelledError": asyncio.CancelledError,
     "ValueError": ValueError,
     "TypeError": TypeError,
     "AttributeError": AttributeError,

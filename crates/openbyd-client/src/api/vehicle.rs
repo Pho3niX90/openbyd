@@ -41,6 +41,11 @@ pub(crate) fn parse_model<M: BydModel>(raw: &Value) -> Result<M, Error> {
     M::parse(raw, &Value::Null).map_err(model_error)
 }
 
+/// [`parse_model`] of a reply not needed afterwards ([`BydModel::parse_owned`]).
+pub(crate) fn parse_owned_model<M: BydModel>(raw: Value) -> Result<M, Error> {
+    M::parse_owned(raw, &Value::Null).map_err(model_error)
+}
+
 /// Python's truth value of a JSON value.
 pub(crate) fn py_truthy(value: &Value) -> bool {
     match value {

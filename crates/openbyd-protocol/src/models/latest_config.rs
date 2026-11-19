@@ -390,6 +390,10 @@ impl LatestConfigFunction {
 }
 
 impl BydModel for LatestConfigFunction {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     // No validator reads the context, so nested nodes get none.
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, &[])?;
@@ -444,6 +448,10 @@ impl VehicleLatestConfig {
 }
 
 impl BydModel for VehicleLatestConfig {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
@@ -704,6 +712,10 @@ impl VehicleCapabilities {
 }
 
 impl BydModel for VehicleCapabilities {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, &[])?;
         let strings = |value: &Value| coerce::list(value, coerce::string);

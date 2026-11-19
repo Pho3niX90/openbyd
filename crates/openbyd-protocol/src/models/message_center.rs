@@ -114,6 +114,10 @@ fn normalise_id(value: &Value) -> Result<Value, ValidationError> {
 }
 
 impl BydModel for VehicleMsgItemInfo {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
@@ -167,6 +171,10 @@ fn unwrap_list(values: &Value) -> Cow<'_, Value> {
 }
 
 impl BydModel for VehicleMsgListResponse {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
         let values = unwrap_list(raw);
         let mut fields = Fields::cleaned(&values, &[])?;

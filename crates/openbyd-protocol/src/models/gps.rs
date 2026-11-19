@@ -51,6 +51,10 @@ fn flatten_nested_data(values: &Value) -> Cow<'_, Value> {
 }
 
 impl BydModel for GpsInfo {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let values = flatten_nested_data(raw);
         let mut fields = Fields::cleaned(&values, &[])?;

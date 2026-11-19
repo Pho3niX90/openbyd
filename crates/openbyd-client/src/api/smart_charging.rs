@@ -20,7 +20,7 @@ use serde_json::{Map, Value, json};
 
 use crate::api::Context;
 use crate::api::common::{ENDPOINT_NOT_SUPPORTED_CODES, ErrorCodes, post_token_json};
-use crate::api::control::{inner_base, truthy, validate, with_vin};
+use crate::api::control::{inner_base, truthy, validate_owned, with_vin};
 use crate::env::Env;
 use crate::scripted::Scenario;
 
@@ -85,7 +85,7 @@ pub async fn fetch_charging_schedule<E: Env>(
     vin: &str,
 ) -> Result<SmartChargingSchedule, Error> {
     let raw = fetch_charging_homepage(cx, vin).await?;
-    validate(&with_vin(vin, &raw, false))
+    validate_owned(with_vin(vin, &raw, false))
 }
 
 /// Turns smart charging on or off and returns the acknowledgement.
@@ -100,7 +100,7 @@ pub async fn toggle_smart_charging<E: Env>(
         json!(if enable { "1" } else { "0" }),
     );
     let raw = post_for_object(cx, TOGGLE_ENDPOINT, &inner, vin, NOT_SUPPORTED).await?;
-    validate(&with_vin(vin, &raw, true))
+    validate_owned(with_vin(vin, &raw, true))
 }
 
 /// Starts or stops charging at `/control/smartCharge/changeChargeStatue`
@@ -355,7 +355,7 @@ pub async fn fetch_ac_current_limit<E: Env>(
     let mut inner = inner_base(cx, vin, None);
     inner.insert("energyType".into(), json!(energy_type.wire()));
     let raw = post_for_object(cx, GET_AC_LIMIT_ENDPOINT, &inner, vin, NOT_SUPPORTED).await?;
-    validate(&with_vin(vin, &raw, false))
+    validate_owned(with_vin(vin, &raw, false))
 }
 
 // ---------------------------------------------------------------------------

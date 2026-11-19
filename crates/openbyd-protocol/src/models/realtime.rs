@@ -1456,6 +1456,10 @@ pub(crate) fn is_steering_wheel_heating(state: Option<StearingWheelHeat>) -> Opt
 }
 
 impl BydModel for VehicleRealtimeData {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
         let changes = match raw {
             Value::Object(input) => split_hybrid_legs(input, context)?,

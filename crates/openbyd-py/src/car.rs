@@ -289,15 +289,15 @@ impl PyCar {
                     known => known,
                 };
                 let context = json!({"energy_type": {"EnergyType": energy_type as i64}});
-                let data = VehicleRealtimeData::parse(&raw, &context).map_err(invalid)?;
+                let data = VehicleRealtimeData::parse_owned(raw, &context).map_err(invalid)?;
                 self.car.handle_mqtt_realtime(data);
             }
             "charging" => {
-                let data = ChargingStatus::parse(&raw, &Value::Null).map_err(invalid)?;
+                let data = ChargingStatus::parse_owned(raw, &Value::Null).map_err(invalid)?;
                 self.car.handle_mqtt_charging(data);
             }
             "energy" => {
-                let data = EnergyConsumption::parse(&raw, &Value::Null).map_err(invalid)?;
+                let data = EnergyConsumption::parse_owned(raw, &Value::Null).map_err(invalid)?;
                 self.car.handle_mqtt_energy(data);
             }
             other => return Err(PyValueError::new_err(format!("no push kind {other:?}"))),

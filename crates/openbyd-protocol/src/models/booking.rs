@@ -52,6 +52,10 @@ pub struct ClimateBooking {
 }
 
 impl BydModel for ClimateBooking {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
@@ -91,6 +95,10 @@ pub struct BookingList {
 const KEY_ALIASES: &[(&str, &str)] = &[("listInfo", "bookings")];
 
 impl BydModel for BookingList {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, KEY_ALIASES)?;
         let model = Self {

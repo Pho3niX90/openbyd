@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 
 use crate::api::Context;
 use crate::api::common::{ErrorCodes, build_inner_base, post_token_json};
-use crate::api::vehicle::{dump_map, parse_model, run_trace};
+use crate::api::vehicle::{dump_map, parse_owned_model, run_trace};
 use crate::env::Env;
 use crate::scripted::Scenario;
 
@@ -62,7 +62,7 @@ pub async fn fetch_latest_config<E: Env>(
     payload
         .into_iter()
         .filter(|(_, raw)| raw.is_object())
-        .map(|(vin, raw)| Ok((vin, parse_model(&raw)?)))
+        .map(|(vin, raw)| Ok((vin, parse_owned_model(raw)?)))
         .collect()
 }
 

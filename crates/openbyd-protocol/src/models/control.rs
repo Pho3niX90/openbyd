@@ -419,6 +419,10 @@ fn normalize_result_shapes(values: &Value) -> Result<Cow<'_, Value>, ValidationE
 }
 
 impl BydModel for RemoteControlResult {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let values = normalize_result_shapes(raw)?;
         let mut fields = Fields::cleaned(&values, &[])?;
@@ -458,6 +462,10 @@ pub struct CommandAck {
 }
 
 impl BydModel for CommandAck {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         // _coerce_result: `result` is a string or None.
         let values = match raw {
@@ -504,6 +512,10 @@ pub struct ChargeChangeResult {
 }
 
 impl BydModel for ChargeChangeResult {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         // `_capture_raw` stores a copy of the input as `raw` unless it has one,
         // which is what the base validator does anyway.
@@ -596,6 +608,10 @@ fn normalize_ack_event(values: &Value) -> Result<Cow<'_, Value>, ValidationError
 }
 
 impl BydModel for CommandAckEvent {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let values = normalize_ack_event(raw)?;
         let mut fields = Fields::cleaned(&values, &[])?;
@@ -667,6 +683,10 @@ fn normalize_lifecycle_event(values: &Value) -> Result<Cow<'_, Value>, Validatio
 }
 
 impl BydModel for CommandLifecycleEvent {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
         let values = normalize_lifecycle_event(raw)?;
         let mut fields = Fields::cleaned(&values, &[])?;
@@ -706,6 +726,10 @@ pub struct CommandAckDiagnostics {
 }
 
 impl BydModel for CommandAckDiagnostics {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
@@ -735,6 +759,10 @@ pub struct VerifyControlPasswordResponse {
 }
 
 impl BydModel for VerifyControlPasswordResponse {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         // _coerce_ok: `ok` is a bool or None.
         let values = match raw {

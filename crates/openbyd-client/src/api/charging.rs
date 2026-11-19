@@ -12,7 +12,7 @@ use crate::api::Context;
 use crate::api::common::{
     ENDPOINT_NOT_SUPPORTED_CODES, ErrorCodes, build_inner_base, post_token_json,
 };
-use crate::api::vehicle::{parse_model, run_trace};
+use crate::api::vehicle::{parse_owned_model, run_trace};
 use crate::env::Env;
 use crate::scripted::Scenario;
 
@@ -49,7 +49,7 @@ pub async fn fetch_charging_status<E: Env>(
     vin: &str,
 ) -> Result<ChargingStatus, Error> {
     let raw = fetch_charging_homepage(cx, vin).await?;
-    parse_model(&Value::Object(raw))
+    parse_owned_model(Value::Object(raw))
 }
 
 pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {

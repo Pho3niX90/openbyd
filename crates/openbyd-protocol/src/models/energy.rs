@@ -90,6 +90,10 @@ pub struct EnergyConsumptionGraph {
 }
 
 impl BydModel for EnergyConsumptionGraph {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
@@ -138,6 +142,10 @@ pub struct CumulativeEnergyConsumption {
 }
 
 impl BydModel for CumulativeEnergyConsumption {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
@@ -194,6 +202,10 @@ pub struct NearestEnergyConsumption {
 }
 
 impl BydModel for NearestEnergyConsumption {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
@@ -244,6 +256,10 @@ pub struct EnergyConsumption {
 const KEY_ALIASES: &[(&str, &str)] = &[("time", "timestamp")];
 
 impl BydModel for EnergyConsumption {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, KEY_ALIASES)?;
         let model = Self {

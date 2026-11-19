@@ -1,7 +1,7 @@
 {
  "benchmark": "mqtt_idle",
  "quick": false,
- "date": "2026-11-19T16:43:28+02:00",
+ "date": "2026-11-19T21:29:28+02:00",
  "machine": {
   "cpu": "AMD Ryzen 9 5900X 12-Core Processor",
   "cores_logical": 24,
@@ -13,10 +13,10 @@
   "rust": "rustc 1.100.0 (0ef1bc386 2026-11-09)"
  },
  "versions": {
-  "openbyd_commit": "587100f40a460e78b81e9633f40b8db77a8d983f",
-  "openbyd_branch": "wave5/bench",
+  "openbyd_commit": "7104731ad46d5ddf72ac5c6c429594d6509562ac",
+  "openbyd_branch": "main",
   "openbyd_dirty": false,
-  "openbyd_package_version": "0.0.1",
+  "openbyd_package_version": "0.1.1",
   "pybyd_commit_pinned": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
   "pybyd_commit_installed": "2c3d80648e8eeec50cd4f68f603abd3a01010fef"
  },
@@ -31,13 +31,13 @@
    "implementation": "pybyd",
    "label": "pyBYD (paho, one thread per client)",
    "count": 200,
-   "tcp_time_wait_before": 618,
+   "tcp_time_wait_before": 258,
    "reported": {
     "implementation": "pybyd",
     "count": 200,
     "started": 200,
     "failed": 0,
-    "connect_s": 5.811320000007981
+    "connect_s": 6.924842300009914
    },
    "broker": {
     "open": 200,
@@ -46,21 +46,21 @@
    "all_connected": true,
    "connected": 200,
    "measured": {
-    "all_up_s": 5.820720499992603,
-    "rss_before_mib": 53.0078125,
-    "rss_idle_mib": 195.01171875,
-    "rss_peak_mib": 195.01171875,
+    "all_up_s": 6.943806900002528,
+    "rss_before_mib": 53.20703125,
+    "rss_idle_mib": 195.1875,
+    "rss_peak_mib": 195.1875,
     "threads_before": 8,
     "threads_idle": 209,
     "threads_peak": 209,
-    "idle_cpu_s": 0.0,
+    "idle_cpu_s": 0.03125,
     "idle_window_s": 5.0,
-    "idle_cpu_percent_of_one_core": 0.0,
-    "total_cpu_s_since_ready": 3.578125
+    "idle_cpu_percent_of_one_core": 0.625,
+    "total_cpu_s_since_ready": 4.328125
    },
    "derived": {
-    "memory_per_connection_kib": 727.06,
-    "peak_memory_per_connection_kib": 727.06,
+    "memory_per_connection_kib": 726.94,
+    "peak_memory_per_connection_kib": 726.94,
     "threads_per_connection": 1.005
    }
   },
@@ -68,13 +68,13 @@
    "implementation": "openbyd",
    "label": "openbyd MqttRuntime (tokio)",
    "count": 200,
-   "tcp_time_wait_before": 940,
+   "tcp_time_wait_before": 694,
    "reported": {
     "implementation": "openbyd",
     "count": 200,
     "started": 200,
     "connected": 200,
-    "connect_s": 0.5183255
+    "connect_s": 0.5174525
    },
    "broker": {
     "open": 200,
@@ -83,21 +83,21 @@
    "all_connected": true,
    "connected": 200,
    "measured": {
-    "all_up_s": 0.5253432000172324,
-    "rss_before_mib": 5.9921875,
-    "rss_idle_mib": 21.46484375,
-    "rss_peak_mib": 21.46484375,
+    "all_up_s": 0.5180206999939401,
+    "rss_before_mib": 6.01953125,
+    "rss_idle_mib": 21.65625,
+    "rss_peak_mib": 21.65625,
     "threads_before": 28,
     "threads_idle": 29,
     "threads_peak": 29,
     "idle_cpu_s": 0.0,
     "idle_window_s": 5.0,
     "idle_cpu_percent_of_one_core": 0.0,
-    "total_cpu_s_since_ready": 0.15625
+    "total_cpu_s_since_ready": 0.375
    },
    "derived": {
-    "memory_per_connection_kib": 79.22,
-    "peak_memory_per_connection_kib": 79.22,
+    "memory_per_connection_kib": 80.06,
+    "peak_memory_per_connection_kib": 80.06,
     "threads_per_connection": 0.005
    }
   },
@@ -105,13 +105,13 @@
    "implementation": "openbyd",
    "label": "openbyd MqttRuntime (tokio)",
    "count": 1000,
-   "tcp_time_wait_before": 922,
+   "tcp_time_wait_before": 915,
    "reported": {
     "implementation": "openbyd",
     "count": 1000,
     "started": 1000,
     "connected": 1000,
-    "connect_s": 1.5664116
+    "connect_s": 1.5716641
    },
    "broker": {
     "open": 1000,
@@ -120,21 +120,21 @@
    "all_connected": true,
    "connected": 1000,
    "measured": {
-    "all_up_s": 1.567016799992416,
-    "rss_before_mib": 6.00390625,
-    "rss_idle_mib": 59.03125,
-    "rss_peak_mib": 59.03125,
+    "all_up_s": 1.5723537000012584,
+    "rss_before_mib": 6.01953125,
+    "rss_idle_mib": 58.84375,
+    "rss_peak_mib": 58.84375,
     "threads_before": 28,
-    "threads_idle": 29.0,
+    "threads_idle": 29,
     "threads_peak": 29,
     "idle_cpu_s": 0.0,
     "idle_window_s": 5.0,
     "idle_cpu_percent_of_one_core": 0.0,
-    "total_cpu_s_since_ready": 0.75
+    "total_cpu_s_since_ready": 0.609375
    },
    "derived": {
-    "memory_per_connection_kib": 54.3,
-    "peak_memory_per_connection_kib": 54.3,
+    "memory_per_connection_kib": 54.092,
+    "peak_memory_per_connection_kib": 54.092,
     "threads_per_connection": 0.001
    }
   }

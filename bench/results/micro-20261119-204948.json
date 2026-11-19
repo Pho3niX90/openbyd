@@ -1,0 +1,1906 @@
+{
+ "benchmark": "micro",
+ "quick": false,
+ "date": "2026-11-19T20:49:48+02:00",
+ "machine": {
+  "cpu": "AMD Ryzen 9 5900X 12-Core Processor",
+  "cores_logical": 24,
+  "cores_physical": 12,
+  "memory_gib": 63.9,
+  "os": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.13",
+  "python_implementation": "CPython",
+  "rust": "rustc 1.100.0 (0ef1bc386 2026-11-09)"
+ },
+ "versions": {
+  "openbyd_commit": "7104731ad46d5ddf72ac5c6c429594d6509562ac",
+  "openbyd_branch": "main",
+  "openbyd_dirty": false,
+  "openbyd_package_version": "0.1.1",
+  "pybyd_commit_pinned": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
+  "pybyd_commit_installed": "2c3d80648e8eeec50cd4f68f603abd3a01010fef"
+ },
+ "settings": {
+  "min_time_s": 0.5,
+  "repeats": 5,
+  "cipher_sizes": [
+   512,
+   2048,
+   8192
+  ],
+  "concurrency": 200,
+  "sequential_batch": 20,
+  "model_context": null,
+  "labels": {
+   "pybyd": "pyBYD",
+   "pybyd_accel": "pyBYD + openbyd cipher",
+   "openbyd": "openbyd"
+  }
+ },
+ "background_cpu_percent_before": 10.5,
+ "skipped": [],
+ "rows": [
+  {
+   "group": "Envelope cipher",
+   "name": "encode 512 B",
+   "ops_per_unit": 1,
+   "note": "",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 0.007248581817990483,
+      "min": 0.007143571428567558,
+      "max": 0.007360390909076608,
+      "spread": 0.029911986365514842,
+      "n": 5
+     },
+     "ops_per_s": 137.95802063212815,
+     "loops": 77,
+     "ops_per_measurement": 77,
+     "measurement_s": {
+      "median": 0.5581407999852672,
+      "min": 0.550054999999702,
+      "max": 0.5667500999988988,
+      "spread": 0.029911986365514783,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.007286625973995194,
+      0.007248581817990483,
+      0.007360390909076608,
+      0.007236044155811746,
+      0.007143571428567558
+     ]
+    },
+    "pybyd_accel": {
+     "seconds_per_op": {
+      "median": 3.43003600006341e-05,
+      "min": 3.400894499936839e-05,
+      "max": 3.499335499946028e-05,
+      "spread": 0.028699698780819946,
+      "n": 5
+     },
+     "ops_per_s": 29154.212958158845,
+     "loops": 20000,
+     "ops_per_measurement": 20000,
+     "measurement_s": {
+      "median": 0.686007200012682,
+      "min": 0.6801788999873679,
+      "max": 0.6998670999892056,
+      "spread": 0.028699698780819963,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      3.43003600006341e-05,
+      3.417361500032712e-05,
+      3.499335499946028e-05,
+      3.400894499936839e-05,
+      3.435201999964192e-05
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 3.158269500127062e-05,
+      "min": 3.0968225000833624e-05,
+      "max": 3.174166000098921e-05,
+      "spread": 0.024489202081217916,
+      "n": 5
+     },
+     "ops_per_s": 31662.909069658825,
+     "loops": 20000,
+     "ops_per_measurement": 20000,
+     "measurement_s": {
+      "median": 0.6316539000254124,
+      "min": 0.6193645000166725,
+      "max": 0.6348332000197843,
+      "spread": 0.024489202081217902,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      3.174166000098921e-05,
+      3.0968225000833624e-05,
+      3.158269500127062e-05,
+      3.1706479999411384e-05,
+      3.12802250002278e-05
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "pybyd_accel",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Envelope cipher",
+   "name": "decode 512 B",
+   "ops_per_unit": 1,
+   "note": "",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 0.007414964865027876,
+      "min": 0.0071321918917788395,
+      "max": 0.007552445945613137,
+      "spread": 0.056676472712149185,
+      "n": 5
+     },
+     "ops_per_s": 134.86240571636756,
+     "loops": 74,
+     "ops_per_measurement": 74,
+     "measurement_s": {
+      "median": 0.5487074000120629,
+      "min": 0.5277821999916341,
+      "max": 0.5588809999753721,
+      "spread": 0.05667647271214915,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.0071321918917788395,
+      0.007552445945613137,
+      0.007414964865027876,
+      0.007503418918900393,
+      0.007235687837630787
+     ]
+    },
+    "pybyd_accel": {
+     "seconds_per_op": {
+      "median": 3.204963500029408e-05,
+      "min": 3.1468085000233256e-05,
+      "max": 3.2091455000045245e-05,
+      "spread": 0.019450143497929655,
+      "n": 5
+     },
+     "ops_per_s": 31201.603387708605,
+     "loops": 20000,
+     "ops_per_measurement": 20000,
+     "measurement_s": {
+      "median": 0.6409927000058815,
+      "min": 0.6293617000046652,
+      "max": 0.6418291000009049,
+      "spread": 0.019450143497929534,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      3.1468085000233256e-05,
+      3.204963500029408e-05,
+      3.191986000019824e-05,
+      3.2091455000045245e-05,
+      3.2072084999526854e-05
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 2.897137499967357e-05,
+      "min": 2.859131500008516e-05,
+      "max": 3.027901000023121e-05,
+      "spread": 0.058253879913019835,
+      "n": 5
+     },
+     "ops_per_s": 34516.82911188259,
+     "loops": 20000,
+     "ops_per_measurement": 20000,
+     "measurement_s": {
+      "median": 0.5794274999934714,
+      "min": 0.5718263000017032,
+      "max": 0.6055802000046242,
+      "spread": 0.05825387991301986,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      2.859131500008516e-05,
+      2.9772485001012684e-05,
+      2.897137499967357e-05,
+      2.8945815000042786e-05,
+      3.027901000023121e-05
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "pybyd_accel",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Envelope cipher",
+   "name": "encode 2 KB",
+   "ops_per_unit": 1,
+   "note": "",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 0.02846856470569037,
+      "min": 0.028052947057671297,
+      "max": 0.029195135293240825,
+      "spread": 0.04012103340570677,
+      "n": 5
+     },
+     "ops_per_s": 35.12646353400871,
+     "loops": 17,
+     "ops_per_measurement": 17,
+     "measurement_s": {
+      "median": 0.4839655999967363,
+      "min": 0.47690009998041205,
+      "max": 0.496317299985094,
+      "spread": 0.040121033405706705,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.029195135293240825,
+      0.028052947057671297,
+      0.02846856470569037,
+      0.028427429411642474,
+      0.028620388233856132
+     ]
+    },
+    "pybyd_accel": {
+     "seconds_per_op": {
+      "median": 0.00012618223090441513,
+      "min": 0.00012233802782455065,
+      "max": 0.00012911113009543503,
+      "spread": 0.053677147902188346,
+      "n": 5
+     },
+     "ops_per_s": 7925.046124422341,
+     "loops": 4097,
+     "ops_per_measurement": 4097,
+     "measurement_s": {
+      "median": 0.5169686000153888,
+      "min": 0.501218899997184,
+      "max": 0.5289683000009973,
+      "spread": 0.05367714790218822,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.0001269202099137612,
+      0.0001258392482295847,
+      0.00012618223090441513,
+      0.00012233802782455065,
+      0.00012911113009543503
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 0.00012196928571513552,
+      "min": 0.00011827642857414586,
+      "max": 0.00012384816017445353,
+      "spread": 0.04568143174438758,
+      "n": 5
+     },
+     "ops_per_s": 8198.785408447358,
+     "loops": 4620,
+     "ops_per_measurement": 4620,
+     "measurement_s": {
+      "median": 0.5634981000039261,
+      "min": 0.5464371000125539,
+      "max": 0.5721785000059754,
+      "spread": 0.04568143174438771,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.00012384816017445353,
+      0.00011827642857414586,
+      0.00012196928571513552,
+      0.0001205126623342366,
+      0.00012262651514870747
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "pybyd_accel",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Envelope cipher",
+   "name": "decode 2 KB",
+   "ops_per_unit": 1,
+   "note": "",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 0.028310169999895152,
+      "min": 0.028225000000384172,
+      "max": 0.028585815000406002,
+      "spread": 0.012745066526381386,
+      "n": 5
+     },
+     "ops_per_s": 35.32299523470553,
+     "loops": 20,
+     "ops_per_measurement": 20,
+     "measurement_s": {
+      "median": 0.566203399997903,
+      "min": 0.5645000000076834,
+      "max": 0.57171630000812,
+      "spread": 0.012745066526381386,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.02828618500061566,
+      0.028585815000406002,
+      0.02851630999939516,
+      0.028225000000384172,
+      0.028310169999895152
+     ]
+    },
+    "pybyd_accel": {
+     "seconds_per_op": {
+      "median": 0.0001122357500487151,
+      "min": 0.00011130334468103868,
+      "max": 0.00011287514520344606,
+      "spread": 0.014004455102096759,
+      "n": 5
+     },
+     "ops_per_s": 8909.817055313992,
+     "loops": 4993,
+     "ops_per_measurement": 4993,
+     "measurement_s": {
+      "median": 0.5603930999932345,
+      "min": 0.5557375999924261,
+      "max": 0.5635856000008062,
+      "spread": 0.014004455102096703,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.00011287514520344606,
+      0.0001116372721808133,
+      0.0001123481674322024,
+      0.00011130334468103868,
+      0.0001122357500487151
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 0.00011073392539840939,
+      "min": 0.00010921531477950414,
+      "max": 0.00011621363726174354,
+      "spread": 0.06319944368503284,
+      "n": 5
+     },
+     "ops_per_s": 9030.656110149639,
+     "loops": 5067,
+     "ops_per_measurement": 5067,
+     "measurement_s": {
+      "median": 0.5610887999937404,
+      "min": 0.5533939999877475,
+      "max": 0.5888545000052545,
+      "spread": 0.06319944368503275,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.0001099496151570882,
+      0.00011073392539840939,
+      0.00011305914742627479,
+      0.00010921531477950414,
+      0.00011621363726174354
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "pybyd_accel",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Envelope cipher",
+   "name": "encode 8 KB",
+   "ops_per_unit": 1,
+   "note": "",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 0.1127844600006938,
+      "min": 0.10997581999981776,
+      "max": 0.11354613999719732,
+      "spread": 0.03165613416385195,
+      "n": 5
+     },
+     "ops_per_s": 8.8664697245866,
+     "loops": 5,
+     "ops_per_measurement": 5,
+     "measurement_s": {
+      "median": 0.563922300003469,
+      "min": 0.5498790999990888,
+      "max": 0.5677306999859866,
+      "spread": 0.03165613416385195,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.10997581999981776,
+      0.11354613999719732,
+      0.11272708000033163,
+      0.1127844600006938,
+      0.11281376000260934
+     ]
+    },
+    "pybyd_accel": {
+     "seconds_per_op": {
+      "median": 0.0004997448789489541,
+      "min": 0.0004885219739330759,
+      "max": 0.0005163188081896331,
+      "spread": 0.055622049224433416,
+      "n": 5
+     },
+     "ops_per_s": 2001.0210051640047,
+     "loops": 1074,
+     "ops_per_measurement": 1074,
+     "measurement_s": {
+      "median": 0.5367259999911766,
+      "min": 0.5246726000041235,
+      "max": 0.554526399995666,
+      "spread": 0.05562204922443341,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.0005102227188053227,
+      0.0004885219739330759,
+      0.0004997448789489541,
+      0.0004898522346351188,
+      0.0005163188081896331
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 0.00048053857015728594,
+      "min": 0.0004751957634812022,
+      "max": 0.0005262302736084274,
+      "spread": 0.10620273438305072,
+      "n": 5
+     },
+     "ops_per_s": 2080.99840908231,
+     "loops": 1133,
+     "ops_per_measurement": 1133,
+     "measurement_s": {
+      "median": 0.544450199988205,
+      "min": 0.5383968000242021,
+      "max": 0.5962188999983482,
+      "spread": 0.1062027343830506,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.000475216416591928,
+      0.0004751957634812022,
+      0.0005262302736084274,
+      0.0004891800529614094,
+      0.00048053857015728594
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "pybyd_accel",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Envelope cipher",
+   "name": "decode 8 KB",
+   "ops_per_unit": 1,
+   "note": "",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 0.11090326000121423,
+      "min": 0.11054351999773644,
+      "max": 0.1139273000007961,
+      "spread": 0.030511095913885716,
+      "n": 5
+     },
+     "ops_per_s": 9.01686749324638,
+     "loops": 5,
+     "ops_per_measurement": 5,
+     "measurement_s": {
+      "median": 0.5545163000060711,
+      "min": 0.5527175999886822,
+      "max": 0.5696365000039805,
+      "spread": 0.030511095913885743,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.1139273000007961,
+      0.11090326000121423,
+      0.11244236000347882,
+      0.11083132000057958,
+      0.11054351999773644
+     ]
+    },
+    "pybyd_accel": {
+     "seconds_per_op": {
+      "median": 0.00042541534919095177,
+      "min": 0.00041954781273033267,
+      "max": 0.0004412887950931016,
+      "spread": 0.051105307798873754,
+      "n": 5
+     },
+     "ops_per_s": 2350.6439104789806,
+     "loops": 1303,
+     "ops_per_measurement": 1303,
+     "measurement_s": {
+      "median": 0.5543161999958102,
+      "min": 0.5466707999876235,
+      "max": 0.5749993000063114,
+      "spread": 0.05110530779887371,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.00042541534919095177,
+      0.0004250508058233314,
+      0.00041954781273033267,
+      0.00042775533383541346,
+      0.0004412887950931016
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 0.00043945850877463,
+      "min": 0.00043260649123878564,
+      "max": 0.0004979233333295653,
+      "spread": 0.1486302820098005,
+      "n": 5
+     },
+     "ops_per_s": 2275.52767788787,
+     "loops": 1140,
+     "ops_per_measurement": 1140,
+     "measurement_s": {
+      "median": 0.5009827000030782,
+      "min": 0.4931714000122156,
+      "max": 0.5676325999957044,
+      "spread": 0.14863028200980044,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.00043841429823690927,
+      0.00043260649123878564,
+      0.0004979233333295653,
+      0.0004632542105115901,
+      0.00043945850877463
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "pybyd_accel",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "VehicleRealtimeData, every field present (headline)",
+   "ops_per_unit": 1,
+   "note": "the full realtime payload, 3.6 KB of JSON",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 9.611605345475992e-05,
+      "min": 9.419147865261646e-05,
+      "max": 9.844314474323962e-05,
+      "spread": 0.04423471353434559,
+      "n": 5
+     },
+     "ops_per_s": 10404.089265594763,
+     "loops": 5762,
+     "ops_per_measurement": 5762,
+     "measurement_s": {
+      "median": 0.5538207000063267,
+      "min": 0.542731299996376,
+      "max": 0.5672294000105467,
+      "spread": 0.04423471353434563,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      9.714366539581221e-05,
+      9.463134328349009e-05,
+      9.611605345475992e-05,
+      9.844314474323962e-05,
+      9.419147865261646e-05
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 3.599237500020536e-05,
+      "min": 3.542267500015441e-05,
+      "max": 3.656346500065411e-05,
+      "spread": 0.03169532437059757,
+      "n": 5
+     },
+     "ops_per_s": 27783.662511692946,
+     "loops": 20000,
+     "ops_per_measurement": 20000,
+     "measurement_s": {
+      "median": 0.7198475000041071,
+      "min": 0.7084535000030883,
+      "max": 0.7312693000130821,
+      "spread": 0.031695324370597466,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      3.599237500020536e-05,
+      3.604988500010222e-05,
+      3.542267500015441e-05,
+      3.656346500065411e-05,
+      3.573418000014499e-05
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "AcCurrentLimit (2 payloads)",
+   "ops_per_unit": 2,
+   "note": "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 5.130479228457041e-06,
+      "min": 5.032116834574744e-06,
+      "max": 5.252961647077503e-06,
+      "spread": 0.04304564986401409,
+      "n": 5
+     },
+     "ops_per_s": 194913.56566718692,
+     "loops": 55172,
+     "ops_per_measurement": 110344,
+     "measurement_s": {
+      "median": 0.5661175999848638,
+      "min": 0.5552638999943156,
+      "max": 0.5796327999851201,
+      "spread": 0.04304564986401419,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      5.252961647077503e-06,
+      5.101712825348203e-06,
+      5.130479228457041e-06,
+      5.230552635276414e-06,
+      5.032116834574744e-06
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 1.5782995189491478e-06,
+      "min": 1.5348963505044352e-06,
+      "max": 1.596834800706638e-06,
+      "spread": 0.03924378703697648,
+      "n": 5
+     },
+     "ops_per_s": 633593.2996202222,
+     "loops": 181284,
+     "ops_per_measurement": 362568,
+     "measurement_s": {
+      "median": 0.5722408999863546,
+      "min": 0.5565043000096921,
+      "max": 0.5789612000226043,
+      "spread": 0.03924378703697643,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      1.596834800706638e-06,
+      1.5348963505044352e-06,
+      1.5865018424610562e-06,
+      1.5782995189491478e-06,
+      1.5535507821885498e-06
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "BookingList (2 payloads)",
+   "ops_per_unit": 2,
+   "note": "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 8.575659299478239e-06,
+      "min": 8.48549391082322e-06,
+      "max": 9.933518268185617e-06,
+      "spread": 0.16885283181090202,
+      "n": 5
+     },
+     "ops_per_s": 116609.11016612357,
+     "loops": 33255,
+     "ops_per_measurement": 66510,
+     "measurement_s": {
+      "median": 0.5703671000082977,
+      "min": 0.5643702000088524,
+      "max": 0.6606783000170253,
+      "spread": 0.16885283181090183,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      9.933518268185617e-06,
+      8.575659299478239e-06,
+      8.567404901365037e-06,
+      8.48549391082322e-06,
+      8.980085701296458e-06
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 3.055406569632863e-06,
+      "min": 3.0305618380957534e-06,
+      "max": 3.1036558368053313e-06,
+      "spread": 0.023922838759347472,
+      "n": 5
+     },
+     "ops_per_s": 327288.6855513176,
+     "loops": 83565,
+     "ops_per_measurement": 167130,
+     "measurement_s": {
+      "median": 0.5106500999827404,
+      "min": 0.5064978000009432,
+      "max": 0.518714000005275,
+      "spread": 0.023922838759347483,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      3.066456052098816e-06,
+      3.0371202057942328e-06,
+      3.1036558368053313e-06,
+      3.0305618380957534e-06,
+      3.055406569632863e-06
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "ChargingStatus (1 payload)",
+   "ops_per_unit": 1,
+   "note": "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 4.46293774862689e-06,
+      "min": 4.410464976042266e-06,
+      "max": 4.504713257971582e-06,
+      "spread": 0.02111799160952079,
+      "n": 5
+     },
+     "ops_per_s": 224067.6559532271,
+     "loops": 124415,
+     "ops_per_measurement": 124415,
+     "measurement_s": {
+      "median": 0.5552563999954145,
+      "min": 0.5487279999942984,
+      "max": 0.5604538999905344,
+      "spread": 0.02111799160952094,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      4.410464976042266e-06,
+      4.504713257971582e-06,
+      4.46293774862689e-06,
+      4.430028533447216e-06,
+      4.465927741871435e-06
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 1.7092820664592096e-06,
+      "min": 1.696139021677918e-06,
+      "max": 1.7653499632640716e-06,
+      "spread": 0.040491234854832615,
+      "n": 5
+     },
+     "ops_per_s": 585040.9476719705,
+     "loops": 332092,
+     "ops_per_measurement": 332092,
+     "measurement_s": {
+      "median": 0.5676389000145718,
+      "min": 0.5632741999870632,
+      "max": 0.5862586000002921,
+      "spread": 0.040491234854832615,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      1.7153981426747153e-06,
+      1.696139021677918e-06,
+      1.7092820664592096e-06,
+      1.6982625296655718e-06,
+      1.7653499632640716e-06
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "EnergyConsumption (2 payloads)",
+   "ops_per_unit": 2,
+   "note": "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 4.696903270644168e-05,
+      "min": 4.626278705529904e-05,
+      "max": 4.803158489815669e-05,
+      "spread": 0.03765880923954105,
+      "n": 5
+     },
+     "ops_per_s": 21290.623680714052,
+     "loops": 5748,
+     "ops_per_measurement": 11496,
+     "measurement_s": {
+      "median": 0.5399559999932535,
+      "min": 0.5318369999877177,
+      "max": 0.5521710999892093,
+      "spread": 0.03765880923954113,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      4.667036360335162e-05,
+      4.696903270644168e-05,
+      4.803158489815669e-05,
+      4.7377061586652537e-05,
+      4.626278705529904e-05
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 1.533832999994047e-05,
+      "min": 1.5107992500270484e-05,
+      "max": 1.5616844999749447e-05,
+      "spread": 0.03317522177974638,
+      "n": 5
+     },
+     "ops_per_s": 65196.1458648941,
+     "loops": 20000,
+     "ops_per_measurement": 40000,
+     "measurement_s": {
+      "median": 0.6135331999976188,
+      "min": 0.6043197000108194,
+      "max": 0.6246737999899779,
+      "spread": 0.033175221779746376,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      1.533832999994047e-05,
+      1.5107992500270484e-05,
+      1.5270184999826596e-05,
+      1.5357372500147903e-05,
+      1.5616844999749447e-05
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "GpsInfo (2 payloads)",
+   "ops_per_unit": 2,
+   "note": "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 4.833100888902782e-06,
+      "min": 4.777088978999276e-06,
+      "max": 5.214038145979746e-06,
+      "spread": 0.09040762380602135,
+      "n": 5
+     },
+     "ops_per_s": 206906.502261537,
+     "loops": 57935,
+     "ops_per_measurement": 115870,
+     "measurement_s": {
+      "median": 0.5600113999971654,
+      "min": 0.5535212999966461,
+      "max": 0.6041505999746732,
+      "spread": 0.09040762380602142,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      4.88526106847747e-06,
+      4.777088978999276e-06,
+      5.214038145979746e-06,
+      4.833100888902782e-06,
+      4.800729265693654e-06
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 1.3676630092836288e-06,
+      "min": 1.3612852383770893e-06,
+      "max": 1.4473017402804823e-06,
+      "spread": 0.06289305283503116,
+      "n": 5
+     },
+     "ops_per_s": 731174.2682313183,
+     "loops": 206522,
+     "ops_per_measurement": 413044,
+     "measurement_s": {
+      "median": 0.5649050000065472,
+      "min": 0.5622707000002265,
+      "max": 0.5977993000124115,
+      "spread": 0.06289305283503116,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      1.4020900921394142e-06,
+      1.4473017402804823e-06,
+      1.3676630092836288e-06,
+      1.3612852383770893e-06,
+      1.3667430104161273e-06
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "HvacStatus (4 payloads)",
+   "ops_per_unit": 4,
+   "note": "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 9.170841249942896e-06,
+      "min": 8.94678250006109e-06,
+      "max": 9.376356250140817e-06,
+      "spread": 0.04684125898290965,
+      "n": 5
+     },
+     "ops_per_s": 109041.25071472878,
+     "loops": 20000,
+     "ops_per_measurement": 80000,
+     "measurement_s": {
+      "median": 0.7336672999954317,
+      "min": 0.7157426000048872,
+      "max": 0.7501085000112653,
+      "spread": 0.04684125898290963,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      8.94678250006109e-06,
+      9.170841249942896e-06,
+      9.376356250140817e-06,
+      9.241202499833889e-06,
+      9.129287500036299e-06
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 3.6525773128406644e-06,
+      "min": 3.551383835879571e-06,
+      "max": 3.723033393977409e-06,
+      "spread": 0.04699409304613556,
+      "n": 5
+     },
+     "ops_per_s": 273779.28359914303,
+     "loops": 38480,
+     "ops_per_measurement": 153920,
+     "measurement_s": {
+      "median": 0.562204699992435,
+      "min": 0.5466290000185836,
+      "max": 0.5730493000010028,
+      "spread": 0.04699409304613559,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      3.7004729730707934e-06,
+      3.551383835879571e-06,
+      3.723033393977409e-06,
+      3.5976123961030332e-06,
+      3.6525773128406644e-06
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "LatestConfigFunction (1 payload)",
+   "ops_per_unit": 1,
+   "note": "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 5.215218204656122e-06,
+      "min": 5.1258403636444685e-06,
+      "max": 5.318761106536194e-06,
+      "spread": 0.036991883238842546,
+      "n": 5
+     },
+     "ops_per_s": 191746.53116281977,
+     "loops": 106918,
+     "ops_per_measurement": 106918,
+     "measurement_s": {
+      "median": 0.5576007000054233,
+      "min": 0.5480446000001393,
+      "max": 0.5686712999886367,
+      "spread": 0.03699188323884243,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      5.215218204656122e-06,
+      5.246338315266754e-06,
+      5.1258403636444685e-06,
+      5.318761106536194e-06,
+      5.158583213283535e-06
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 1.8217449885335372e-06,
+      "min": 1.7983315980864995e-06,
+      "max": 1.966488845607836e-06,
+      "spread": 0.09230559083722216,
+      "n": 5
+     },
+     "ops_per_s": 548924.2491645205,
+     "loops": 310237,
+     "ops_per_measurement": 310237,
+     "measurement_s": {
+      "median": 0.5651727000076789,
+      "min": 0.5579089999955613,
+      "max": 0.6100775999948382,
+      "spread": 0.09230559083722216,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      1.8233676189465128e-06,
+      1.7983315980864995e-06,
+      1.8007884295157118e-06,
+      1.8217449885335372e-06,
+      1.966488845607836e-06
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "PushNotificationState (2 payloads)",
+   "ops_per_unit": 2,
+   "note": "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 1.258908653031085e-05,
+      "min": 9.473139514797988e-06,
+      "max": 1.5012494409105981e-05,
+      "spread": 0.44001245689834934,
+      "n": 5
+     },
+     "ops_per_s": 79433.88089296961,
+     "loops": 29065,
+     "ops_per_measurement": 58130,
+     "measurement_s": {
+      "median": 0.7318036000069696,
+      "min": 0.550673599995207,
+      "max": 0.8726763000013307,
+      "spread": 0.4400124568983494,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      1.258908653031085e-05,
+      1.3267447101424899e-05,
+      1.5012494409105981e-05,
+      9.473139514797988e-06,
+      9.67670049874502e-06
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 2.399414436174506e-06,
+      "min": 2.3437875993612417e-06,
+      "max": 2.709441014588825e-06,
+      "spread": 0.15239277121736453,
+      "n": 5
+     },
+     "ops_per_s": 416768.35186269233,
+     "loops": 202796,
+     "ops_per_measurement": 405592,
+     "measurement_s": {
+      "median": 0.9731832999968901,
+      "min": 0.9506215000001248,
+      "max": 1.0989275999891106,
+      "spread": 0.15239277121736441,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      2.3437875993612417e-06,
+      2.399414436174506e-06,
+      2.3582526283267917e-06,
+      2.709441014588825e-06,
+      2.515767076255898e-06
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "Vehicle (3 payloads)",
+   "ops_per_unit": 3,
+   "note": "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 7.671437971504504e-06,
+      "min": 7.545213994649626e-06,
+      "max": 9.70854858821745e-06,
+      "spread": 0.28199857726850075,
+      "n": 5
+     },
+     "ops_per_s": 130353.65777765423,
+     "loops": 23809,
+     "ops_per_measurement": 71427,
+     "measurement_s": {
+      "median": 0.5479477999906521,
+      "min": 0.5389319999958389,
+      "max": 0.6934525000106078,
+      "spread": 0.28199857726850075,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      7.644848586989709e-06,
+      7.671437971504504e-06,
+      9.70854858821745e-06,
+      8.024009127949673e-06,
+      7.545213994649626e-06
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 3.1735282418208546e-06,
+      "min": 3.1118009733741332e-06,
+      "max": 3.176289835636238e-06,
+      "spread": 0.020320872337692912,
+      "n": 5
+     },
+     "ops_per_s": 315106.69633311237,
+     "loops": 56984,
+     "ops_per_measurement": 170952,
+     "measurement_s": {
+      "median": 0.5425209999957588,
+      "min": 0.5319686000002548,
+      "max": 0.5429930999816861,
+      "spread": 0.020320872337692874,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      3.1264653235815637e-06,
+      3.1735282418208546e-06,
+      3.1118009733741332e-06,
+      3.1755545417080495e-06,
+      3.176289835636238e-06
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "VehicleLatestConfig (2 payloads)",
+   "ops_per_unit": 2,
+   "note": "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 9.004534553633148e-05,
+      "min": 8.97208267555279e-05,
+      "max": 9.459501419862354e-05,
+      "spread": 0.054130365251683146,
+      "n": 5
+     },
+     "ops_per_s": 11105.51571592915,
+     "loops": 3169,
+     "ops_per_measurement": 6338,
+     "measurement_s": {
+      "median": 0.5707074000092689,
+      "min": 0.5686505999765359,
+      "max": 0.599543199990876,
+      "spread": 0.05413036525168309,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      8.97208267555279e-05,
+      9.459501419862354e-05,
+      8.978374881910718e-05,
+      9.004534553633148e-05,
+      9.191842852317563e-05
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 2.2362717499345308e-05,
+      "min": 2.2193392500048504e-05,
+      "max": 2.2697982500540093e-05,
+      "spread": 0.02256389459404301,
+      "n": 5
+     },
+     "ops_per_s": 44717.284472661966,
+     "loops": 20000,
+     "ops_per_measurement": 40000,
+     "measurement_s": {
+      "median": 0.8945086999738123,
+      "min": 0.8877357000019401,
+      "max": 0.9079193000216037,
+      "spread": 0.02256389459404304,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      2.2697982500540093e-05,
+      2.2193392500048504e-05,
+      2.2362717499345308e-05,
+      2.242093750028289e-05,
+      2.233027249967563e-05
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "VehicleMsgItemInfo (2 payloads)",
+   "ops_per_unit": 2,
+   "note": "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 7.468673046958209e-06,
+      "min": 7.312067074700653e-06,
+      "max": 7.799254119900013e-06,
+      "spread": 0.06523073672341008,
+      "n": 5
+     },
+     "ops_per_s": 133892.59292951284,
+     "loops": 36467,
+     "ops_per_measurement": 72934,
+     "measurement_s": {
+      "median": 0.5447202000068501,
+      "min": 0.5332983000262175,
+      "max": 0.5688307999807876,
+      "spread": 0.06523073672341002,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      7.484640908191252e-06,
+      7.312067074700653e-06,
+      7.799254119900013e-06,
+      7.37439191604876e-06,
+      7.468673046958209e-06
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 2.399897522556826e-06,
+      "min": 2.3407757538456486e-06,
+      "max": 2.4485465289412172e-06,
+      "spread": 0.04490640707889509,
+      "n": 5
+     },
+     "ops_per_s": 416684.4586491386,
+     "loops": 117099,
+     "ops_per_measurement": 234198,
+     "measurement_s": {
+      "median": 0.5620511999877635,
+      "min": 0.5482049999991432,
+      "max": 0.5734446999849752,
+      "spread": 0.04490640707889507,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      2.4239425614109333e-06,
+      2.4485465289412172e-06,
+      2.3407757538456486e-06,
+      2.399897522556826e-06,
+      2.340847488068435e-06
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "VehicleMsgListResponse (1 payload)",
+   "ops_per_unit": 1,
+   "note": "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 1.9034309595242666e-05,
+      "min": 1.8504776277456823e-05,
+      "max": 1.960140634825621e-05,
+      "spread": 0.057613335819307644,
+      "n": 5
+     },
+     "ops_per_s": 52536.70982896772,
+     "loops": 30149,
+     "ops_per_measurement": 30149,
+     "measurement_s": {
+      "median": 0.5738653999869712,
+      "min": 0.5579004999890458,
+      "max": 0.5909627999935765,
+      "spread": 0.057613335819307686,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      1.9034309595242666e-05,
+      1.8504776277456823e-05,
+      1.8735652923585345e-05,
+      1.960140634825621e-05,
+      1.9057272214358406e-05
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 8.056146304009723e-06,
+      "min": 7.9979726508673e-06,
+      "max": 8.637773092900585e-06,
+      "spread": 0.07941767910978006,
+      "n": 5
+     },
+     "ops_per_s": 124128.82813489593,
+     "loops": 69253,
+     "ops_per_measurement": 69253,
+     "measurement_s": {
+      "median": 0.5579122999915853,
+      "min": 0.5538835999905132,
+      "max": 0.5981917000026442,
+      "spread": 0.07941767910978,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      8.108519486373409e-06,
+      8.637773092900585e-06,
+      7.9979726508673e-06,
+      8.049947294446627e-06,
+      8.056146304009723e-06
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Reply models",
+   "name": "VehicleRealtimeData (5 payloads)",
+   "ops_per_unit": 5,
+   "note": "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 5.7622389111554275e-05,
+      "min": 5.582150201477024e-05,
+      "max": 5.892062499990589e-05,
+      "spread": 0.05378331292609011,
+      "n": 5
+     },
+     "ops_per_s": 17354.365471796846,
+     "loops": 1984,
+     "ops_per_measurement": 9920,
+     "measurement_s": {
+      "median": 0.5716140999866184,
+      "min": 0.5537492999865208,
+      "max": 0.5844925999990664,
+      "spread": 0.053783312926090114,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      5.892062499990589e-05,
+      5.868366935476754e-05,
+      5.598157258059326e-05,
+      5.582150201477024e-05,
+      5.7622389111554275e-05
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 2.0026883653103314e-05,
+      "min": 1.9779086495737762e-05,
+      "max": 2.0256953785092783e-05,
+      "spread": 0.023861290534884172,
+      "n": 5
+     },
+     "ops_per_s": 49932.881087319976,
+     "loops": 5561,
+     "ops_per_measurement": 27805,
+     "measurement_s": {
+      "median": 0.5568474999745376,
+      "min": 0.5499575000139885,
+      "max": 0.5632445999945048,
+      "spread": 0.02386129053488419,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      1.9779086495737762e-05,
+      2.0026883653103314e-05,
+      2.0256953785092783e-05,
+      2.009152670423059e-05,
+      2.0024517173075812e-05
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "shadow.compare",
+   "name": "VehicleRealtimeData (every field present)",
+   "ops_per_unit": 1,
+   "note": "absolute cost of one comparison (parse in openbyd + compare with pyBYD's dump); no pyBYD equivalent. Answer must be [] (no differing field).",
+   "impls": {
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 7.014073297134435e-05,
+      "min": 6.627448173925333e-05,
+      "max": 7.506269743288077e-05,
+      "spread": 0.1252940384472147,
+      "n": 5
+     },
+     "ops_per_s": 14257.050898064397,
+     "loops": 8104,
+     "ops_per_measurement": 8104,
+     "measurement_s": {
+      "median": 0.5684204999997746,
+      "min": 0.537088400014909,
+      "max": 0.6083080999960657,
+      "spread": 0.12529403844721465,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      7.128266288319911e-05,
+      6.627448173925333e-05,
+      7.506269743288077e-05,
+      6.724392892398066e-05,
+      7.014073297134435e-05
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "shadow.compare",
+   "name": "GpsInfo (valid fix, speed in km/h (coordinates anonymised))",
+   "ops_per_unit": 1,
+   "note": "absolute cost of one comparison (parse in openbyd + compare with pyBYD's dump); no pyBYD equivalent. Answer must be [] (no differing field).",
+   "impls": {
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 2.8956296150117736e-06,
+      "min": 2.8442190563588704e-06,
+      "max": 2.9030218804975736e-06,
+      "spread": 0.02030743981683724,
+      "n": 5
+     },
+     "ops_per_s": 345348.0358177418,
+     "loops": 191768,
+     "ops_per_measurement": 191768,
+     "measurement_s": {
+      "median": 0.5552891000115778,
+      "min": 0.5454301999998279,
+      "max": 0.5567066999792587,
+      "spread": 0.0203074398168372,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      2.896488465302971e-06,
+      2.8956296150117736e-06,
+      2.8442190563588704e-06,
+      2.9030218804975736e-06,
+      2.8650562138264943e-06
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "One signed request, localhost",
+   "name": "sequential (latency)",
+   "ops_per_unit": 20,
+   "note": "inner payload built once and shared; reply is the 3.6 KB realtime payload; the server runs in a thread of this process, so it shares the CPU but not the GIL",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 0.10560472499928437,
+      "min": 0.10519724999903701,
+      "max": 0.10596240500017302,
+      "spread": 0.007245461802407009,
+      "n": 5
+     },
+     "ops_per_s": 9.469273273584836,
+     "loops": 1,
+     "ops_per_measurement": 20,
+     "measurement_s": {
+      "median": 2.1120944999856874,
+      "min": 2.1039449999807402,
+      "max": 2.1192481000034604,
+      "spread": 0.007245461802406982,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.10527004000032321,
+      0.10519724999903701,
+      0.10560472499928437,
+      0.10581326499959687,
+      0.10596240500017302
+     ]
+    },
+    "pybyd_accel": {
+     "seconds_per_op": {
+      "median": 0.0013732460000028368,
+      "min": 0.0013668020000477555,
+      "max": 0.001415963500039652,
+      "spread": 0.03579948530110038,
+      "n": 5
+     },
+     "ops_per_s": 728.2016477731843,
+     "loops": 20,
+     "ops_per_measurement": 400,
+     "measurement_s": {
+      "median": 0.5492984000011347,
+      "min": 0.5467208000191022,
+      "max": 0.5663854000158608,
+      "spread": 0.03579948530110046,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.0013974320000124862,
+      0.0013690397499885876,
+      0.0013668020000477555,
+      0.001415963500039652,
+      0.0013732460000028368
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 0.001243447391290987,
+      "min": 0.0012130104347623115,
+      "max": 0.0012690534782924933,
+      "spread": 0.04507069934981016,
+      "n": 5
+     },
+     "ops_per_s": 804.2157690015079,
+     "loops": 23,
+     "ops_per_measurement": 460,
+     "measurement_s": {
+      "median": 0.571985799993854,
+      "min": 0.5579847999906633,
+      "max": 0.5837646000145469,
+      "spread": 0.045070699349810055,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.0012292791304112736,
+      0.0012690534782924933,
+      0.001243447391290987,
+      0.0012130104347623115,
+      0.0012493376087387214
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "pybyd_accel",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "One signed request, localhost",
+   "name": "200 at a time (throughput)",
+   "ops_per_unit": 200,
+   "note": "inner payload built once and shared; reply is the 3.6 KB realtime payload; the server runs in a thread of this process, so it shares the CPU but not the GIL",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 0.10458196999999927,
+      "min": 0.10391524699996807,
+      "max": 0.10634830499999225,
+      "spread": 0.023264602875851293,
+      "n": 5
+     },
+     "ops_per_s": 9.561877635313305,
+     "loops": 1,
+     "ops_per_measurement": 200,
+     "measurement_s": {
+      "median": 20.916393999999855,
+      "min": 20.783049399993615,
+      "max": 21.26966099999845,
+      "spread": 0.02326460287585128,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.1044165525000426,
+      0.10458196999999927,
+      0.10391524699996807,
+      0.10471453250007472,
+      0.10634830499999225
+     ]
+    },
+    "pybyd_accel": {
+     "seconds_per_op": {
+      "median": 0.001168025999989671,
+      "min": 0.0011330445000203326,
+      "max": 0.0011922571666461105,
+      "spread": 0.05069464774440084,
+      "n": 5
+     },
+     "ops_per_s": 856.1453255397081,
+     "loops": 3,
+     "ops_per_measurement": 600,
+     "measurement_s": {
+      "median": 0.7008155999938026,
+      "min": 0.6798267000121996,
+      "max": 0.7153542999876663,
+      "spread": 0.050694647744400814,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.0011922571666461105,
+      0.0011330445000203326,
+      0.001168025999989671,
+      0.0011647626666914828,
+      0.0011692253333361199
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 0.000778560375001689,
+      "min": 0.0006847648750044755,
+      "max": 0.0008333895000032499,
+      "spread": 0.1908967239675561,
+      "n": 5
+     },
+     "ops_per_s": 1284.4219049779288,
+     "loops": 4,
+     "ops_per_measurement": 800,
+     "measurement_s": {
+      "median": 0.6228483000013512,
+      "min": 0.5478119000035804,
+      "max": 0.6667116000025999,
+      "spread": 0.1908967239675561,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.0006847648750044755,
+      0.0008333895000032499,
+      0.0008032858749720618,
+      0.000778560375001689,
+      0.0007128960000045481
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "pybyd_accel",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  },
+  {
+   "group": "Login",
+   "name": "one login (sequential)",
+   "ops_per_unit": 1,
+   "note": "pyBYD's BydClient.login() against openbyd.lowlevel.login(); both hash the password, sign and open the reply; compared on the user id",
+   "impls": {
+    "pybyd": {
+     "seconds_per_op": {
+      "median": 0.023366554167296272,
+      "min": 0.023029320833302336,
+      "max": 0.023679062499771437,
+      "spread": 0.027806481940690964,
+      "n": 5
+     },
+     "ops_per_s": 42.796211749509716,
+     "loops": 24,
+     "ops_per_measurement": 24,
+     "measurement_s": {
+      "median": 0.5607973000151105,
+      "min": 0.5527036999992561,
+      "max": 0.5682974999945145,
+      "spread": 0.027806481940691012,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.023512929166220903,
+      0.023029320833302336,
+      0.023080441666631184,
+      0.023679062499771437,
+      0.023366554167296272
+     ]
+    },
+    "openbyd": {
+     "seconds_per_op": {
+      "median": 0.000530348682929421,
+      "min": 0.0005218490731629838,
+      "max": 0.000538552975617122,
+      "spread": 0.031496076056742366,
+      "n": 5
+     },
+     "ops_per_s": 1885.5519626756204,
+     "loops": 1025,
+     "ops_per_measurement": 1025,
+     "measurement_s": {
+      "median": 0.5436074000026565,
+      "min": 0.5348952999920584,
+      "max": 0.55201680000755,
+      "spread": 0.03149607605674233,
+      "n": 5
+     },
+     "samples_s_per_op": [
+      0.000530348682929421,
+      0.0005218490731629838,
+      0.0005320415609493488,
+      0.0005285531707198882,
+      0.000538552975617122
+     ]
+    }
+   },
+   "check": {
+    "ok": true,
+    "compared": [
+     "pybyd",
+     "openbyd"
+    ],
+    "mismatch": []
+   }
+  }
+ ]
+}

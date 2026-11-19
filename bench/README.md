@@ -19,55 +19,34 @@ bench/
 
 ## Results
 
-Full run of 2026-11-19 on one machine: AMD Ryzen 9 5900X (12 cores, 24 threads), 64 GiB, Windows 11 10.0.26200, Python 3.12.13, rustc 1.100.0, release builds. pyBYD at commit `2c3d80648e` (`parity/UPSTREAM_COMMIT`). openbyd: the load results were produced at commit `2327866020`, the micro-benchmark and MQTT results at `587100f40a` (the commits in between changed how `load.py` reports failures and made `mqtt_idle.py` wait for loopback sockets to clear, nothing that is measured). The machine was shared with other builds and tests (12 to 19% of all cores busy before the micro-benchmarks), so read every figure together with its spread. A full run takes about 65 minutes (54 for the load benchmark, almost all of it pyBYD at 200 and 1000 accounts).
+Full run of 2026-11-19 (evening) on one machine: AMD Ryzen 9 5900X (12 cores, 24 threads), 64 GiB, Windows 11 10.0.26200, Python 3.12.13, rustc 1.100.0, release builds. openbyd at commit `7104731ad4` (version 0.1.1); pyBYD at commit `2c3d80648e` (`parity/UPSTREAM_COMMIT`). Other work was running on the machine during parts of the run (about 10% of all cores busy before the micro-benchmarks, more during the load runs), so read every figure with its spread. A full run takes about 45 minutes, almost all of it pyBYD at 200 and 1000 accounts.
+
+### Headlines
+
+- **Cipher:** 229 to 256 times faster than pyBYD's Python cipher. pyBYD with `openbyd.pybyd_accel` installed is within noise of openbyd's own call.
+- **One signed request on localhost:** 105.6 ms in pyBYD, 1.37 ms in pyBYD with the Rust cipher, 1.24 ms in openbyd.
+- **Reply models:** openbyd is 2.3 to 5.3 times faster on every model. The full realtime reply takes 96 us in pyBYD and 36 us in openbyd. An earlier version of this page showed openbyd slower here; that was before two optimisation passes.
+- **CPU per poll cycle:** about 250 ms in pyBYD (314 ms at 1000 accounts), 3.5 to 5.2 ms in pyBYD with the Rust cipher, 1.6 to 2.4 ms in openbyd on one worker thread.
+- **Memory per account:** about 950 KiB in pyBYD, 113 to 148 KiB with the Rust cipher, 89 to 226 KiB in openbyd on one worker thread.
+- **Idle MQTT connection:** 727 KiB and one thread in pyBYD; 54 to 80 KiB and no extra thread in openbyd.
 
 ### Where openbyd is not faster
 
-* **Reply models.** `openbyd.models.parse` is not faster than pyBYD's pydantic validation plus `model_dump`; for the realtime and HVAC models it is slower. The headline row, the full realtime payload, was 210 us for openbyd against 154 us for pyBYD in the run tabled below, which is *within noise* only because pyBYD's repeats ranged widely; in the two earlier full runs it was 208 against 102 us and 221 against 101 us, which is 2.0 to 2.2 times slower, and openbyd's own figure stayed at 208 to 221 us. HVAC is about 2 times slower, energy consumption about 1.1 times; the rest of the models are within noise of pyBYD (a few rows come out faster or slower from run to run). These are the figures before the model-parsing optimisation that another branch is making; the commit above says which code they describe.
-* **The cipher alone.** openbyd's own `encode_envelope`/`decode_envelope` and pyBYD with the Rust cipher installed are within noise of each other, as they run the same Rust code. The whole 190 to 460 times cipher speed-up is available to a pyBYD user with one line (`pybyd_accel.install()`). On one complete request on localhost the two are within a few percent (1.46 and 1.57 ms, which is mostly the fake server and the loopback).
-* **Native openbyd with the default worker count** costs more CPU and memory per account than with one worker (4.4 to 5.8 against 2.1 to 2.8 ms per cycle, and 154 to 417 against 91 to 170 KiB per account), because 24 worker threads each have a stack and wake up to steal work. It is only faster in wall time where one worker is saturated (1000 accounts: 2.9 s against 14.2 s). For a service that has cores to spare and a poll interval of seconds, a small worker count is the cheaper setting.
-* **Memory, pyBYD with the Rust cipher against native openbyd** is close at 1000 accounts (113 against 91 KiB per account) and at 50 accounts pyBYD with the Rust cipher used less than native openbyd with the default workers (146 against 417 KiB). CPU is where native openbyd is ahead of it (about 2 times).
-
-### What an account costs
-
-Figures at 1000 accounts, from the load benchmark below. "Accounts per core" is the number of accounts one core could poll once a minute, 60 000 ms divided by the CPU per cycle; it counts client CPU only, against a fake server over plain HTTP, so it is an upper bound.
-
-| | CPU per poll cycle | Memory per account | Accounts per core at one cycle a minute |
-|---|---|---|---|
-| pyBYD | 350 ms (332 to 343 at 50 and 200 accounts) | 933 KiB | about 170 (and it did not keep up, see below) |
-| pyBYD with openbyd's cipher | 5.4 ms | 113 KiB | about 11 000 |
-| openbyd native, 1 worker | 2.8 ms | 91 KiB | about 21 000 |
-| openbyd native, default workers | 4.8 ms | 154 KiB | about 12 000 |
-
-* **pyBYD at 1000 accounts overloaded its event loop.** One asyncio loop needs about 350 ms of CPU per cycle, so 1000 accounts that all start together need about 29 minutes of loop time for five cycles (the run took 1758 s). The event loop was late by a median of 17.5 s and up to 110 s, and 314 calls failed with `BydTransportError: Connection timeout to host` (most likely aiohttp's default 30 s connect timeout expiring while the loop was too busy to finish the connection). The server therefore saw 36 372 of the planned 37 000 requests, the shortfall (628) being exactly the failed triggers and the polls that they skipped, two per failed call. Every other implementation made all 37 000 requests with no failure. At 200 accounts pyBYD still completed, with the loop late by a median of 4 s.
-* **pyBYD with openbyd's cipher** keeps the event loop responsive (median lag 0 at 50 accounts, 23 ms at 200, 440 ms with a maximum of 964 ms at 1000 accounts starting together) and completes the run 65 times faster than pyBYD at 1000 accounts.
-* **Idle MQTT.** 200 idle pyBYD connections held 195 MiB (727 KiB each, 201 threads added, the second run measured the same 727 KiB). openbyd held 200 for 21 MiB (79 KiB each) and 1000 for 59 MiB (54 KiB each) on a fixed pool of worker threads (29 threads in all, none added per connection). Idle CPU was nil for both (pyBYD showed 0.62% of a core in the first full run and 0.00% in the second: paho's keepalive and wake-ups).
-
-### Reproducibility
-
-* Load CPU per cycle: the three runs of each fast implementation fell within about 12% of their median (the default-worker runs are wider: 2.9 to 7.4 ms at 50 accounts, 4.7 to 10.6 at 1000, one run in three was an outlier); pyBYD's three runs at 50 accounts gave 320 to 357 ms, and its figure at 200 and 1000 accounts (one run each) is within 6% of that.
-* Memory per account and MQTT memory repeated to within 2% between runs. MQTT: pyBYD 727 and 727 KiB, openbyd 80 and 79 KiB at 200, 55 and 54 at 1000.
-* Micro-benchmarks are the least reproducible: single operations of 5 to 700 us moved by 10 to 30% within a run and by up to 50% between runs (pyBYD's realtime parse: 102, 101 and 154 us). Rows whose ranges overlap are labelled *within noise*. Ratios of 50 times and more (the cipher, login, a full request through pyBYD's own cipher) are far outside any of this.
-* Three full micro runs were made and the tables show the last. The first was made while 27% of the machine was busy with other work and the second from an uncommitted tree; their figures are quoted above where they differ, and their files were not kept.
+- **Cipher alone:** openbyd's direct call and pyBYD with the Rust cipher are the same code, and measure the same.
+- **Default tokio workers:** the native client on the default worker count uses more CPU per cycle (3.4 to 5.2 ms) and more memory per account than on one worker, in exchange for finishing sooner. One worker is the efficient setting for this workload.
+- **Memory at 50 accounts:** openbyd on one worker used more memory per account (226 KiB) than pyBYD with the Rust cipher (148 KiB); from 200 accounts up it uses less.
 
 ### What could not be measured
 
-* TLS on the HTTP side and real network latency: the fake server speaks plain HTTP on localhost.
-* Linux and macOS: only this Windows machine was available.
-* pyBYD with 1000 idle MQTT connections (one thread each; the request was 200) and a push being delivered (decrypt, parse, event hand-over).
-* The Python `openbyd.Client` class (another branch is adding it) and any operation that openbyd has only through an internal test hook (see below).
-* CPU below the scheduler tick (15.6 ms) for a single short run: the native runs last 2 to 14 s, so it is averaged over many ticks, and repeated three times.
-
-
-### Tables
-
-These are the tables `bench/report.py` renders from `bench/results/`.
+- TLS on the HTTP side and real network latency: the fake server speaks plain HTTP on localhost.
+- Linux and macOS: only this Windows machine was available. CI has measured reply parsing on Linux at about half pyBYD's time, before the last optimisation.
+- pyBYD with 1000 idle MQTT connections, and the delivery of a push message.
 
 ### Micro-benchmarks
 
-Run on 2026-11-19T16:41:14+02:00. AMD Ryzen 9 5900X 12-Core Processor, 24 logical cores, 63.9 GiB, Windows-11-10.0.26200-SP0; Python 3.12.13, rustc 1.100.0 (0ef1bc386 2026-11-09). openbyd commit `587100f40a`; pyBYD commit `2c3d80648e`.
+Run on 2026-11-19T20:49:48+02:00. AMD Ryzen 9 5900X 12-Core Processor, 24 logical cores, 63.9 GiB, Windows-11-10.0.26200-SP0; Python 3.12.13, rustc 1.100.0 (0ef1bc386 2026-11-09). openbyd commit `7104731ad4`; pyBYD commit `2c3d80648e`.
 
-Other activity on the machine before the run: 12% of all cores.
+Other activity on the machine before the run: 10% of all cores.
 
 Each cell is the median time per operation of 5 measurements of at least 0.5 s, with half the spread (max - min) / median as +-. "openbyd vs pyBYD" is a factor of the medians, or "within noise" when the measurements' ranges overlap.
 
@@ -75,31 +54,31 @@ Each cell is the median time per operation of 5 measurements of at least 0.5 s, 
 
 | Row | pyBYD | pyBYD + openbyd cipher | openbyd | openbyd vs pyBYD |
 |---|---|---|---|---|
-| encode 512 B | 10.83 ms (+-29%) | 49.5 us (+-8%) | 45.6 us (+-10%) | 237.6x faster |
-| decode 512 B | 12.99 ms (+-22%) | 31.3 us (+-25%) | 28.3 us (+-2%) | 458.9x faster |
-| encode 2 KB | 28.19 ms (+-24%) | 183.3 us (+-2%) | 150.9 us (+-16%) | 186.8x faster |
-| decode 2 KB | 52.09 ms (+-2%) | 174.6 us (+-2%) | 169.5 us (+-12%) | 307.4x faster |
-| encode 8 KB | 205.54 ms (+-25%) | 654.7 us (+-17%) | 708.1 us (+-6%) | 290.3x faster |
-| decode 8 KB | 205.88 ms (+-6%) | 653.5 us (+-1%) | 676.2 us (+-15%) | 304.4x faster |
+| encode 512 B | 7.25 ms (+-1%) | 34.3 us (+-1%) | 31.6 us (+-1%) | 229.5x faster |
+| decode 512 B | 7.41 ms (+-3%) | 32.0 us (+-1%) | 29.0 us (+-3%) | 255.9x faster |
+| encode 2 KB | 28.47 ms (+-2%) | 126.2 us (+-3%) | 122.0 us (+-2%) | 233.4x faster |
+| decode 2 KB | 28.31 ms (+-1%) | 112.2 us (+-1%) | 110.7 us (+-3%) | 255.7x faster |
+| encode 8 KB | 112.78 ms (+-2%) | 499.7 us (+-3%) | 480.5 us (+-5%) | 234.7x faster |
+| decode 8 KB | 110.90 ms (+-2%) | 425.4 us (+-3%) | 439.5 us (+-7%) | 252.4x faster |
 
 #### Reply models
 
 | Row | pyBYD | openbyd | openbyd vs pyBYD |
 |---|---|---|---|
-| VehicleRealtimeData, every field present (headline) | 153.7 us (+-6%) | 210.2 us (+-23%) | within noise |
-| AcCurrentLimit (2 payloads) | 9.4 us (+-4%) | 8.1 us (+-3%) | 1.2x faster |
-| BookingList (2 payloads) | 14.7 us (+-4%) | 14.5 us (+-19%) | within noise |
-| ChargingStatus (1 payload) | 7.0 us (+-18%) | 8.5 us (+-12%) | within noise |
-| EnergyConsumption (2 payloads) | 78.8 us (+-5%) | 86.8 us (+-7%) | 1.1x slower |
-| GpsInfo (2 payloads) | 5.3 us (+-35%) | 6.3 us (+-8%) | within noise |
-| HvacStatus (4 payloads) | 10.1 us (+-30%) | 20.9 us (+-10%) | 2.1x slower |
-| LatestConfigFunction (1 payload) | 9.2 us (+-11%) | 6.8 us (+-20%) | within noise |
-| PushNotificationState (2 payloads) | 16.9 us (+-3%) | 7.4 us (+-18%) | 2.3x faster |
-| Vehicle (3 payloads) | 13.5 us (+-3%) | 11.4 us (+-17%) | within noise |
-| VehicleLatestConfig (2 payloads) | 160.7 us (+-8%) | 146.7 us (+-20%) | within noise |
-| VehicleMsgItemInfo (2 payloads) | 13.3 us (+-7%) | 10.7 us (+-5%) | 1.2x faster |
-| VehicleMsgListResponse (1 payload) | 17.8 us (+-2%) | 19.6 us (+-0%) | 1.1x slower |
-| VehicleRealtimeData (5 payloads) | 55.3 us (+-2%) | 120.2 us (+-5%) | 2.2x slower |
+| VehicleRealtimeData, every field present (headline) | 96.1 us (+-2%) | 36.0 us (+-2%) | 2.7x faster |
+| AcCurrentLimit (2 payloads) | 5.1 us (+-2%) | 1.6 us (+-2%) | 3.3x faster |
+| BookingList (2 payloads) | 8.6 us (+-8%) | 3.1 us (+-1%) | 2.8x faster |
+| ChargingStatus (1 payload) | 4.5 us (+-1%) | 1.7 us (+-2%) | 2.6x faster |
+| EnergyConsumption (2 payloads) | 47.0 us (+-2%) | 15.3 us (+-2%) | 3.1x faster |
+| GpsInfo (2 payloads) | 4.8 us (+-5%) | 1.4 us (+-3%) | 3.5x faster |
+| HvacStatus (4 payloads) | 9.2 us (+-2%) | 3.7 us (+-2%) | 2.5x faster |
+| LatestConfigFunction (1 payload) | 5.2 us (+-2%) | 1.8 us (+-5%) | 2.9x faster |
+| PushNotificationState (2 payloads) | 12.6 us (+-22%) | 2.4 us (+-8%) | 5.2x faster |
+| Vehicle (3 payloads) | 7.7 us (+-14%) | 3.2 us (+-1%) | 2.4x faster |
+| VehicleLatestConfig (2 payloads) | 90.0 us (+-3%) | 22.4 us (+-1%) | 4.0x faster |
+| VehicleMsgItemInfo (2 payloads) | 7.5 us (+-3%) | 2.4 us (+-2%) | 3.1x faster |
+| VehicleMsgListResponse (1 payload) | 19.0 us (+-3%) | 8.1 us (+-4%) | 2.4x faster |
+| VehicleRealtimeData (5 payloads) | 57.6 us (+-3%) | 20.0 us (+-1%) | 2.9x faster |
 
 *per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects*
 *the full realtime payload, 3.6 KB of JSON*
@@ -108,8 +87,8 @@ Each cell is the median time per operation of 5 measurements of at least 0.5 s, 
 
 | Row | openbyd |
 |---|---|
-| VehicleRealtimeData (every field present) | 177.6 us (+-2%) |
-| GpsInfo (valid fix, speed in km/h (coordinates anonymised)) | 8.8 us (+-23%) |
+| VehicleRealtimeData (every field present) | 70.1 us (+-6%) |
+| GpsInfo (valid fix, speed in km/h (coordinates anonymised)) | 2.9 us (+-1%) |
 
 *absolute cost of one comparison (parse in openbyd + compare with pyBYD's dump); no pyBYD equivalent. Answer must be [] (no differing field).*
 
@@ -117,8 +96,8 @@ Each cell is the median time per operation of 5 measurements of at least 0.5 s, 
 
 | Row | pyBYD | pyBYD + openbyd cipher | openbyd | openbyd vs pyBYD |
 |---|---|---|---|---|
-| sequential (latency) | 147.95 ms (+-24%) | 1.57 ms (+-1%) | 1.46 ms (+-2%) | 101.3x faster |
-| 200 at a time (throughput) | 149.62 ms (+-1%) | 1.23 ms (+-7%) | 1.12 ms (+-3%) | 133.3x faster |
+| sequential (latency) | 105.60 ms (+-0%) | 1.37 ms (+-2%) | 1.24 ms (+-2%) | 84.9x faster |
+| 200 at a time (throughput) | 104.58 ms (+-1%) | 1.17 ms (+-3%) | 778.6 us (+-10%) | 134.3x faster |
 
 *inner payload built once and shared; reply is the 3.6 KB realtime payload; the server runs in a thread of this process, so it shares the CPU but not the GIL*
 
@@ -126,15 +105,15 @@ Each cell is the median time per operation of 5 measurements of at least 0.5 s, 
 
 | Row | pyBYD | openbyd | openbyd vs pyBYD |
 |---|---|---|---|
-| one login (sequential) | 40.98 ms (+-21%) | 637.6 us (+-3%) | 64.3x faster |
+| one login (sequential) | 23.37 ms (+-1%) | 530.3 us (+-2%) | 44.1x faster |
 
 *pyBYD's BydClient.login() against openbyd.lowlevel.login(); both hash the password, sign and open the reply; compared on the user id*
 
-*Source: `bench/results/micro-20261119-164114.json`*
+*Source: `bench/results/micro-20261119-204948.json`*
 
 ### Load: what an account costs
 
-Run on 2026-11-19T16:19:21+02:00. AMD Ryzen 9 5900X 12-Core Processor, 24 logical cores, 63.9 GiB, Windows-11-10.0.26200-SP0; Python 3.12.13, rustc 1.100.0 (0ef1bc386 2026-11-09). openbyd commit `2327866020`; pyBYD commit `2c3d80648e`.
+Run on 2026-11-19T21:26:50+02:00. AMD Ryzen 9 5900X 12-Core Processor, 24 logical cores, 63.9 GiB, Windows-11-10.0.26200-SP0; Python 3.12.13, rustc 1.100.0 (0ef1bc386 2026-11-09). openbyd commit `7104731ad4`; pyBYD commit `2c3d80648e`.
 
 Each account logs in, lists its vehicles and runs 5 poll cycles (realtime, GPS, charging status, HVAC status, energy consumption; 37 requests in all) with 100 ms think time between cycles. The fake server runs in its own process and delays every reply by 20 ms; pollable reads sleep 0.05 s before their poll. CPU is user + system seconds of the client process during the run, divided by accounts x cycles (so it includes the one-off login and vehicle list); with several runs the table shows the median run and the range. Memory is the peak resident size minus the size before the run, per account.
 
@@ -142,45 +121,44 @@ Each account logs in, lists its vehicles and runs 5 poll cycles (realtime, GPS, 
 
 | Implementation | CPU ms / cycle | Memory / account | Peak RSS | Requests / s | Wall | Threads (peak) | Loop lag median / p99 / max | Failed calls | Requests seen / planned |
 |---|---|---|---|---|---|---|---|---|---|
-| pyBYD | 332.0 (range 320.5-357.1, 3 runs) | 979 KiB | 101 MiB | 22 | 83.4 s | 37 | 897.4 / 4328 / 4689 ms | 0 | 1850 / 1850 |
-| pyBYD + openbyd cipher | 5.4 (range 5.1-5.7, 3 runs) | 146 KiB | 64 MiB | 817 | 2.3 s | 21 | 0.0 / 26 / 54 ms | 0 | 1850 / 1850 |
-| openbyd native, 1 worker | 2.6 (range 2.3-2.9, 3 runs) | 170 KiB | 14 MiB | 811 | 2.3 s | 6 | n/a (no event loop) | 0 | 1850 / 1850 |
-| openbyd native, default workers | 5.8 (range 2.9-7.4, 3 runs) | 417 KiB | 26 MiB | 827 | 2.2 s | 29 | n/a (no event loop) | 0 | 1850 / 1850 |
+| pyBYD | 246.5 (range 246.1-247.4, 3 runs) | 981 KiB | 102 MiB | 30 | 61.9 s | 37 | 783.3 / 2873 / 3607 ms | 0 | 1850 / 1850 |
+| pyBYD + openbyd cipher | 3.5 (range 3.4-4.1, 3 runs) | 148 KiB | 65 MiB | 853 | 2.2 s | 23 | 0.0 / 26 / 30 ms | 0 | 1850 / 1850 |
+| openbyd native, 1 worker | 1.9 (range 1.2-1.9, 3 runs) | 226 KiB | 17 MiB | 792 | 2.3 s | 6 | n/a (no event loop) | 0 | 1850 / 1850 |
+| openbyd native, default workers | 3.4 (range 1.8-4.0, 3 runs) | 438 KiB | 27 MiB | 815 | 2.3 s | 29 | n/a (no event loop) | 0 | 1850 / 1850 |
 
 #### 200 accounts
 
 | Implementation | CPU ms / cycle | Memory / account | Peak RSS | Requests / s | Wall | Threads (peak) | Loop lag median / p99 / max | Failed calls | Requests seen / planned |
 |---|---|---|---|---|---|---|---|---|---|
-| pyBYD | 342.9 | 947 KiB | 238 MiB | 22 | 344.0 s | 37 | 4073.0 / 27589 / 30294 ms | 0 | 7400 / 7400 |
-| pyBYD + openbyd cipher | 4.2 (range 4.1-4.3, 3 runs) | 124 KiB | 81 MiB | 1716 | 4.3 s | 37 | 23.3 / 85 / 129 ms | 0 | 7400 / 7400 |
-| openbyd native, 1 worker | 2.1 (range 2.0-2.2, 3 runs) | 112 KiB | 27 MiB | 2519 | 2.9 s | 6 | n/a (no event loop) | 0 | 7400 / 7400 |
-| openbyd native, default workers | 4.4 (range 4.2-4.9, 3 runs) | 197 KiB | 45 MiB | 3269 | 2.3 s | 29 | n/a (no event loop) | 0 | 7400 / 7400 |
+| pyBYD | 251.9 | 949 KiB | 239 MiB | 29 | 252.5 s | 37 | 2857.3 / 21616 / 22218 ms | 0 | 7400 / 7400 |
+| pyBYD + openbyd cipher | 4.0 (range 3.9-4.5, 3 runs) | 123 KiB | 82 MiB | 1832 | 4.0 s | 37 | 9.4 / 79 / 92 ms | 0 | 7400 / 7400 |
+| openbyd native, 1 worker | 1.6 (range 1.6-1.8, 3 runs) | 115 KiB | 28 MiB | 2787 | 2.7 s | 6 | n/a (no event loop) | 0 | 7400 / 7400 |
+| openbyd native, default workers | 3.8 (range 2.0-4.0, 3 runs) | 211 KiB | 47 MiB | 3221 | 2.3 s | 29 | n/a (no event loop) | 0 | 7400 / 7400 |
 
 #### 1000 accounts
 
 | Implementation | CPU ms / cycle | Memory / account | Peak RSS | Requests / s | Wall | Threads (peak) | Loop lag median / p99 / max | Failed calls | Requests seen / planned |
 |---|---|---|---|---|---|---|---|---|---|
-| pyBYD | 350.1 | 933 KiB | 965 MiB | 21 | 1757.6 s | 37 | 17542.5 / 94976 / 110585 ms | 314 | 36372 / 37000 (calls failed) |
-| pyBYD + openbyd cipher | 5.4 (range 5.3-5.5, 3 runs) | 113 KiB | 167 MiB | 1359 | 27.2 s | 37 | 440.4 / 924 / 964 ms | 0 | 37000 / 37000 |
-| openbyd native, 1 worker | 2.8 (range 2.7-2.8, 3 runs) | 91 KiB | 94 MiB | 2612 | 14.2 s | 6 | n/a (no event loop) | 0 | 37000 / 37000 |
-| openbyd native, default workers | 4.8 (range 4.7-10.6, 3 runs) | 154 KiB | 156 MiB | 12923 | 2.9 s | 29 | n/a (no event loop) | 0 | 37000 / 37000 |
+| pyBYD | 314.2 | 935 KiB | 967 MiB | 23 | 1590.9 s | 37 | 15630.9 / 93535 / 109089 ms | 0 | 37000 / 37000 |
+| pyBYD + openbyd cipher | 5.2 (range 4.9-5.3, 3 runs) | 113 KiB | 168 MiB | 1405 | 26.3 s | 37 | 416.5 / 828 / 1113 ms | 0 | 37000 / 37000 |
+| openbyd native, 1 worker | 2.4 (range 2.2-2.5, 3 runs) | 89 KiB | 92 MiB | 3029 | 12.2 s | 6 | n/a (no event loop) | 0 | 37000 / 37000 |
+| openbyd native, default workers | 5.2 (range 4.0-7.0, 3 runs) | 154 KiB | 156 MiB | 11468 | 3.2 s | 29 | n/a (no event loop) | 0 | 37000 / 37000 |
 
-*Source: `bench/results/load-20261119-161921.json`*
+*Source: `bench/results/load-20261119-212650.json`*
 
 ### Idle MQTT connections
 
-Run on 2026-11-19T16:43:28+02:00. AMD Ryzen 9 5900X 12-Core Processor, 24 logical cores, 63.9 GiB, Windows-11-10.0.26200-SP0; Python 3.12.13, rustc 1.100.0 (0ef1bc386 2026-11-09). openbyd commit `587100f40a`; pyBYD commit `2c3d80648e`.
+Run on 2026-11-19T21:29:28+02:00. AMD Ryzen 9 5900X 12-Core Processor, 24 logical cores, 63.9 GiB, Windows-11-10.0.26200-SP0; Python 3.12.13, rustc 1.100.0 (0ef1bc386 2026-11-09). openbyd commit `7104731ad4`; pyBYD commit `2c3d80648e`.
 
 N connections to the TLS test broker (a separate process), each subscribed to its own topic, then idle (5.0 s window after 3.0 s to settle, keepalive 120 s). **Certificate verification is off on both sides** (pyBYD's paho `tls_set` is patched in the benchmark's worker process only). Memory per connection is the idle resident size minus the size before connecting, over N; threads are those added by the connections.
 
 | Implementation | Connections | Memory / connection | Idle RSS | Peak RSS | Threads (idle) | Threads added | Idle CPU | Connected |
 |---|---|---|---|---|---|---|---|---|
-| pyBYD (paho, one thread per client) | 200 | 727 KiB | 195 MiB | 195 MiB | 209 | 201 | 0.00% of a core | 200 / 200 |
-| openbyd MqttRuntime (tokio) | 200 | 79 KiB | 21 MiB | 21 MiB | 29 | 1 | 0.00% of a core | 200 / 200 |
+| pyBYD (paho, one thread per client) | 200 | 727 KiB | 195 MiB | 195 MiB | 209 | 201 | 0.62% of a core | 200 / 200 |
+| openbyd MqttRuntime (tokio) | 200 | 80 KiB | 22 MiB | 22 MiB | 29 | 1 | 0.00% of a core | 200 / 200 |
 | openbyd MqttRuntime (tokio) | 1000 | 54 KiB | 59 MiB | 59 MiB | 29 | 1 | 0.00% of a core | 1000 / 1000 |
 
-*Source: `bench/results/mqtt_idle-20261119-164328.json`*
-
+*Source: `bench/results/mqtt_idle-20261119-212928.json`*
 
 ## What each benchmark measures, and why
 

@@ -1,7 +1,7 @@
 {
  "benchmark": "load",
  "quick": false,
- "date": "2026-11-19T16:19:21+02:00",
+ "date": "2026-11-19T21:26:50+02:00",
  "machine": {
   "cpu": "AMD Ryzen 9 5900X 12-Core Processor",
   "cores_logical": 24,
@@ -13,10 +13,10 @@
   "rust": "rustc 1.100.0 (0ef1bc386 2026-11-09)"
  },
  "versions": {
-  "openbyd_commit": "2327866020c76a8c07b8615cdfce8c19e9f54196",
-  "openbyd_branch": "wave5/bench",
+  "openbyd_commit": "7104731ad46d5ddf72ac5c6c429594d6509562ac",
+  "openbyd_branch": "main",
   "openbyd_dirty": false,
-  "openbyd_package_version": "0.0.1",
+  "openbyd_package_version": "0.1.1",
   "pybyd_commit_pinned": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
   "pybyd_commit_installed": "2c3d80648e8eeec50cd4f68f603abd3a01010fef"
  },
@@ -68,57 +68,57 @@
     "calls_ok": 1350,
     "calls_failed": 0,
     "errors": {},
-    "elapsed_s": 83.43030050001107,
+    "elapsed_s": 61.91185870001209,
     "loop_lag_ms": {
-     "median": 897.441999996081,
-     "p99": 4328.382899994031,
-     "max": 4688.829500004649,
-     "samples": 69
+     "median": 783.3191999909468,
+     "p99": 2872.9553999821655,
+     "max": 3607.000800004462,
+     "samples": 70
     }
    },
    "measured": {
-    "wall_s": 83.43363720001071,
-    "cpu_s": 83.0,
-    "cpu_user_s": 82.5,
-    "cpu_system_s": 0.5,
-    "rss_before_mib": 53.42578125,
-    "rss_after_mib": 57.8984375,
-    "rss_peak_mib": 101.20703125,
+    "wall_s": 61.91503110001213,
+    "cpu_s": 61.625,
+    "cpu_user_s": 61.15625,
+    "cpu_system_s": 0.46875,
+    "rss_before_mib": 53.74609375,
+    "rss_after_mib": 58.0703125,
+    "rss_peak_mib": 101.63671875,
     "rss_peak_source": "os",
     "threads_before": 8,
     "threads_peak": 37,
-    "samples": 2399,
-    "system_cpu_percent": 23.3
+    "samples": 1875,
+    "system_cpu_percent": 9.7
    },
    "derived": {
-    "cpu_ms_per_cycle": 332.0,
-    "cpu_ms_per_request": 44.86486486486486,
-    "memory_per_account_kib": 978.56,
-    "memory_end_per_account_kib": 91.6,
-    "requests_per_s": 22.173311173826693,
-    "cpu_utilisation": 0.9948026094203328
+    "cpu_ms_per_cycle": 246.5,
+    "cpu_ms_per_request": 33.310810810810814,
+    "memory_per_account_kib": 980.8,
+    "memory_end_per_account_kib": 88.56,
+    "requests_per_s": 29.879658737660517,
+    "cpu_utilisation": 0.9953156593017997
    },
    "repeats": {
     "runs": 3,
     "cpu_ms_per_cycle": {
-     "median": 332.0,
-     "min": 320.5,
-     "max": 357.0625,
-     "spread": 0.11012801204819277,
+     "median": 246.5,
+     "min": 246.0625,
+     "max": 247.375,
+     "spread": 0.005324543610547667,
      "n": 3
     },
     "memory_per_account_kib": {
-     "median": 982.72,
-     "min": 978.56,
-     "max": 985.04,
-     "spread": 0.006593943340931311,
+     "median": 984.56,
+     "min": 980.8,
+     "max": 984.96,
+     "spread": 0.004225237669619,
      "n": 3
     },
     "requests_per_s": {
-     "median": 22.173311173826693,
-     "min": 20.63989981816275,
-     "max": 23.01985033050564,
-     "spread": 0.1073340149193494,
+     "median": 29.879658737660517,
+     "min": 29.76690259420827,
+     "max": 30.04406449258536,
+     "spread": 0.009275939220408655,
      "n": 3
     },
     "all_request_counts_ok": true,
@@ -162,57 +162,57 @@
     "calls_ok": 1350,
     "calls_failed": 0,
     "errors": {},
-    "elapsed_s": 2.2621036999917123,
+    "elapsed_s": 2.1645193000149447,
     "loop_lag_ms": {
      "median": 0.0,
-     "p99": 26.14159999415278,
-     "max": 54.171999983955175,
-     "samples": 362
+     "p99": 25.575400019297373,
+     "max": 29.545900013763454,
+     "samples": 264
     }
    },
    "measured": {
-    "wall_s": 2.265263600012986,
-    "cpu_s": 1.359375,
-    "cpu_user_s": 1.203125,
-    "cpu_system_s": 0.15625,
-    "rss_before_mib": 57.046875,
-    "rss_after_mib": 60.54296875,
-    "rss_peak_mib": 64.1640625,
+    "wall_s": 2.168491799995536,
+    "cpu_s": 0.875,
+    "cpu_user_s": 0.75,
+    "cpu_system_s": 0.125,
+    "rss_before_mib": 57.60546875,
+    "rss_after_mib": 61.3125,
+    "rss_peak_mib": 64.84375,
     "rss_peak_source": "os",
     "threads_before": 8,
-    "threads_peak": 21,
-    "samples": 46,
-    "system_cpu_percent": 49.7
+    "threads_peak": 23,
+    "samples": 68,
+    "system_cpu_percent": 6.0
    },
    "derived": {
-    "cpu_ms_per_cycle": 5.4375,
-    "cpu_ms_per_request": 0.7347972972972973,
-    "memory_per_account_kib": 145.76,
-    "memory_end_per_account_kib": 71.6,
-    "requests_per_s": 816.6819967395382,
-    "cpu_utilisation": 0.6000957239555729
+    "cpu_ms_per_cycle": 3.5,
+    "cpu_ms_per_request": 0.47297297297297297,
+    "memory_per_account_kib": 148.24,
+    "memory_end_per_account_kib": 75.92,
+    "requests_per_s": 853.1275054873661,
+    "cpu_utilisation": 0.40350625259537587
    },
    "repeats": {
     "runs": 3,
     "cpu_ms_per_cycle": {
-     "median": 5.4375,
-     "min": 5.125,
-     "max": 5.6875,
-     "spread": 0.10344827586206896,
+     "median": 3.5,
+     "min": 3.375,
+     "max": 4.125,
+     "spread": 0.21428571428571427,
      "n": 3
     },
     "memory_per_account_kib": {
-     "median": 145.76,
-     "min": 144.96,
-     "max": 148.0,
-     "spread": 0.02085620197585066,
+     "median": 146.48,
+     "min": 143.04,
+     "max": 148.24,
+     "spread": 0.03549972692517762,
      "n": 3
     },
     "requests_per_s": {
-     "median": 816.6819967395382,
-     "min": 766.6493445294657,
-     "max": 819.2100052319939,
-     "spread": 0.06435878458490282,
+     "median": 853.1275054873661,
+     "min": 852.1135317383487,
+     "max": 855.0945260806274,
+     "spread": 0.0034941955605753503,
      "n": 3
     },
     "all_request_counts_ok": true,
@@ -257,51 +257,51 @@
     "calls_ok": 1350,
     "calls_failed": 0,
     "errors": {},
-    "elapsed_s": 2.2754732
+    "elapsed_s": 2.3352158
    },
    "measured": {
-    "wall_s": 2.28185850000591,
-    "cpu_s": 0.640625,
-    "cpu_user_s": 0.546875,
-    "cpu_system_s": 0.09375,
-    "rss_before_mib": 5.40234375,
-    "rss_after_mib": 12.8984375,
-    "rss_peak_mib": 13.6796875,
+    "wall_s": 2.3353600000264123,
+    "cpu_s": 0.46875,
+    "cpu_user_s": 0.359375,
+    "cpu_system_s": 0.109375,
+    "rss_before_mib": 5.921875,
+    "rss_after_mib": 16.17578125,
+    "rss_peak_mib": 16.96875,
     "rss_peak_source": "os",
     "threads_before": 5,
     "threads_peak": 6,
-    "samples": 55,
-    "system_cpu_percent": 25.4
+    "samples": 68,
+    "system_cpu_percent": 7.2
    },
    "derived": {
-    "cpu_ms_per_cycle": 2.5625,
-    "cpu_ms_per_request": 0.34628378378378377,
-    "memory_per_account_kib": 169.52,
-    "memory_end_per_account_kib": 153.52,
-    "requests_per_s": 810.7426468359928,
-    "cpu_utilisation": 0.2807470314212475
+    "cpu_ms_per_cycle": 1.875,
+    "cpu_ms_per_request": 0.2533783783783784,
+    "memory_per_account_kib": 226.24,
+    "memory_end_per_account_kib": 210.0,
+    "requests_per_s": 792.1690874122521,
+    "cpu_utilisation": 0.2007185187699963
    },
    "repeats": {
     "runs": 3,
     "cpu_ms_per_cycle": {
-     "median": 2.5625,
-     "min": 2.3125,
-     "max": 2.875,
-     "spread": 0.21951219512195122,
+     "median": 1.875,
+     "min": 1.25,
+     "max": 1.9375,
+     "spread": 0.36666666666666664,
      "n": 3
     },
     "memory_per_account_kib": {
-     "median": 169.12,
-     "min": 164.48,
-     "max": 169.52,
-     "spread": 0.02980132450331138,
+     "median": 171.04,
+     "min": 169.36,
+     "max": 226.24,
+     "spread": 0.3325537885874649,
      "n": 3
     },
     "requests_per_s": {
-     "median": 810.7426468359928,
-     "min": 802.9463007748385,
-     "max": 816.9954845318254,
-     "spread": 0.017328783445419143,
+     "median": 792.1690874122521,
+     "min": 790.3093886138204,
+     "max": 802.1956050342554,
+     "spread": 0.01500464561077901,
      "n": 3
     },
     "all_request_counts_ok": true,
@@ -346,51 +346,51 @@
     "calls_ok": 1350,
     "calls_failed": 0,
     "errors": {},
-    "elapsed_s": 2.2378496
+    "elapsed_s": 2.2687619
    },
    "measured": {
-    "wall_s": 2.238080799987074,
-    "cpu_s": 1.453125,
-    "cpu_user_s": 0.875,
-    "cpu_system_s": 0.578125,
-    "rss_before_mib": 5.9765625,
-    "rss_after_mib": 24.234375,
-    "rss_peak_mib": 26.3203125,
+    "wall_s": 2.2689097999827936,
+    "cpu_s": 0.859375,
+    "cpu_user_s": 0.5,
+    "cpu_system_s": 0.359375,
+    "rss_before_mib": 5.99609375,
+    "rss_after_mib": 26.33984375,
+    "rss_peak_mib": 27.38671875,
     "rss_peak_source": "os",
     "threads_before": 28,
     "threads_peak": 29,
-    "samples": 57,
-    "system_cpu_percent": 31.6
+    "samples": 70,
+    "system_cpu_percent": 5.6
    },
    "derived": {
-    "cpu_ms_per_cycle": 5.8125,
-    "cpu_ms_per_request": 0.785472972972973,
-    "memory_per_account_kib": 416.64,
-    "memory_end_per_account_kib": 373.92,
-    "requests_per_s": 826.6010771419354,
-    "cpu_utilisation": 0.6492728055253378
+    "cpu_ms_per_cycle": 3.4375,
+    "cpu_ms_per_request": 0.46452702702702703,
+    "memory_per_account_kib": 438.08,
+    "memory_end_per_account_kib": 416.64,
+    "requests_per_s": 815.369566482559,
+    "cpu_utilisation": 0.37876120064645896
    },
    "repeats": {
     "runs": 3,
     "cpu_ms_per_cycle": {
-     "median": 5.8125,
-     "min": 2.875,
-     "max": 7.375,
-     "spread": 0.7741935483870968,
+     "median": 3.4375,
+     "min": 1.8125,
+     "max": 4.0,
+     "spread": 0.6363636363636364,
      "n": 3
     },
     "memory_per_account_kib": {
-     "median": 422.96,
-     "min": 416.64,
-     "max": 450.96,
-     "spread": 0.08114242481558538,
+     "median": 446.24,
+     "min": 438.08,
+     "max": 469.2,
+     "spread": 0.06973825743994264,
      "n": 3
     },
     "requests_per_s": {
-     "median": 842.175876543532,
-     "min": 826.6010771419354,
-     "max": 846.6752960491408,
-     "spread": 0.023836136211350775,
+     "median": 815.369566482559,
+     "min": 813.057545977606,
+     "max": 819.3155818563725,
+     "spread": 0.00767509131566347,
      "n": 3
     },
     "all_request_counts_ok": true,
@@ -424,7 +424,7 @@
      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1000,
      "/vehicleInfo/vehicle/vehicleRealTimeResult": 1000
     },
-    "connections": 291
+    "connections": 284
    },
    "request_count_ok": true,
    "reported": {
@@ -434,56 +434,56 @@
     "calls_ok": 5400,
     "calls_failed": 0,
     "errors": {},
-    "elapsed_s": 343.97556960000657,
+    "elapsed_s": 252.4698021999793,
     "loop_lag_ms": {
-     "median": 4072.972450021771,
-     "p99": 27589.187700019684,
-     "max": 30294.326399986167,
+     "median": 2857.2710999962874,
+     "p99": 21615.968300009845,
+     "max": 22218.415999998106,
      "samples": 68
     }
    },
    "measured": {
-    "wall_s": 343.9833156999957,
-    "cpu_s": 342.90625,
-    "cpu_user_s": 341.359375,
-    "cpu_system_s": 1.546875,
-    "rss_before_mib": 53.46484375,
-    "rss_after_mib": 62.6171875,
-    "rss_peak_mib": 238.44140625,
+    "wall_s": 252.47306769998977,
+    "cpu_s": 251.9375,
+    "cpu_user_s": 249.96875,
+    "cpu_system_s": 1.96875,
+    "rss_before_mib": 53.5390625,
+    "rss_after_mib": 62.89453125,
+    "rss_peak_mib": 238.796875,
     "rss_peak_source": "os",
     "threads_before": 8,
     "threads_peak": 37,
-    "samples": 10054,
-    "system_cpu_percent": 20.7
+    "samples": 7596,
+    "system_cpu_percent": 10.4
    },
    "derived": {
-    "cpu_ms_per_cycle": 342.90625,
-    "cpu_ms_per_request": 46.338682432432435,
-    "memory_per_account_kib": 947.08,
-    "memory_end_per_account_kib": 46.86,
-    "requests_per_s": 21.512671290295643,
-    "cpu_utilisation": 0.9968688431943161
+    "cpu_ms_per_cycle": 251.9375,
+    "cpu_ms_per_request": 34.045608108108105,
+    "memory_per_account_kib": 948.52,
+    "memory_end_per_account_kib": 47.9,
+    "requests_per_s": 29.310056979199526,
+    "cpu_utilisation": 0.9978787135401461
    },
    "repeats": {
     "runs": 1,
     "cpu_ms_per_cycle": {
-     "median": 342.90625,
-     "min": 342.90625,
-     "max": 342.90625,
+     "median": 251.9375,
+     "min": 251.9375,
+     "max": 251.9375,
      "spread": 0.0,
      "n": 1
     },
     "memory_per_account_kib": {
-     "median": 947.08,
-     "min": 947.08,
-     "max": 947.08,
+     "median": 948.52,
+     "min": 948.52,
+     "max": 948.52,
      "spread": 0.0,
      "n": 1
     },
     "requests_per_s": {
-     "median": 21.512671290295643,
-     "min": 21.512671290295643,
-     "max": 21.512671290295643,
+     "median": 29.310056979199526,
+     "min": 29.310056979199526,
+     "max": 29.310056979199526,
      "spread": 0.0,
      "n": 1
     },
@@ -526,57 +526,57 @@
     "calls_ok": 5400,
     "calls_failed": 0,
     "errors": {},
-    "elapsed_s": 4.307902300002752,
+    "elapsed_s": 4.033715800003847,
     "loop_lag_ms": {
-     "median": 23.25404999486636,
-     "p99": 85.43590000248514,
-     "max": 129.1662000096403,
-     "samples": 128
+     "median": 9.444799996563233,
+     "p99": 78.78099999856204,
+     "max": 91.88249999191612,
+     "samples": 154
     }
    },
    "measured": {
-    "wall_s": 4.311352299991995,
-    "cpu_s": 4.15625,
-    "cpu_user_s": 3.84375,
-    "cpu_system_s": 0.3125,
-    "rss_before_mib": 56.92578125,
-    "rss_after_mib": 65.05078125,
-    "rss_peak_mib": 81.1796875,
+    "wall_s": 4.039524399995571,
+    "cpu_s": 3.953125,
+    "cpu_user_s": 3.53125,
+    "cpu_system_s": 0.421875,
+    "rss_before_mib": 57.7421875,
+    "rss_after_mib": 65.75390625,
+    "rss_peak_mib": 81.859375,
     "rss_peak_source": "os",
     "threads_before": 8,
     "threads_peak": 37,
-    "samples": 129,
-    "system_cpu_percent": 17.3
+    "samples": 122,
+    "system_cpu_percent": 11.4
    },
    "derived": {
-    "cpu_ms_per_cycle": 4.15625,
-    "cpu_ms_per_request": 0.5616554054054054,
-    "memory_per_account_kib": 124.18,
-    "memory_end_per_account_kib": 41.6,
-    "requests_per_s": 1716.3988199279702,
-    "cpu_utilisation": 0.9640246750440035
+    "cpu_ms_per_cycle": 3.953125,
+    "cpu_ms_per_request": 0.534206081081081,
+    "memory_per_account_kib": 123.48,
+    "memory_end_per_account_kib": 41.02,
+    "requests_per_s": 1831.8988245269948,
+    "cpu_utilisation": 0.9786114919876049
    },
    "repeats": {
     "runs": 3,
     "cpu_ms_per_cycle": {
-     "median": 4.15625,
-     "min": 4.078125,
-     "max": 4.265625,
-     "spread": 0.045112781954887216,
+     "median": 3.953125,
+     "min": 3.921875,
+     "max": 4.53125,
+     "spread": 0.1541501976284585,
      "n": 3
     },
     "memory_per_account_kib": {
-     "median": 125.06,
-     "min": 124.18,
-     "max": 125.8,
-     "spread": 0.012953782184551338,
+     "median": 122.72,
+     "min": 121.8,
+     "max": 123.48,
+     "spread": 0.013689700130378152,
      "n": 3
     },
     "requests_per_s": {
-     "median": 1716.3988199279702,
-     "min": 1674.4679525161116,
-     "max": 1763.3622647967013,
-     "spread": 0.05179117536582798,
+     "median": 1816.6480226988886,
+     "min": 1582.9527793702212,
+     "max": 1831.8988245269948,
+     "spread": 0.13703592663312342,
      "n": 3
     },
     "all_request_counts_ok": true,
@@ -610,7 +610,7 @@
      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1000,
      "/vehicleInfo/vehicle/vehicleRealTimeResult": 1000
     },
-    "connections": 347
+    "connections": 392
    },
    "request_count_ok": true,
    "reported": {
@@ -621,51 +621,51 @@
     "calls_ok": 5400,
     "calls_failed": 0,
     "errors": {},
-    "elapsed_s": 2.9287946
+    "elapsed_s": 2.6471698999999997
    },
    "measured": {
-    "wall_s": 2.938134199997876,
-    "cpu_s": 2.140625,
-    "cpu_user_s": 1.765625,
-    "cpu_system_s": 0.375,
-    "rss_before_mib": 5.40625,
-    "rss_after_mib": 23.48046875,
-    "rss_peak_mib": 27.23046875,
+    "wall_s": 2.654837799986126,
+    "cpu_s": 1.609375,
+    "cpu_user_s": 1.203125,
+    "cpu_system_s": 0.40625,
+    "rss_before_mib": 5.43359375,
+    "rss_after_mib": 23.80078125,
+    "rss_peak_mib": 27.921875,
     "rss_peak_source": "os",
     "threads_before": 5,
     "threads_peak": 6,
-    "samples": 84,
-    "system_cpu_percent": 20.5
+    "samples": 82,
+    "system_cpu_percent": 13.5
    },
    "derived": {
-    "cpu_ms_per_cycle": 2.140625,
-    "cpu_ms_per_request": 0.28927364864864863,
-    "memory_per_account_kib": 111.74,
-    "memory_end_per_account_kib": 92.54,
-    "requests_per_s": 2518.6051746735566,
-    "cpu_utilisation": 0.7285661083831867
+    "cpu_ms_per_cycle": 1.609375,
+    "cpu_ms_per_request": 0.21748310810810811,
+    "memory_per_account_kib": 115.14,
+    "memory_end_per_account_kib": 94.04,
+    "requests_per_s": 2787.364260083487,
+    "cpu_utilisation": 0.6062046427124137
    },
    "repeats": {
     "runs": 3,
     "cpu_ms_per_cycle": {
-     "median": 2.140625,
-     "min": 1.984375,
-     "max": 2.171875,
-     "spread": 0.08759124087591241,
+     "median": 1.609375,
+     "min": 1.5625,
+     "max": 1.75,
+     "spread": 0.11650485436893204,
      "n": 3
     },
     "memory_per_account_kib": {
-     "median": 110.04,
-     "min": 106.9,
-     "max": 111.74,
-     "spread": 0.04398400581606678,
+     "median": 115.14,
+     "min": 114.1,
+     "max": 115.32,
+     "spread": 0.010595796421747428,
      "n": 3
     },
     "requests_per_s": {
-     "median": 2581.1116066332565,
-     "min": 2518.6051746735566,
-     "max": 2650.950019878504,
-     "spread": 0.051274359800959964,
+     "median": 2787.364260083487,
+     "min": 2740.7239918802643,
+     "max": 2850.724324762322,
+     "spread": 0.03946392456031666,
      "n": 3
     },
     "all_request_counts_ok": true,
@@ -699,7 +699,7 @@
      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1000,
      "/vehicleInfo/vehicle/vehicleRealTimeResult": 1000
     },
-    "connections": 226
+    "connections": 305
    },
    "request_count_ok": true,
    "reported": {
@@ -710,51 +710,51 @@
     "calls_ok": 5400,
     "calls_failed": 0,
     "errors": {},
-    "elapsed_s": 2.2633814
+    "elapsed_s": 2.2970952000000002
    },
    "measured": {
-    "wall_s": 2.26356650001253,
-    "cpu_s": 4.375,
-    "cpu_user_s": 2.90625,
-    "cpu_system_s": 1.46875,
-    "rss_before_mib": 5.9609375,
-    "rss_after_mib": 39.1484375,
-    "rss_peak_mib": 44.51171875,
+    "wall_s": 2.2972587999829557,
+    "cpu_s": 3.8125,
+    "cpu_user_s": 2.390625,
+    "cpu_system_s": 1.421875,
+    "rss_before_mib": 5.99609375,
+    "rss_after_mib": 42.80078125,
+    "rss_peak_mib": 47.11328125,
     "rss_peak_source": "os",
     "threads_before": 28,
     "threads_peak": 29,
-    "samples": 54,
-    "system_cpu_percent": 32.7
+    "samples": 64,
+    "system_cpu_percent": 21.3
    },
    "derived": {
-    "cpu_ms_per_cycle": 4.375,
-    "cpu_ms_per_request": 0.5912162162162162,
-    "memory_per_account_kib": 197.38,
-    "memory_end_per_account_kib": 169.92,
-    "requests_per_s": 3269.1772033024154,
-    "cpu_utilisation": 1.9327905762767659
+    "cpu_ms_per_cycle": 3.8125,
+    "cpu_ms_per_request": 0.5152027027027027,
+    "memory_per_account_kib": 210.52,
+    "memory_end_per_account_kib": 188.44,
+    "requests_per_s": 3221.230450855125,
+    "cpu_utilisation": 1.659586634308806
    },
    "repeats": {
     "runs": 3,
     "cpu_ms_per_cycle": {
-     "median": 4.375,
-     "min": 4.21875,
-     "max": 4.9375,
-     "spread": 0.16428571428571428,
+     "median": 3.8125,
+     "min": 2.015625,
+     "max": 3.984375,
+     "spread": 0.5163934426229508,
      "n": 3
     },
     "memory_per_account_kib": {
-     "median": 201.4,
-     "min": 197.38,
-     "max": 205.24,
-     "spread": 0.03902681231380344,
+     "median": 209.0,
+     "min": 197.84,
+     "max": 210.52,
+     "spread": 0.06066985645933018,
      "n": 3
     },
     "requests_per_s": {
-     "median": 3269.1772033024154,
-     "min": 3264.9592047960296,
-     "max": 3282.4894932761326,
-     "spread": 0.005362293748529312,
+     "median": 3221.230450855125,
+     "min": 3199.9036915388324,
+     "max": 3235.6199430124525,
+     "spread": 0.011087766621645675,
      "n": 3
     },
     "all_request_counts_ok": true,
@@ -771,92 +771,89 @@
    "accounts": 1000,
    "cycles": 5,
    "server": {
-    "requests": 36372,
+    "requests": 37000,
     "expected_requests": 37000,
-    "requests_ok": 36372,
+    "requests_ok": 37000,
     "by_code": {
-     "0": 36372
+     "0": 37000
     },
     "by_endpoint": {
      "/app/account/getAllListByUserId": 1000,
      "/app/account/login": 1000,
-     "/control/getGpsInfo": 4843,
-     "/control/getGpsInfoResult": 4843,
+     "/control/getGpsInfo": 5000,
+     "/control/getGpsInfoResult": 5000,
      "/control/getStatusNow": 5000,
      "/control/smartCharge/homePage": 5000,
      "/vehicleInfo/vehicle/getEnergyConsumption": 5000,
-     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 4843,
-     "/vehicleInfo/vehicle/vehicleRealTimeResult": 4843
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 5000,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 5000
     },
-    "connections": 12463
+    "connections": 11069
    },
-   "request_count_ok": false,
+   "request_count_ok": true,
    "reported": {
     "implementation": "pybyd",
     "accounts": 1000,
     "cycles": 5,
-    "calls_ok": 26686,
-    "calls_failed": 314,
-    "errors": {
-     "BydTransportError: Request to /vehicleInfo/vehicle/vehicleRealTimeRequest failed: Connection timeout to host http://127.0.0.1:53907/vehicleInfo/vehicle/vehicleR": 157,
-     "BydTransportError: Request to /control/getGpsInfo failed: Connection timeout to host http://127.0.0.1:53907/control/getGpsInfo": 157
-    },
-    "elapsed_s": 1757.5492211999954,
+    "calls_ok": 27000,
+    "calls_failed": 0,
+    "errors": {},
+    "elapsed_s": 1590.869782499998,
     "loop_lag_ms": {
-     "median": 17542.547900006175,
-     "p99": 94976.29489997984,
-     "max": 110585.37270001601,
-     "samples": 79
+     "median": 15630.872000018135,
+     "p99": 93535.41079999763,
+     "max": 109088.62760000397,
+     "samples": 81
     }
    },
    "measured": {
-    "wall_s": 1757.5535371000005,
-    "cpu_s": 1750.34375,
-    "cpu_user_s": 1736.671875,
-    "cpu_system_s": 13.671875,
-    "rss_before_mib": 53.51953125,
-    "rss_after_mib": 89.9765625,
-    "rss_peak_mib": 964.68359375,
+    "wall_s": 1590.8768090000085,
+    "cpu_s": 1571.0,
+    "cpu_user_s": 1538.03125,
+    "cpu_system_s": 32.96875,
+    "rss_before_mib": 53.671875,
+    "rss_after_mib": 91.87109375,
+    "rss_peak_mib": 966.92578125,
     "rss_peak_source": "os",
     "threads_before": 8,
     "threads_peak": 37,
-    "samples": 50761,
-    "system_cpu_percent": 24.6
+    "samples": 43295,
+    "system_cpu_percent": 25.6
    },
    "derived": {
-    "cpu_ms_per_cycle": 350.06875,
-    "cpu_ms_per_request": 48.1233847465083,
-    "memory_per_account_kib": 933.032,
-    "memory_end_per_account_kib": 37.332,
-    "requests_per_s": 20.694675429355367,
-    "cpu_utilisation": 0.9958978278909802
+    "cpu_ms_per_cycle": 314.2,
+    "cpu_ms_per_request": 42.45945945945946,
+    "memory_per_account_kib": 935.172,
+    "memory_end_per_account_kib": 39.116,
+    "requests_per_s": 23.257614788700966,
+    "cpu_utilisation": 0.9875057522445735
    },
    "repeats": {
     "runs": 1,
     "cpu_ms_per_cycle": {
-     "median": 350.06875,
-     "min": 350.06875,
-     "max": 350.06875,
+     "median": 314.2,
+     "min": 314.2,
+     "max": 314.2,
      "spread": 0.0,
      "n": 1
     },
     "memory_per_account_kib": {
-     "median": 933.032,
-     "min": 933.032,
-     "max": 933.032,
+     "median": 935.172,
+     "min": 935.172,
+     "max": 935.172,
      "spread": 0.0,
      "n": 1
     },
     "requests_per_s": {
-     "median": 20.694675429355367,
-     "min": 20.694675429355367,
-     "max": 20.694675429355367,
+     "median": 23.257614788700966,
+     "min": 23.257614788700966,
+     "max": 23.257614788700966,
      "spread": 0.0,
      "n": 1
     },
-    "all_request_counts_ok": false,
+    "all_request_counts_ok": true,
     "all_calls_failed": [
-     314
+     0
     ]
    }
   },
@@ -893,57 +890,57 @@
     "calls_ok": 27000,
     "calls_failed": 0,
     "errors": {},
-    "elapsed_s": 27.215968000004068,
+    "elapsed_s": 26.33544689998962,
     "loop_lag_ms": {
-     "median": 440.4435999842826,
-     "p99": 924.081099985633,
-     "max": 963.9630999974906,
-     "samples": 65
+     "median": 416.5134500019485,
+     "p99": 828.0065000092145,
+     "max": 1112.7173999941442,
+     "samples": 68
     }
    },
    "measured": {
-    "wall_s": 27.221104600001127,
-    "cpu_s": 27.15625,
-    "cpu_user_s": 25.09375,
-    "cpu_system_s": 2.0625,
-    "rss_before_mib": 56.83203125,
-    "rss_after_mib": 88.7734375,
-    "rss_peak_mib": 167.46875,
+    "wall_s": 26.33960190002108,
+    "cpu_s": 26.09375,
+    "cpu_user_s": 23.71875,
+    "cpu_system_s": 2.375,
+    "rss_before_mib": 57.359375,
+    "rss_after_mib": 88.7890625,
+    "rss_peak_mib": 167.61328125,
     "rss_peak_source": "os",
     "threads_before": 8,
     "threads_peak": 37,
-    "samples": 819,
-    "system_cpu_percent": 23.6
+    "samples": 753,
+    "system_cpu_percent": 19.8
    },
    "derived": {
-    "cpu_ms_per_cycle": 5.43125,
-    "cpu_ms_per_request": 0.7339527027027027,
-    "memory_per_account_kib": 113.292,
-    "memory_end_per_account_kib": 32.708,
-    "requests_per_s": 1359.2394777395796,
-    "cpu_utilisation": 0.9976174883071746
+    "cpu_ms_per_cycle": 5.21875,
+    "cpu_ms_per_request": 0.7052364864864865,
+    "memory_per_account_kib": 112.9,
+    "memory_end_per_account_kib": 32.184,
+    "requests_per_s": 1404.7288998688468,
+    "cpu_utilisation": 0.9906660738095331
    },
    "repeats": {
     "runs": 3,
     "cpu_ms_per_cycle": {
-     "median": 5.43125,
-     "min": 5.3375,
-     "max": 5.496875,
-     "spread": 0.02934407364787108,
+     "median": 5.21875,
+     "min": 4.896875,
+     "max": 5.2625,
+     "spread": 0.07005988023952106,
      "n": 3
     },
     "memory_per_account_kib": {
-     "median": 112.02,
-     "min": 111.704,
-     "max": 113.292,
-     "spread": 0.014176039992858491,
+     "median": 112.9,
+     "min": 112.536,
+     "max": 113.912,
+     "spread": 0.012187776793622717,
      "n": 3
     },
     "requests_per_s": {
-     "median": 1359.2394777395796,
-     "min": 1342.164047269967,
-     "max": 1381.2514498000453,
-     "spread": 0.028756818184151538,
+     "median": 1404.7288998688468,
+     "min": 1395.5439256545114,
+     "max": 1506.779694148746,
+     "spread": 0.07918664484273104,
      "n": 3
     },
     "all_request_counts_ok": true,
@@ -977,7 +974,7 @@
      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 5000,
      "/vehicleInfo/vehicle/vehicleRealTimeResult": 5000
     },
-    "connections": 1788
+    "connections": 1691
    },
    "request_count_ok": true,
    "reported": {
@@ -988,51 +985,51 @@
     "calls_ok": 27000,
     "calls_failed": 0,
     "errors": {},
-    "elapsed_s": 14.156734
+    "elapsed_s": 12.2071352
    },
    "measured": {
-    "wall_s": 14.16557240000111,
-    "cpu_s": 13.875,
-    "cpu_user_s": 12.03125,
-    "cpu_system_s": 1.84375,
-    "rss_before_mib": 5.4140625,
-    "rss_after_mib": 74.9453125,
-    "rss_peak_mib": 93.99609375,
+    "wall_s": 12.215908300015144,
+    "cpu_s": 11.875,
+    "cpu_user_s": 9.921875,
+    "cpu_system_s": 1.953125,
+    "rss_before_mib": 5.4375,
+    "rss_after_mib": 73.98828125,
+    "rss_peak_mib": 91.94140625,
     "rss_peak_source": "os",
     "threads_before": 5,
     "threads_peak": 6,
-    "samples": 429,
-    "system_cpu_percent": 25.9
+    "samples": 341,
+    "system_cpu_percent": 23.6
    },
    "derived": {
-    "cpu_ms_per_cycle": 2.775,
-    "cpu_ms_per_request": 0.375,
-    "memory_per_account_kib": 90.708,
-    "memory_end_per_account_kib": 71.2,
-    "requests_per_s": 2611.9664603173464,
-    "cpu_utilisation": 0.9794874226190049
+    "cpu_ms_per_cycle": 2.375,
+    "cpu_ms_per_request": 0.32094594594594594,
+    "memory_per_account_kib": 88.58,
+    "memory_end_per_account_kib": 70.196,
+    "requests_per_s": 3028.8374053981834,
+    "cpu_utilisation": 0.9720930861919844
    },
    "repeats": {
     "runs": 3,
     "cpu_ms_per_cycle": {
-     "median": 2.775,
-     "min": 2.7,
-     "max": 2.821875,
-     "spread": 0.043918918918918824,
+     "median": 2.375,
+     "min": 2.225,
+     "max": 2.5375,
+     "spread": 0.13157894736842105,
      "n": 3
     },
     "memory_per_account_kib": {
-     "median": 88.552,
-     "min": 86.344,
-     "max": 90.708,
-     "spread": 0.04928177793838653,
+     "median": 88.58,
+     "min": 86.832,
+     "max": 89.164,
+     "spread": 0.026326484533754888,
      "n": 3
     },
     "requests_per_s": {
-     "median": 2611.9664603173464,
-     "min": 2551.8651064822357,
-     "max": 2706.7687478373064,
-     "spread": 0.05930537153078541,
+     "median": 3028.8374053981834,
+     "min": 2843.597692437876,
+     "max": 3265.4719140416328,
+     "spread": 0.13928585960139891,
      "n": 3
     },
     "all_request_counts_ok": true,
@@ -1066,7 +1063,7 @@
      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 5000,
      "/vehicleInfo/vehicle/vehicleRealTimeResult": 5000
     },
-    "connections": 3262
+    "connections": 3242
    },
    "request_count_ok": true,
    "reported": {
@@ -1077,51 +1074,51 @@
     "calls_ok": 27000,
     "calls_failed": 0,
     "errors": {},
-    "elapsed_s": 2.8547575
+    "elapsed_s": 3.2261205
    },
    "measured": {
-    "wall_s": 2.863204699999187,
-    "cpu_s": 23.90625,
-    "cpu_user_s": 16.46875,
-    "cpu_system_s": 7.4375,
-    "rss_before_mib": 5.95703125,
-    "rss_after_mib": 135.0859375,
-    "rss_peak_mib": 156.3984375,
+    "wall_s": 3.2263731000130065,
+    "cpu_s": 25.875,
+    "cpu_user_s": 13.4375,
+    "cpu_system_s": 12.4375,
+    "rss_before_mib": 5.98828125,
+    "rss_after_mib": 137.44921875,
+    "rss_peak_mib": 156.23828125,
     "rss_peak_source": "os",
     "threads_before": 28,
     "threads_peak": 29,
     "samples": 62,
-    "system_cpu_percent": 75.0
+    "system_cpu_percent": 77.5
    },
    "derived": {
-    "cpu_ms_per_cycle": 4.78125,
-    "cpu_ms_per_request": 0.6461148648648649,
-    "memory_per_account_kib": 154.052,
-    "memory_end_per_account_kib": 132.228,
-    "requests_per_s": 12922.582866677505,
-    "cpu_utilisation": 8.349472882608353
+    "cpu_ms_per_cycle": 5.175,
+    "cpu_ms_per_request": 0.6993243243243243,
+    "memory_per_account_kib": 153.856,
+    "memory_end_per_account_kib": 134.616,
+    "requests_per_s": 11467.985522148954,
+    "cpu_utilisation": 8.01984122663795
    },
    "repeats": {
     "runs": 3,
     "cpu_ms_per_cycle": {
-     "median": 4.78125,
-     "min": 4.659375,
-     "max": 10.60625,
-     "spread": 1.2437908496732024,
+     "median": 5.175,
+     "min": 3.959375,
+     "max": 7.00625,
+     "spread": 0.5887681159420289,
      "n": 3
     },
     "memory_per_account_kib": {
-     "median": 154.052,
-     "min": 153.416,
-     "max": 219.108,
-     "spread": 0.42642744008516614,
+     "median": 157.1,
+     "min": 153.856,
+     "max": 238.372,
+     "spread": 0.5379758115849779,
      "n": 3
     },
     "requests_per_s": {
-     "median": 12922.582866677505,
-     "min": 7304.237213682252,
-     "max": 13015.309521646097,
-     "spread": 0.4419451101134401,
+     "median": 11467.985522148954,
+     "min": 10452.836069115492,
+     "max": 13975.27486811088,
+     "spread": 0.30715410236542817,
      "n": 3
     },
     "all_request_counts_ok": true,

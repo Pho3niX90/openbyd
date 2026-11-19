@@ -33,7 +33,6 @@ METHODS = [
     "flash_lights",
     "lock",
     "verify_command_access",
-    "get_vehicles",
     "get_hvac_status",
     "get_gps_info",
     "get_vehicle_realtime",

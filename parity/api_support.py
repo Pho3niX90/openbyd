@@ -760,6 +760,8 @@ def run_client(  # noqa: C901, PLR0913, PLR0915
         stack.enter_context(mock.patch.object(client_module, "BydMqttRuntime", harness.runtime_class()))
         stack.enter_context(mock.patch.object(client_module, "Session", make_session))
         stack.enter_context(mock.patch.object(client_module, "_PendingCommand", make_pending))
+        # pyBYD logs failed background re-logins as warnings; they are part of the trace already.
+        stack.enter_context(mock.patch.object(client_module._logger, "disabled", True))
         if "command_retries" in options:
             # What applications patch today: poll_remote_control with a fixed retry count.
             original_poll = client_module._control_api.poll_remote_control

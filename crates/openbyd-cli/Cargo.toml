@@ -5,15 +5,35 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-readme = "../../README.md"
+readme = "README.md"
+build = "build.rs"
 
 [[bin]]
 name = "openbyd"
 path = "src/main.rs"
 
+[features]
+# Test hooks that must never ship: lets the tests' child processes trust the
+# test MQTT broker's throw-away certificate (`OPENBYD_TEST_MQTT_TRUST_ANY=1`).
+test-support = ["openbyd-client/testing"]
+
 [dependencies]
 openbyd-protocol.workspace = true
 openbyd-client.workspace = true
+# Argument parsing, help and usage errors.
+clap = { version = "4.6.8", features = ["derive"] }
+# The async runtime the client needs, plus Ctrl-C and the `watch` timer.
+tokio = { version = "1.54.1", default-features = false, features = ["rt", "macros", "signal", "time", "sync"] }
+# Password and PIN prompts that do not echo.
+rpassword = "7.5.5"
+# The client logs through `log`; the tool prints those records to stderr.
+log = "0.4.35"
+serde_json.workspace = true
+serde = { workspace = true, default-features = false }
+
+[dev-dependencies]
+openbyd-client = { workspace = true, features = ["testing"] }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }
 
 [lints]
 workspace = true

@@ -773,7 +773,8 @@ pub fn to_camel(snake: &str) -> String {
 fn camel_alias(name: &'static str) -> &'static str {
     type ByAddress = HashMap<(usize, usize), &'static str, KeyHashing>;
     thread_local! {
-        static SEEN: RefCell<ByAddress> = RefCell::new(HashMap::with_hasher(KeyHashing::Fast));
+        static SEEN: RefCell<ByAddress> =
+            const { RefCell::new(HashMap::with_hasher(KeyHashing::Fast)) };
     }
     static INTERNED: Mutex<Option<HashMap<&'static str, &'static str>>> = Mutex::new(None);
 
@@ -1024,12 +1025,10 @@ impl Hasher for KeyHasher {
         let mix = |hash: u64, word: u64| hash.wrapping_add(word).wrapping_mul(SEED);
         match self {
             Self::Fast(hash) => {
-                let mut chunks = bytes.chunks_exact(8);
-                for chunk in &mut chunks {
-                    let word = u64::from_le_bytes(chunk.try_into().expect("eight bytes"));
-                    *hash = mix(*hash, word);
+                let (chunks, rest) = bytes.as_chunks::<8>();
+                for chunk in chunks {
+                    *hash = mix(*hash, u64::from_le_bytes(*chunk));
                 }
-                let rest = chunks.remainder();
                 let mut word = [0u8; 8];
                 word[..rest.len()].copy_from_slice(rest);
                 *hash = mix(

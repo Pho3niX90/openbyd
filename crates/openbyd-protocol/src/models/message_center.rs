@@ -13,6 +13,8 @@
 //! The EU host identifies messages by `pushId`; `messageId` is accepted
 //! as a fallback.
 
+use std::borrow::Cow;
+
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
@@ -147,20 +149,20 @@ pub struct VehicleMsgListResponse {
 }
 
 /// `_unwrap_list`: accept a bare list (observed) or a dict wrapping the list.
-fn unwrap_list(values: &Value) -> Value {
+fn unwrap_list(values: &Value) -> Cow<'_, Value> {
     match values {
-        Value::Array(items) => json!({"messages": items, "raw": {"list": items}}),
+        Value::Array(items) => Cow::Owned(json!({"messages": items, "raw": {"list": items}})),
         Value::Object(map) if !map.contains_key("messages") => {
             for key in LIST_KEYS {
                 if let Some(items @ Value::Array(_)) = map.get(key) {
                     let mut merged = map.clone();
                     merged.insert("messages".to_owned(), items.clone());
-                    return Value::Object(merged);
+                    return Cow::Owned(Value::Object(merged));
                 }
             }
-            values.clone()
+            Cow::Borrowed(values)
         }
-        _ => values.clone(),
+        _ => Cow::Borrowed(values),
     }
 }
 

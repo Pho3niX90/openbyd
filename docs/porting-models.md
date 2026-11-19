@@ -20,8 +20,7 @@ two files first; most models are the same shape with more fields.
    ```rust
    fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
        let values = own_before_validator(raw);                    // only if the class has one
-       let values = base::clean_byd_values(&values, KEY_ALIASES);  // BydBaseModel's before-validator
-       let mut fields = Fields::new(&values)?;                     // non-dict input fails here
+       let mut fields = Fields::cleaned(&values, KEY_ALIASES)?;    // BydBaseModel's before-validator; non-dict input fails here
        let mut model = Self {
            raw: fields.raw(),
            soc: fields.opt("soc", coerce::int),
@@ -35,6 +34,14 @@ two files first; most models are the same shape with more fields.
        Ok(model)
    }
    ```
+   `Fields::cleaned(values, aliases)` reads the same as
+   `Fields::new(&base::clean_byd_values(values, aliases))` but borrows the
+   input instead of copying it (twice). Without a before-validator pass
+   `raw` itself. A before-validator should return the input unchanged when it
+   has nothing to do (a `Cow`, or `raw` itself) rather than a clone; one that
+   only adds or replaces keys and stashes its input as `raw`, like
+   `VehicleRealtimeData`'s, returns just those keys and uses
+   `Fields::cleaned_with_changes(raw, &changes, KEY_ALIASES)`.
 4. **Properties:** one `pub fn` per `@property` with the same name, and list
    them all in `BydModel::properties` with `base::properties([...])`.
 5. **Parity:** add the arm `"models.<file>.<Class>" => base::model_call::<Class>(args)`
@@ -49,6 +56,11 @@ two files first; most models are the same shape with more fields.
    generated from the class. Pass `contexts=[...]` if a validator reads `info.context`.
 6. Run `python parity/generate.py models_<file>`, `cargo test -p openbyd-protocol`,
    `python parity/dev_install.py` and `OPENBYD_FUZZ=20000 pytest python/tests/test_parity.py`.
+7. **Speed:** if the class has corpus payloads (`parity/corpus/<Class>.json`),
+   add it to `largest_of!` in `crates/openbyd-protocol/benches/protocol.rs`
+   and check it against pyBYD with `benches/compare_pybyd.py <Class>`. Parsing
+   runs for every reply, so avoid copying the input or allocating per field
+   in a validator (see `crates/openbyd-protocol/benches/README.md`).
 
 ## Shared helpers
 

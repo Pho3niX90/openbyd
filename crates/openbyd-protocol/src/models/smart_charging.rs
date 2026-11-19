@@ -16,6 +16,8 @@
 //! * `"e"`: every day
 //! * `"0,1,2,3,4"`: comma-separated weekday indices (`0` = Monday)
 
+use std::borrow::Cow;
+
 use chrono::NaiveTime;
 use serde::{Serialize, Serializer};
 use serde_json::{Map, Value, json};
@@ -135,16 +137,16 @@ const CHARGE_KEY_ALIASES: &[(&str, &str)] = &[
 /// `_capture_charge_until_full`: sets `chargeUntilFull` when the wire
 /// `endChargeTime` is `"full"`. It runs before the base cleaning pass, so the
 /// flag is also part of `raw`.
-fn capture_charge_until_full(values: &Value) -> Value {
+fn capture_charge_until_full(values: &Value) -> Cow<'_, Value> {
     if let Value::Object(map) = values
         && let Some(Value::String(end)) = map.get("endChargeTime")
         && coerce::py_strip(end).to_lowercase() == "full"
     {
         let mut map = map.clone();
         map.insert("chargeUntilFull".to_owned(), Value::Bool(true));
-        return Value::Object(map);
+        return Cow::Owned(Value::Object(map));
     }
-    values.clone()
+    Cow::Borrowed(values)
 }
 
 impl SmartChargeDto {

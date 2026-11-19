@@ -1756,6 +1756,22 @@ mod tests {
     }
 
     #[test]
+    fn the_working_dict_lays_changes_over_the_input() {
+        let input = json!({"a": 1});
+        let mut values = Layered {
+            input: input.as_object().unwrap(),
+            changes: Vec::new(),
+        };
+        set_default(&mut values, "a", json!(2));
+        set_default(&mut values, "b", json!(3));
+        values.insert("b", json!(4));
+        values.insert("a", json!(5));
+        assert_eq!(values.get("a"), Some(&json!(5)));
+        assert_eq!(values.get("b"), Some(&json!(4)));
+        assert_eq!(values.changes.len(), 2);
+    }
+
+    #[test]
     fn contexts() {
         assert_eq!(context_energy_type(&json!(null)).unwrap(), EnergyType::Ev);
         assert_eq!(

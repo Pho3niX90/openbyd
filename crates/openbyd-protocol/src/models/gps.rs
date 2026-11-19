@@ -1,5 +1,7 @@
 //! GPS information model (`pybyd/models/gps.py`).
 
+use std::borrow::Cow;
+
 use serde::Serialize;
 use serde_json::{Map, Value};
 
@@ -34,17 +36,17 @@ pub struct GpsInfo {
 }
 
 /// `_flatten_nested_data`: merges the nested `data` dict the GPS endpoint wraps results in.
-fn flatten_nested_data(values: &Value) -> Value {
+fn flatten_nested_data(values: &Value) -> Cow<'_, Value> {
     match values {
         Value::Object(outer) => match outer.get("data") {
             Some(Value::Object(nested)) => {
                 let mut merged = outer.clone();
                 merged.extend(nested.clone());
-                Value::Object(merged)
+                Cow::Owned(Value::Object(merged))
             }
-            _ => values.clone(),
+            _ => Cow::Borrowed(values),
         },
-        _ => values.clone(),
+        _ => Cow::Borrowed(values),
     }
 }
 

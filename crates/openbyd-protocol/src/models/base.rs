@@ -1506,6 +1506,66 @@ mod tests {
         assert!(Fields::plain(&json!(1)).is_err());
     }
 
+    /// Every key, alias and the `raw` field as `Fields` reads them.
+    fn read_all(mut fields: Fields<'_>, keys: &[&'static str]) -> Vec<Value> {
+        let mut read: Vec<Value> = keys
+            .iter()
+            .map(|key| fields.get(*key, json!("<absent>"), coerce::any))
+            .collect();
+        read.push(json!(fields.get("raw", Map::new(), coerce::any_dict)));
+        read.push(json!(fields.finish().map_err(|error| error.error_type)));
+        read
+    }
+
+    #[test]
+    fn cleaned_fields_read_like_clean_byd_values_then_new() {
+        const ALIASES: &[(&str, &str)] = &[("a", "b"), ("b", "c"), ("x", "y"), ("raw", "moved")];
+        const KEYS: &[&str] = &["a", "b", "c", "x", "y", "z", "moved", "some_field"];
+        let inputs = [
+            json!({"a": 1, "x": "--", "y": 2, "someField": " NaN ", "some_field": 3}),
+            json!({"b": null, "a": 5, "z": "  ", "raw": "--"}),
+            json!({"raw": {"own": 1}, "x": 1}),
+            json!({"raw": [1], "a": "nan"}),
+            json!({"raw": "kept", "c": 0}),
+            json!({}),
+        ];
+        for input in &inputs {
+            let cleaned = clean_byd_values(input, ALIASES);
+            let expected = read_all(Fields::new(&cleaned).unwrap(), KEYS);
+            let actual = read_all(Fields::cleaned(input, ALIASES).unwrap(), KEYS);
+            assert_eq!(actual, expected, "{input}");
+        }
+        assert!(Fields::cleaned(&json!([1]), &[]).is_err());
+        assert!(Fields::cleaned_with_changes(&json!(1), &[], &[]).is_err());
+
+        // Changes are laid over the input, but `raw` is the input without them.
+        let input = json!({"a": 1, "b": 2});
+        let changes = [("b", json!(3)), ("c", json!("--"))];
+        let mut fields = Fields::cleaned_with_changes(&input, &changes, &[]).unwrap();
+        assert_eq!(fields.get("b", 0, coerce::int), 3);
+        assert_eq!(fields.opt("c", coerce::int), None);
+        assert_eq!(Value::Object(fields.raw()), input);
+    }
+
+    #[test]
+    fn a_large_dict_is_read_with_the_seeded_hash() {
+        let input: Map<String, Value> = (0..FAST_HASH_LIMIT + 10)
+            .map(|index| (format!("key{index}"), json!(index)))
+            .collect();
+        let input = Value::Object(input);
+        let mut fields = Fields::cleaned(&input, &[]).unwrap();
+        assert_eq!(fields.get("key7", 0, coerce::int), 7);
+        assert_eq!(fields.raw().len(), FAST_HASH_LIMIT + 10);
+    }
+
+    #[test]
+    fn camel_aliases_are_computed_once() {
+        let first = camel_alias("left_front_tire_pressure");
+        assert_eq!(first, "leftFrontTirePressure");
+        assert!(std::ptr::eq(first, camel_alias("left_front_tire_pressure")));
+        assert_eq!(camel_alias("soc"), "soc");
+    }
+
     #[test]
     fn serde_helpers() {
         #[derive(Serialize)]

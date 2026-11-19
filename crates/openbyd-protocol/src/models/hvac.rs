@@ -1,5 +1,7 @@
 //! HVAC / climate control status model (`pybyd/models/hvac.py`).
 
+use std::borrow::Cow;
+
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
@@ -212,12 +214,12 @@ const KEY_ALIASES: &[(&str, &str)] = base::COMMON_KEY_ALIASES;
 /// `_unwrap_status_now`: when the reply nests the state under a `statusNow`
 /// dict, that dict (key-aliased and sentinel-cleaned) replaces the whole
 /// payload, so it is also what ends up in `raw`.
-fn unwrap_status_now(values: &Value) -> Value {
+fn unwrap_status_now(values: &Value) -> Cow<'_, Value> {
     match values.get("statusNow") {
         Some(Value::Object(status_now)) if values.is_object() => {
-            Value::Object(base::clean_dict(status_now, KEY_ALIASES))
+            Cow::Owned(Value::Object(base::clean_dict(status_now, KEY_ALIASES)))
         }
-        _ => values.clone(),
+        _ => Cow::Borrowed(values),
     }
 }
 
@@ -348,7 +350,7 @@ mod tests {
         assert!(!status.interior_temp_available());
         assert_eq!(status.temp_offset(), 14.0);
         assert!(!status.raw.contains_key("x"));
-        assert_eq!(unwrap_status_now(&json!([1])), json!([1]));
+        assert_eq!(*unwrap_status_now(&json!([1])), json!([1]));
         assert_eq!(
             HvacStatus::parse(&json!({"acSwitch": -5}), &Value::Null)
                 .unwrap()

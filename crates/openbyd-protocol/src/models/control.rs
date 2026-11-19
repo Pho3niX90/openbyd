@@ -19,6 +19,8 @@
 //! or from keyword arguments as JSON (`from_kwargs`), which accepts exactly
 //! what the Python constructor accepts, by field name or camelCase alias.
 
+use std::borrow::Cow;
+
 use indexmap::IndexMap;
 use serde::{Serialize, Serializer};
 use serde_json::{Map, Value, json};
@@ -381,9 +383,9 @@ pub struct RemoteControlResult {
 /// BYD's `res` field (from `/remoteControlResult` and MQTT acks) is mapped
 /// onto `controlState`: `1` is still running, `2` success, anything else a
 /// failure. The polled `{"controlState": 0/1/2}` shape gets `success` filled in.
-fn normalize_result_shapes(values: &Value) -> Result<Value, ValidationError> {
+fn normalize_result_shapes(values: &Value) -> Result<Cow<'_, Value>, ValidationError> {
     let Value::Object(values) = values else {
-        return Ok(values.clone());
+        return Ok(Cow::Borrowed(values));
     };
     let mut merged = values.clone();
     if merged.contains_key("res")
@@ -413,7 +415,7 @@ fn normalize_result_shapes(values: &Value) -> Result<Value, ValidationError> {
         merged.insert("controlState".to_owned(), json!(state as i64));
         merged.insert("success".to_owned(), json!(state == ControlState::Success));
     }
-    Ok(Value::Object(merged))
+    Ok(Cow::Owned(Value::Object(merged)))
 }
 
 impl BydModel for RemoteControlResult {
@@ -466,9 +468,9 @@ impl BydModel for CommandAck {
             {
                 let mut values = values.clone();
                 values.insert("result".to_owned(), Value::Null);
-                Value::Object(values)
+                Cow::Owned(Value::Object(values))
             }
-            other => other.clone(),
+            other => Cow::Borrowed(other),
         };
         let mut fields = Fields::cleaned(&values, &[])?;
         let model = Self {
@@ -555,9 +557,9 @@ impl CommandAckEvent {
 }
 
 /// `CommandAckEvent._normalize_shape`.
-fn normalize_ack_event(values: &Value) -> Result<Value, ValidationError> {
+fn normalize_ack_event(values: &Value) -> Result<Cow<'_, Value>, ValidationError> {
     let Value::Object(values) = values else {
-        return Ok(values.clone());
+        return Ok(Cow::Borrowed(values));
     };
     let mut merged = values.clone();
     let serial = request_serial_of(&merged);
@@ -590,7 +592,7 @@ fn normalize_ack_event(values: &Value) -> Result<Value, ValidationError> {
     merged.insert("result".to_owned(), result);
     merged.insert("success".to_owned(), json!(success));
     merged.insert("raw".to_owned(), raw);
-    Ok(Value::Object(merged))
+    Ok(Cow::Owned(Value::Object(merged)))
 }
 
 impl BydModel for CommandAckEvent {
@@ -640,9 +642,9 @@ pub struct CommandLifecycleEvent {
 }
 
 /// `CommandLifecycleEvent._normalize_shape`.
-fn normalize_lifecycle_event(values: &Value) -> Result<Value, ValidationError> {
+fn normalize_lifecycle_event(values: &Value) -> Result<Cow<'_, Value>, ValidationError> {
     let Value::Object(values) = values else {
-        return Ok(values.clone());
+        return Ok(Cow::Borrowed(values));
     };
     let mut merged = values.clone();
     let serial = request_serial_of(&merged);
@@ -661,7 +663,7 @@ fn normalize_lifecycle_event(values: &Value) -> Result<Value, ValidationError> {
     merged.insert("command".to_owned(), command);
     merged.insert("timestamp".to_owned(), timestamp);
     merged.insert("reason".to_owned(), reason);
-    Ok(Value::Object(merged))
+    Ok(Cow::Owned(Value::Object(merged)))
 }
 
 impl BydModel for CommandLifecycleEvent {
@@ -743,9 +745,9 @@ impl BydModel for VerifyControlPasswordResponse {
             {
                 let mut values = values.clone();
                 values.insert("ok".to_owned(), Value::Null);
-                Value::Object(values)
+                Cow::Owned(Value::Object(values))
             }
-            other => other.clone(),
+            other => Cow::Borrowed(other),
         };
         let mut fields = Fields::cleaned(&values, &[])?;
         let model = Self {

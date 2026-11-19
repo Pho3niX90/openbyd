@@ -384,6 +384,19 @@ def seat_from_current_state(hvac: dict[str, int | None] | None, realtime: dict[s
     return _params_answer(_apply_changes(params, changes))
 
 
+FROM_MODELS_CALL = "models.control.SeatClimateParams.from_models"
+
+
+@group.oracle(FROM_MODELS_CALL)
+def seat_from_models(hvac: Any, realtime: Any, changes: list[list[Any]] | None = None) -> dict[str, Any]:
+    """The same through the real models: raw payloads (or ``None``) in, parameters out."""
+    params = SeatClimateParams.from_current_state(
+        None if hvac is None else HvacStatus.model_validate(hvac),
+        None if realtime is None else VehicleRealtimeData.model_validate(realtime),
+    )
+    return _params_answer(_apply_changes(params, changes))
+
+
 @group.oracle("models.control.BatteryHeatParams")
 def battery_heat(kwargs: dict[str, Any]) -> dict[str, Any]:
     params = BatteryHeatParams(**kwargs)
@@ -633,3 +646,59 @@ def from_current_state_fuzz(rng: random.Random) -> Iterator[Case]:
     while True:
         yield "models.control.SeatClimateParams.from_current_state", {
             "hvac": readings(), "realtime": readings(), "changes": _random_changes(rng)}
+
+
+# Raw payloads for the models: each seat key under each of its spellings.
+SEAT_KEYS = {
+    "main_seat_heat_state": ["mainSeatHeatState", "main_seat_heat_state"],
+    "main_seat_ventilation_state": ["mainSeatVentilationState", "main_seat_ventilation_state"],
+    "copilot_seat_heat_state": ["copilotSeatHeatState", "copilot_seat_heat_state"],
+    "copilot_seat_ventilation_state": ["copilotSeatVentilationState", "copilot_seat_ventilation_state"],
+    "lr_seat_heat_state": ["lrSeatHeatState", "lr_seat_heat_state"],
+    "lr_seat_ventilation_state": ["lrSeatVentilationState", "lr_seat_ventilation_state"],
+    "rr_seat_heat_state": ["rrSeatHeatState", "rr_seat_heat_state"],
+    "rr_seat_ventilation_state": ["rrSeatVentilationState", "rr_seat_ventilation_state"],
+    "steering_wheel_heat_state": ["steeringWheelHeatState", "stearingWheelHeatState", "steering_wheel_heat_state"],
+}
+# Enum members, near misses (unknown values, strings, floats) and the cleaned-away sentinels.
+RAW_STATES: list[Any] = [-1, 0, 1, 2, 3, 4, -2, "2", " 3 ", "x", 2.0, 1.5, True, None, "", "--", "NaN", [], {}]
+
+
+def _raw_model(rng: random.Random) -> Any:
+    if rng.random() < 0.05:
+        return random_json(rng)
+    payload = {rng.choice(keys): rng.choice(RAW_STATES) for keys in SEAT_KEYS.values() if rng.random() < 0.6}
+    if rng.random() < 0.15:
+        payload = {"statusNow": payload, "status": rng.choice([1, 2])}
+    return payload if json_safe(payload) else {}
+
+
+@group.recorded
+def from_models_cases() -> Iterator[Case]:
+    call = FROM_MODELS_CALL
+    yield call, {"hvac": None, "realtime": None}
+    yield call, {"hvac": {}, "realtime": {}}
+    for raw in ["x", [], 5, True, "--"]:
+        yield call, {"hvac": raw, "realtime": None}
+        yield call, {"hvac": None, "realtime": raw}
+    for name, spellings in SEAT_KEYS.items():
+        for key in spellings:
+            for value in RAW_STATES:
+                yield call, {"hvac": {key: value}, "realtime": None}
+                yield call, {"hvac": None, "realtime": {key: value}}
+        for value in (-1, 0, 1, 2, 3, None, "--"):
+            for fallback in (-1, 0, 1, 2, 3):
+                yield call, {"hvac": {SEAT_KEYS[name][0]: value}, "realtime": {SEAT_KEYS[name][0]: fallback}}
+    full_hvac = {keys[0]: 3 for keys in SEAT_KEYS.values()}
+    full_realtime = {keys[0]: 1 for keys in SEAT_KEYS.values()}
+    yield call, {"hvac": {"statusNow": full_hvac}, "realtime": full_realtime, "changes": [["main_heat", 2]]}
+    yield call, {"hvac": {**full_hvac, "rrSeatHeatState": None}, "realtime": full_realtime}
+    yield call, {"hvac": {"stearingWheelHeatState": 2}, "realtime": {"steeringWheelHeatState": -1}}
+
+
+@group.fuzz
+def from_models_fuzz(rng: random.Random) -> Iterator[Case]:
+    while True:
+        yield FROM_MODELS_CALL, {"hvac": _raw_model(rng) if rng.random() < 0.85 else None,
+                                 "realtime": _raw_model(rng) if rng.random() < 0.85 else None,
+                                 "changes": _random_changes(rng)}

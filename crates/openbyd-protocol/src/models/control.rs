@@ -24,6 +24,8 @@ use serde::{Serialize, Serializer};
 use serde_json::{Map, Value, json};
 
 use super::base::{self, BydModel, Fields, aliased, to_camel};
+use super::hvac::HvacStatus;
+use super::realtime::{SeatHeatVentState, StearingWheelHeat, VehicleRealtimeData};
 use crate::coerce::{self, Failures, IntEnum, StrEnum, ValidationError, py_decimal};
 use crate::constants::{self, DEFAULT_TEMP_OFFSET_C};
 use crate::parity::{Args, Outcome, ParityError};
@@ -1468,6 +1470,32 @@ impl SeatClimateState {
     }
 }
 
+/// Both models carry the same nine fields; this reads them as enum values.
+macro_rules! seat_climate_state_from {
+    ($model:ty) => {
+        impl From<&$model> for SeatClimateState {
+            fn from(model: &$model) -> Self {
+                let seat = |state: Option<SeatHeatVentState>| state.map(|state| state.value());
+                Self {
+                    main_seat_heat_state: seat(model.main_seat_heat_state),
+                    main_seat_ventilation_state: seat(model.main_seat_ventilation_state),
+                    copilot_seat_heat_state: seat(model.copilot_seat_heat_state),
+                    copilot_seat_ventilation_state: seat(model.copilot_seat_ventilation_state),
+                    lr_seat_heat_state: seat(model.lr_seat_heat_state),
+                    lr_seat_ventilation_state: seat(model.lr_seat_ventilation_state),
+                    rr_seat_heat_state: seat(model.rr_seat_heat_state),
+                    rr_seat_ventilation_state: seat(model.rr_seat_ventilation_state),
+                    steering_wheel_heat_state: model
+                        .steering_wheel_heat_state
+                        .map(|state: StearingWheelHeat| state.value()),
+                }
+            }
+        }
+    };
+}
+seat_climate_state_from!(HvacStatus);
+seat_climate_state_from!(VehicleRealtimeData);
+
 /// `SeatHeatVentState.to_command_level`: HIGH(3)→1, LOW(2)→2, OFF(1)→3, anything else 0.
 fn seat_command_level(status: i64) -> i64 {
     match status {
@@ -1549,6 +1577,17 @@ impl SeatClimateParams {
             steering_wheel_heat_state: steering,
             ..SeatClimateArgs::default()
         })
+    }
+
+    /// [`Self::from_current_state`] on the parsed models, as pyBYD's
+    /// `SeatClimateParams.from_current_state(hvac, realtime)` takes them.
+    pub fn from_current_models(
+        hvac: Option<&HvacStatus>,
+        realtime: Option<&VehicleRealtimeData>,
+    ) -> Self {
+        let hvac = hvac.map(SeatClimateState::from);
+        let realtime = realtime.map(SeatClimateState::from);
+        Self::from_current_state(hvac.as_ref(), realtime.as_ref())
     }
 
     /// A copy with `param_key` set to `value` and `chair_type` set to the seat it belongs to.
@@ -1763,6 +1802,18 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
             let params = SeatClimateParams::from_current_state(hvac.as_ref(), realtime.as_ref());
             apply_changes(params, &args).map(|params| seat_answer(&params))
         })(),
+        "models.control.SeatClimateParams.from_models" => (|| {
+            fn parse_model<M: BydModel>(raw: &Value) -> Result<Option<M>, ParityError> {
+                match raw {
+                    Value::Null => Ok(None),
+                    raw => Ok(Some(M::parse(raw, &Value::Null)?)),
+                }
+            }
+            let hvac = parse_model::<HvacStatus>(args.value("hvac"))?;
+            let realtime = parse_model::<VehicleRealtimeData>(args.value("realtime"))?;
+            let params = SeatClimateParams::from_current_models(hvac.as_ref(), realtime.as_ref());
+            apply_changes(params, &args).map(|params| seat_answer(&params))
+        })(),
         "models.control.BatteryHeatParams" => kwargs_arg(&args).and_then(|kwargs| {
             let params = BatteryHeatParams::from_kwargs(kwargs)?;
             Ok(json!({
@@ -1930,6 +1981,29 @@ mod tests {
         );
         assert_eq!(schedule.model_dump()["temperature"], json!(7));
         assert!(ControlParams.to_control_params_map().is_empty());
+    }
+
+    #[test]
+    fn seat_state_comes_from_the_models_hvac_first() {
+        let hvac = HvacStatus::parse(
+            &json!({"mainSeatHeatState": 3, "stearingWheelHeatState": -1}),
+            &Value::Null,
+        )
+        .unwrap();
+        let realtime = VehicleRealtimeData::parse(
+            &json!({"mainSeatHeatState": 1, "copilotSeatHeatState": 2, "stearingWheelHeatState": 1}),
+            &Value::Null,
+        )
+        .unwrap();
+        let state = SeatClimateState::from(&realtime);
+        assert_eq!(state.copilot_seat_heat_state, Some(2));
+        assert_eq!(state.lr_seat_heat_state, None);
+        let params = SeatClimateParams::from_current_models(Some(&hvac), Some(&realtime));
+        let args = params.args();
+        assert_eq!((args.main_heat, args.copilot_heat), (1, 2));
+        assert_eq!(args.steering_wheel_heat_state, 1);
+        let none = SeatClimateParams::from_current_models(None, None);
+        assert_eq!(none.args().steering_wheel_heat_state, 3);
     }
 
     #[test]

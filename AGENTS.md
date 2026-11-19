@@ -42,6 +42,23 @@ To port a function:
 4. Run `python parity/generate.py <group>` to record pyBYD's answers.
 5. Run the tests below until the Rust tests and the Python tests both pass.
 
+Call names follow the pyBYD file, so the surface audit can work out which ones should exist:
+
+| pyBYD | Call name |
+|---|---|
+| `_crypto/hashing.py`, `aes.py`, `signing.py` | `hashing.<function>`, `aes.<function>`, `signing.<function>` |
+| `_constants.py`, `_redact.py`, `_mqtt.py` | `constants.<function>`, `redact.<function>`, `mqtt.<function>` |
+| `config.py`, `session.py` | `config.<Class>`, `session.<method>` |
+| `_api/login.py`, `_api/_envelope.py`, `_transport.py` | `envelope.<function>` |
+| `_api/_common.py` | `api.common.<function>` |
+| `_api/<file>.py` | `api.<file>.<function>` |
+| `models/_base.py` | `models.base.<function>` |
+| `models/<file>.py` | `models.<file>.<Class>` for a model or enum, `models.<file>.<function>` for a function |
+| `_capabilities/<file>.py` | `capabilities.<file>.<name>` |
+| `_state_engine.py`, `_validators.py` | `state.<name>` |
+
+A model call takes `{"raw": ..., "context": ...}` and returns `{"dump": ..., "properties": ...}`: the `model_dump(mode="json")` and the value of every `@property` on the class. Functions that do I/O (`async def`) are ported in `openbyd-client` and covered by its scenario tests instead.
+
 Rules for parity calls:
 
 - **Errors.** When pyBYD raises, openbyd must fail with a `ParityError` whose `kind` is the Python exception's class name (`"BydCryptoError"`, `"ValidationError"`, `"ValueError"`, ...). Wording is not compared. A different class is a failure.

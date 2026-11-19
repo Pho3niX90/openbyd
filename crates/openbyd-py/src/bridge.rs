@@ -461,7 +461,10 @@ where
     let mut tracker = Tracker::start();
     let task = handle.spawn(async move {
         let outcome = CatchPanic(Box::pin(future)).await;
+        // Counted here, before the result is posted: the event loop may
+        // deliver it, and Python read `stats()`, before this task ends.
         tracker.finish();
+        drop(tracker);
         let output: Output = match outcome {
             Ok(value) => Box::new(move |py| value.into_python(py)),
             Err(message) => Box::new(move |_| {

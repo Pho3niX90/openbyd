@@ -73,7 +73,13 @@ def test_surface_introspection_is_sane() -> None:
         "session.content_key",
     ):
         assert name in expected, f"{name} missing from expected_calls()"
+    # BydClient and BydCar are audited member by member.
+    for name in ("client.commands_enabled", "car.state", "car.handle_mqtt_realtime", "client.T"):
+        assert name in expected, f"{name} missing from expected_calls()"
+    assert "client.BydClient" not in expected and "car.BydCar" not in expected
     io = io_functions()
+    for name in ("client.get_car", "client.lock", "car.update_realtime"):
+        assert name in io, f"{name} missing from io_functions()"
     assert "api.gps.fetch_gps_endpoint" in io
     assert "api.common.post_vehicle_json" in io
     assert not set(io) & set(expected), "a symbol is listed both as a flow and as a pure call"

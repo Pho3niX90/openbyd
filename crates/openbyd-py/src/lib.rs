@@ -5,13 +5,19 @@
 //! - [`errors`]: openbyd errors as pyBYD's exception classes.
 //! - [`models`]: pyBYD's reply models by class name, and the shadow comparison.
 //! - [`lowlevel`]: single requests over HTTP through the bridge.
-//! - `testing` (cargo feature `testing`): the fake BYD server.
+//! - [`client`], [`car`]: the client and its cars (`openbyd.Client`,
+//!   `openbyd.Car`), with [`hooks`] running user callbacks on the client's
+//!   event loop.
+//! - `testing` (cargo feature `testing`): the fake BYD server and the MQTT test broker.
 //!
 //! The Python package (`python/openbyd`) wraps these in documented modules.
 
 mod bridge;
+mod car;
+mod client;
 mod convert;
 mod errors;
+mod hooks;
 mod lowlevel;
 mod models;
 #[cfg(feature = "testing")]
@@ -127,6 +133,9 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(models::model_properties, module)?)?;
     module.add_function(wrap_pyfunction!(models::shadow_compare, module)?)?;
 
+    module.add_class::<client::PyClient>()?;
+    module.add_class::<car::PyCar>()?;
+
     module.add_function(wrap_pyfunction!(lowlevel::login, module)?)?;
     module.add_function(wrap_pyfunction!(lowlevel::post_token_json, module)?)?;
 
@@ -134,6 +143,7 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     {
         module.add_class::<testing::PyFakeServer>()?;
         module.add_class::<testing::PyReply>()?;
+        module.add_class::<testing::PyTestBroker>()?;
     }
     module.add("HAS_TESTING", cfg!(feature = "testing"))?;
 

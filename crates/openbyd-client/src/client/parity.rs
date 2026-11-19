@@ -44,9 +44,10 @@ use openbyd_protocol::models::message_center::NotificationCategory;
 use openbyd_protocol::models::vehicle::Vehicle;
 use openbyd_protocol::parity::{Args, Outcome, ParityError};
 use openbyd_protocol::session::Session;
+use openbyd_protocol::state::DEFAULT_PROJECTION_TTL;
 use serde_json::{Map, Value, json};
 
-use super::{BydClient, ChargePollSettings, ClientOptions, PollSettings};
+use super::{BydClient, ChargePollSettings, ClientOptions, GetCarOptions, PollSettings};
 use crate::api::control::model_error;
 use crate::api::smart_charging::EnergyTypeArg;
 use crate::api::vehicle::{dump_all, parse_model};
@@ -361,6 +362,30 @@ async fn run_method(
         "commands_enabled" => Ok(json!(client.commands_enabled())),
         "get_command_ack_diagnostics" => Ok(client.get_command_ack_diagnostics().dump()),
         "_on_mqtt_event" => Ok(Value::Null),
+        "get_car" => {
+            let vin = vin()?;
+            let vehicle = match args.value("vehicle") {
+                Value::Null => None,
+                raw => match parse_model::<Vehicle>(raw) {
+                    Ok(vehicle) => Some(vehicle),
+                    Err(error) => return Ok(Err(error)),
+                },
+            };
+            let options = GetCarOptions {
+                vehicle,
+                projection_ttl: float_or(args, "projection_ttl", DEFAULT_PROJECTION_TTL)?,
+                ..GetCarOptions::default()
+            };
+            let cached = client.car(vin).is_some();
+            client.get_car(vin, options).await.map(|car| {
+                json!({
+                    "cached": cached,
+                    "vin": car.vin(),
+                    "capabilities": car.capabilities().dump(),
+                    "state": car.state().dump(),
+                })
+            })
+        }
         "get_vehicles" => client
             .get_vehicles()
             .await

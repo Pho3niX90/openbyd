@@ -479,3 +479,6 @@ pub(crate) fn is_byd_error(error: &Error) -> bool {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(all(test, feature = "testing"))]
+mod e2e;

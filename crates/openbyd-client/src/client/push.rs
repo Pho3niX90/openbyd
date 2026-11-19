@@ -221,7 +221,8 @@ impl<E: ClientEnv> BydClient<E> {
     }
 
     /// Parses `vehicleInfo`, `smartCharge` and `energyConsumption` pushes for
-    /// the callback and the car layer; a payload that does not parse is skipped.
+    /// the callback, the [`super::CarRouter`] and the car kept for the VIN; a
+    /// payload that does not parse is skipped.
     fn route_push(&self, name: &str, vin: &str, respond_data: &Map<String, Value>) {
         let options = &self.inner.options;
         let raw = Value::Object(respond_data.clone());
@@ -244,23 +245,26 @@ impl<E: ClientEnv> BydClient<E> {
                 if let Some(router) = &options.car_router {
                     router.handle_mqtt_realtime(vin, &parsed);
                 }
+                self.route_realtime(vin, &parsed);
             }
-            "smartCharge" => {
-                if let (Some(router), Ok(parsed)) = (
-                    &options.car_router,
-                    ChargingStatus::parse(&raw, &Value::Null),
-                ) {
-                    router.handle_mqtt_charging(vin, &parsed);
+            "smartCharge" => match ChargingStatus::parse(&raw, &Value::Null) {
+                Ok(parsed) => {
+                    if let Some(router) = &options.car_router {
+                        router.handle_mqtt_charging(vin, &parsed);
+                    }
+                    self.route_charging(vin, &parsed);
                 }
-            }
-            "energyConsumption" => {
-                if let (Some(router), Ok(parsed)) = (
-                    &options.car_router,
-                    EnergyConsumption::parse(&raw, &Value::Null),
-                ) {
-                    router.handle_mqtt_energy(vin, &parsed);
+                Err(_) => log::debug!("Failed to parse MQTT smartCharge"),
+            },
+            "energyConsumption" => match EnergyConsumption::parse(&raw, &Value::Null) {
+                Ok(parsed) => {
+                    if let Some(router) = &options.car_router {
+                        router.handle_mqtt_energy(vin, &parsed);
+                    }
+                    self.route_energy(vin, &parsed);
                 }
-            }
+                Err(_) => log::debug!("Failed to parse MQTT energyConsumption"),
+            },
             _ => {}
         }
     }

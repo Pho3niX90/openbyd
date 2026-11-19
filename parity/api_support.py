@@ -616,6 +616,21 @@ async def _client_method(client: Any, method: str, args: dict) -> Any:  # noqa: 
         return jsonable(client.get_command_ack_diagnostics())
     if method == "_on_mqtt_event":
         return None
+    if method == "get_car":
+        from pybyd.models.vehicle import Vehicle
+
+        cached = vin in client._cars
+        vehicle = None if args.get("vehicle") is None else Vehicle.model_validate(args["vehicle"])
+        car = await client.get_car(vin, vehicle=vehicle, projection_ttl=args.get("projection_ttl", 30.0))
+        return {
+            "cached": cached,
+            "vin": car.vin,
+            "capabilities": jsonable(car.capabilities),
+            "state": {
+                name: None if getattr(car.state, name) is None else jsonable(getattr(car.state, name))
+                for name in ("vehicle", "realtime", "hvac", "gps", "charging", "energy", "charging_schedule")
+            },
+        }
     if method == "get_vehicles":
         return jsonable(await client.get_vehicles())
     if method == "get_latest_configs":

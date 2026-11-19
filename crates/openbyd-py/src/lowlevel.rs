@@ -25,8 +25,9 @@ use crate::bridge::{self, WithPython};
 use crate::convert::{self, Mode};
 use crate::errors;
 
-/// The connection pool every request shares. Made inside the runtime.
-fn pool() -> &'static HttpPool {
+/// The connection pool every request and every client in the process
+/// shares. Made inside the runtime.
+pub(crate) fn pool() -> &'static HttpPool {
     static POOL: OnceLock<HttpPool> = OnceLock::new();
     POOL.get_or_init(HttpPool::new)
 }

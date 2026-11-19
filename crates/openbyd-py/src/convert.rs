@@ -280,14 +280,30 @@ fn round_trip<'py>(object: &Bound<'py, PyAny>, depth: usize) -> PyResult<Bound<'
         return Ok(object.clone());
     }
     if let Ok(entries) = object.cast::<PyDict>() {
-        // The common case, a flat reply: `dict.copy()` shares the keys and
-        // values, which is right when all of them are shared leaves.
-        if object.is_exact_instance_of::<PyDict>()
-            && entries
-                .iter()
-                .all(|(key, item)| key.is_exact_instance_of::<PyString>() && shared_leaf(&item))
-        {
-            return Ok(entries.copy()?.into_any());
+        // The common case, a reply that is flat or nearly so: `dict.copy()`
+        // shares the keys and values, which is right for every shared leaf,
+        // and the few values that are not leaves are then replaced by their
+        // own copies. Replacing a value keeps the key's place. This needs
+        // exact `str` keys: no two of them have the same text.
+        if object.is_exact_instance_of::<PyDict>() {
+            let mut exact_keys = true;
+            let mut nested = Vec::new();
+            for (key, item) in entries.iter() {
+                if !key.is_exact_instance_of::<PyString>() {
+                    exact_keys = false;
+                    break;
+                }
+                if !shared_leaf(&item) {
+                    nested.push((key, item));
+                }
+            }
+            if exact_keys {
+                let copy = entries.copy()?;
+                for (key, item) in nested {
+                    copy.set_item(key, round_trip(&item, depth + 1)?)?;
+                }
+                return Ok(copy.into_any());
+            }
         }
         let dict = PyDict::new(py);
         for (key, item) in entries.iter() {

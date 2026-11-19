@@ -23,23 +23,48 @@
 //!   `{"transport_error": {"status_code": <int or null>}}`. Running out of
 //!   replies fails the request with [`ErrorKind::ScriptExhausted`].
 //!
+//! For the client parity tests ([`crate::client`]) it is also a
+//! [`ClientEnv`], with a timeline of MQTT deliveries ([`ScriptedMqtt`]):
+//!
+//! - each delivery has a time `at` (seconds of `slept`); it is delivered at
+//!   the first *delivery point* at or after that time: after a sleep, while
+//!   a [`ClientEnv::wait_for`] waits (up to its deadline), and when the test
+//!   calls [`ScriptedEnv::advance`] or [`ScriptedEnv::drain`]. Delivering
+//!   moves the clock forward to `at` when that is later. Each delivery is the
+//!   step `{"mqtt": index}`, or `{"mqtt_lost": index}` when no channel is
+//!   running to receive it;
+//! - a wait is the step `{"mqtt_wait": timeout}`; one that times out moves
+//!   the clock to its deadline and adds `{"mqtt_timeout": timeout}`;
+//! - a background task ([`ClientEnv::spawn`]) runs to its end right after
+//!   the delivery that started it;
+//! - starting the channel is `{"mqtt_start": {"bootstrap", "key",
+//!   "keepalive"}}` and succeeds unless the next entry of the start script
+//!   is `false`; stopping is `{"mqtt_stop": null}`, a key change
+//!   `{"mqtt_key": key}`;
+//! - the n-th `uniform(low, high)` (from 0) is `low + (high - low) * u`
+//!   with `u` the first 13 hex digits of `MD5("<seed>:uniform:<n>")` over
+//!   `16**13`.
+//!
 //! Not part of the public API.
 
 use std::collections::{BTreeMap, VecDeque};
+use std::fmt;
 use std::future::Future;
 use std::pin::pin;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Mutex, MutexGuard, PoisonError, Weak};
 use std::task::{Context as TaskContext, Poll, Waker};
 
 use openbyd_protocol::config::BydConfig;
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::hashing::md5_hex;
+use openbyd_protocol::models::base::BydModel;
+use openbyd_protocol::mqtt::{MqttBootstrap, MqttEvent};
 use openbyd_protocol::parity::{Args, Outcome, ParityError};
 use openbyd_protocol::session::Session;
 use serde_json::{Map, Value, json};
 
 use crate::api::Context;
-use crate::env::Env;
+use crate::env::{BoxFuture, ClientEnv, Env, MqttSink};
 
 /// One scripted answer to a `post_secure`.
 #[derive(Debug, Clone, PartialEq)]
@@ -76,20 +101,111 @@ impl Reply {
     }
 }
 
-#[derive(Debug, Default)]
+/// What one scripted MQTT delivery carries.
+#[derive(Debug, Clone, PartialEq)]
+pub enum MqttDelivery {
+    /// A decrypted event.
+    Event(MqttEvent),
+    /// A message that did not decrypt with an unconfirmed key.
+    DecryptError,
+    /// A refused CONNACK, the n-th in a row.
+    ConnackRefused(u32),
+    /// An accepted CONNACK.
+    Connected,
+}
+
+/// One entry of the MQTT timeline: what arrives, and when.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScriptedMqtt {
+    /// Its position in the script, as the trace names it.
+    pub index: usize,
+    /// Seconds of `slept` at which it arrives.
+    pub at: f64,
+    /// What arrives.
+    pub delivery: MqttDelivery,
+}
+
+impl ScriptedMqtt {
+    /// Reads the timeline: null, or a list of `{"at": seconds, ...}`
+    /// objects with one of `"event": {event, vin, topic, payload}`,
+    /// `"decrypt_error": true`, `"connack_refused": n` or `"connected": true`.
+    pub fn from_json(entries: &Value) -> Result<Vec<Self>, ParityError> {
+        let entries = match entries {
+            Value::Null => return Ok(Vec::new()),
+            Value::Array(entries) => entries,
+            _ => return Err(ParityError::bad_arguments("mqtt must be a list")),
+        };
+        entries
+            .iter()
+            .enumerate()
+            .map(|(index, entry)| {
+                let at = entry.get("at").and_then(Value::as_f64).ok_or_else(|| {
+                    ParityError::bad_arguments("an MQTT entry needs a numeric at")
+                })?;
+                let delivery = if let Some(event) = entry.get("event") {
+                    MqttDelivery::Event(
+                        MqttEvent::parse(event, &Value::Null)
+                            .map_err(|_| ParityError::bad_arguments("not an MQTT event"))?,
+                    )
+                } else if entry.get("decrypt_error").is_some() {
+                    MqttDelivery::DecryptError
+                } else if let Some(count) = entry.get("connack_refused") {
+                    MqttDelivery::ConnackRefused(
+                        count
+                            .as_u64()
+                            .and_then(|count| u32::try_from(count).ok())
+                            .ok_or_else(|| {
+                                ParityError::bad_arguments("connack_refused is a count")
+                            })?,
+                    )
+                } else if entry.get("connected").is_some() {
+                    MqttDelivery::Connected
+                } else {
+                    return Err(ParityError::bad_arguments("unknown MQTT entry"));
+                };
+                Ok(Self {
+                    index,
+                    at,
+                    delivery,
+                })
+            })
+            .collect()
+    }
+}
+
+#[derive(Default)]
 struct State {
     slept: f64,
     draws: u64,
+    uniform_draws: u64,
     replies: VecDeque<Reply>,
     steps: Vec<Value>,
+    mqtt: VecDeque<ScriptedMqtt>,
+    mqtt_starts: VecDeque<bool>,
+    running: bool,
+    sink: Option<Weak<dyn MqttSink>>,
+    spawned: VecDeque<BoxFuture<'static, ()>>,
+    stalled: bool,
 }
 
 /// An [`Env`] that answers from a script and records every request and sleep.
-#[derive(Debug)]
 pub struct ScriptedEnv {
     now_ms: i64,
     seed: String,
     state: Mutex<State>,
+}
+
+impl fmt::Debug for ScriptedEnv {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let state = self.state();
+        f.debug_struct("ScriptedEnv")
+            .field("now_ms", &self.now_ms)
+            .field("seed", &self.seed)
+            .field("slept", &state.slept)
+            .field("replies", &state.replies.len())
+            .field("mqtt", &state.mqtt.len())
+            .finish_non_exhaustive()
+    }
 }
 
 impl ScriptedEnv {
@@ -125,6 +241,97 @@ impl ScriptedEnv {
     pub fn unused_replies(&self) -> usize {
         self.state().replies.len()
     }
+
+    /// Adds the MQTT timeline and the start script (one entry per start:
+    /// `false` makes that start fail; starts beyond the script succeed).
+    pub fn with_mqtt(self, mqtt: Vec<ScriptedMqtt>, starts: Vec<bool>) -> Self {
+        {
+            let mut state = self.state();
+            state.mqtt = mqtt.into();
+            state.mqtt_starts = starts.into();
+        }
+        self
+    }
+
+    /// Makes the MQTT channel run with `sink`, without a step: a parity
+    /// call's starting state.
+    pub fn install_mqtt(&self, sink: Weak<dyn MqttSink>) {
+        let mut state = self.state();
+        state.running = true;
+        state.sink = Some(sink);
+    }
+
+    /// How many MQTT deliveries are still to come.
+    pub fn unused_mqtt(&self) -> usize {
+        self.state().mqtt.len()
+    }
+
+    /// Whether a background task waited on something the script cannot give.
+    pub fn stalled(&self) -> bool {
+        self.state().stalled
+    }
+
+    /// Lets `seconds` pass without a sleep, as time passes between two calls
+    /// (the step `{"advance": seconds}`), delivering what arrives meanwhile.
+    pub fn advance(&self, seconds: f64) {
+        let limit = {
+            let mut state = self.state();
+            state.slept += seconds;
+            state.steps.push(json!({ "advance": seconds }));
+            state.slept
+        };
+        while self.deliver_one(limit) {}
+    }
+
+    /// Delivers everything still to come, in order.
+    pub fn drain(&self) {
+        while self.deliver_one(f64::INFINITY) {}
+    }
+
+    /// Delivers the next MQTT entry if it arrives by `limit`, then runs the
+    /// background tasks it started. `false` when nothing was due.
+    fn deliver_one(&self, limit: f64) -> bool {
+        let (entry, sink) = {
+            let mut state = self.state();
+            if state.mqtt.front().is_none_or(|entry| entry.at > limit) {
+                return false;
+            }
+            let entry = state.mqtt.pop_front().expect("checked above");
+            if entry.at > state.slept {
+                state.slept = entry.at;
+            }
+            let sink = if state.running {
+                state.sink.as_ref().and_then(Weak::upgrade)
+            } else {
+                None
+            };
+            let kind = if sink.is_some() { "mqtt" } else { "mqtt_lost" };
+            state.steps.push(json!({ kind: entry.index }));
+            (entry, sink)
+        };
+        if let Some(sink) = sink {
+            match &entry.delivery {
+                MqttDelivery::Event(event) => sink.on_event(event),
+                MqttDelivery::DecryptError => sink.on_decrypt_error(),
+                MqttDelivery::ConnackRefused(count) => sink.on_connack_refused(*count),
+                MqttDelivery::Connected => sink.on_connected(),
+            }
+            self.run_spawned();
+        }
+        true
+    }
+
+    /// Runs the queued background tasks to their end, in order.
+    fn run_spawned(&self) {
+        loop {
+            let Some(task) = self.state().spawned.pop_front() else {
+                return;
+            };
+            if block_on(task).is_none() {
+                self.state().stalled = true;
+            }
+        }
+    }
 }
 
 impl Env for ScriptedEnv {
@@ -152,9 +359,13 @@ impl Env for ScriptedEnv {
     }
 
     async fn sleep(&self, seconds: f64) {
-        let mut state = self.state();
-        state.slept += seconds;
-        state.steps.push(json!({ "sleep": seconds }));
+        let limit = {
+            let mut state = self.state();
+            state.slept += seconds;
+            state.steps.push(json!({ "sleep": seconds }));
+            state.slept
+        };
+        while self.deliver_one(limit) {}
     }
 
     async fn post_secure(
@@ -178,6 +389,90 @@ impl Env for ScriptedEnv {
                 endpoint,
             )),
         }
+    }
+}
+
+impl ClientEnv for ScriptedEnv {
+    async fn wait_for<'a, T: Send + 'a>(
+        &'a self,
+        mut future: BoxFuture<'a, T>,
+        timeout: f64,
+    ) -> Option<T> {
+        let deadline = {
+            let mut state = self.state();
+            state.steps.push(json!({ "mqtt_wait": timeout }));
+            state.slept + timeout
+        };
+        let mut cx = TaskContext::from_waker(Waker::noop());
+        loop {
+            if let Poll::Ready(value) = future.as_mut().poll(&mut cx) {
+                return Some(value);
+            }
+            if !self.deliver_one(deadline) {
+                break;
+            }
+        }
+        let mut state = self.state();
+        if deadline > state.slept {
+            state.slept = deadline;
+        }
+        state.steps.push(json!({ "mqtt_timeout": timeout }));
+        None
+    }
+
+    fn spawn(&self, task: BoxFuture<'static, ()>) {
+        self.state().spawned.push_back(task);
+    }
+
+    fn uniform(&self, low: f64, high: f64) -> f64 {
+        let draw = {
+            let mut state = self.state();
+            state.uniform_draws += 1;
+            state.uniform_draws - 1
+        };
+        let hex = md5_hex(&format!("{}:uniform:{draw}", self.seed));
+        let unit =
+            u64::from_str_radix(&hex[..13], 16).expect("md5_hex gives hex") as f64 / 16f64.powi(13);
+        low + (high - low) * unit
+    }
+
+    async fn start_mqtt(
+        &self,
+        bootstrap: &MqttBootstrap,
+        decrypt_key: &str,
+        keepalive: i64,
+        sink: Weak<dyn MqttSink>,
+    ) -> Result<(), Error> {
+        let mut state = self.state();
+        state.steps.push(json!({"mqtt_start": {
+            "bootstrap": bootstrap.dump(),
+            "key": decrypt_key,
+            "keepalive": keepalive,
+        }}));
+        if !state.mqtt_starts.pop_front().unwrap_or(true) {
+            return Err(Error::new(
+                ErrorKind::BydError,
+                "scripted MQTT start failure",
+            ));
+        }
+        state.running = true;
+        state.sink = Some(sink);
+        Ok(())
+    }
+
+    fn stop_mqtt(&self) {
+        let mut state = self.state();
+        state.steps.push(json!({ "mqtt_stop": null }));
+        state.running = false;
+        state.sink = None;
+    }
+
+    fn mqtt_running(&self) -> bool {
+        self.state().running
+    }
+
+    fn update_mqtt_key(&self, decrypt_key: &str) {
+        self.state().steps.push(json!({ "mqtt_key": decrypt_key }));
     }
 }
 

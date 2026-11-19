@@ -70,11 +70,15 @@ pub enum ErrorKind {
     AssertionError,
     /// A scripted test environment ran out of replies (`parity/api_support.py`).
     ScriptExhausted,
+    /// Python's `asyncio.CancelledError`: a wait for an MQTT event was cut
+    /// short because the client stopped its MQTT channel (pyBYD cancels the
+    /// waiting futures), for example during a re-login.
+    CancelledError,
 }
 
 impl ErrorKind {
     /// Every kind, parents before children.
-    pub const ALL: [ErrorKind; 22] = [
+    pub const ALL: [ErrorKind; 23] = [
         ErrorKind::BydError,
         ErrorKind::BydCryptoError,
         ErrorKind::BangcleError,
@@ -97,6 +101,7 @@ impl ErrorKind {
         ErrorKind::AttributeError,
         ErrorKind::AssertionError,
         ErrorKind::ScriptExhausted,
+        ErrorKind::CancelledError,
     ];
 
     /// The Python class name, for example `"BydSessionExpiredError"`.
@@ -124,6 +129,7 @@ impl ErrorKind {
             ErrorKind::AttributeError => "AttributeError",
             ErrorKind::AssertionError => "AssertionError",
             ErrorKind::ScriptExhausted => "ScriptExhausted",
+            ErrorKind::CancelledError => "CancelledError",
         }
     }
 
@@ -137,7 +143,7 @@ impl ErrorKind {
         use ErrorKind::*;
         match self {
             BydError | ValueError | TypeError | AttributeError | AssertionError
-            | ScriptExhausted => None,
+            | ScriptExhausted | CancelledError => None,
             BydCryptoError | BydTransportError | BydApiError => Some(BydError),
             BangcleError => Some(BydCryptoError),
             BangcleTableLoadError => Some(BangcleError),

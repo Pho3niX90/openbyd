@@ -530,8 +530,18 @@ pub async fn poll_remote_control_once<E: Env>(
         ));
     }
 
-    if let Some(waiter) = hooks.mqtt_result_waiter
-        && let Ok(Some(mqtt_result)) = waiter.wait(&serial).await
+    let waited = match hooks.mqtt_result_waiter {
+        Some(waiter) => Some(waiter.wait(&serial).await),
+        None => None,
+    };
+    // pyBYD's `except Exception` around the waiter does not catch
+    // `asyncio.CancelledError`: a wait cut short by a re-login ends the command.
+    if let Some(Err(error)) = &waited
+        && error.kind() == ErrorKind::CancelledError
+    {
+        return Err(error.clone());
+    }
+    if let Some(Ok(Some(mqtt_result))) = waited
         // Terminal is `controlState != 0` on the model's dump.
         && mqtt_result.control_state != ControlState::Pending
         // pyBYD raises a rejection inside the `try` around the waiter and

@@ -56,6 +56,7 @@ import asyncio
 import copy
 import hashlib
 import json
+import math
 import secrets
 import time
 from collections.abc import Callable, Iterable
@@ -408,3 +409,579 @@ def flow_oracle(group: Group, call: str, function: Callable[..., Any]) -> None:
 
     oracle.__name__ = call.replace(".", "_")
     group.oracle(call)(oracle)
+
+
+# ---------------------------------------------------------------------------
+# The client runner: pyBYD's real BydClient against a script
+# ---------------------------------------------------------------------------
+#
+# A parity call ``client.<method>`` runs one ``BydClient`` method against
+# the same kind of script as the flows, plus an MQTT timeline. Its arguments
+# and trace are described in ``crates/openbyd-client/src/client/parity.rs``;
+# the rules of the timeline in ``crates/openbyd-client/src/scripted.rs``.
+#
+# pyBYD's client runs without an event loop here, as the flows do: the
+# patched ``asyncio.wait_for`` delivers the MQTT timeline while it "waits",
+# ``asyncio.ensure_future`` queues background tasks that run to their end
+# right after the delivery that started them, ``random.uniform`` draws from
+# the seed, and the MQTT runtime is a stand-in that records starts, stops
+# and key changes. ``Session`` and ``_PendingCommand`` read the patched
+# monotonic clock when created: their ``default_factory`` holds the real
+# ``time.monotonic``, which would make every session look expired.
+
+
+def _num(value: float) -> Any:
+    """A float as the trace writes it: non-finite values as text."""
+    if math.isfinite(value):
+        return value
+    if math.isnan(value):
+        return "nan"
+    return "inf" if value > 0 else "-inf"
+
+
+class _FakeLoop:
+    """The client's ``_loop``: never running, so callbacks run inline, and
+    ``run_in_executor`` runs the function at once."""
+
+    _real = asyncio.new_event_loop()
+
+    def create_future(self) -> asyncio.Future:
+        return self._real.create_future()
+
+    def is_running(self) -> bool:
+        return False
+
+    def run_in_executor(self, _executor: Any, function: Callable[..., Any], *args: Any) -> asyncio.Future:
+        future = self._real.create_future()
+        try:
+            future.set_result(function(*args))
+        except Exception as error:  # noqa: BLE001 - the awaiting code sees it
+            future.set_exception(error)
+        return future
+
+
+class _ClientHarness:
+    """The MQTT timeline, the start script and the background tasks of one run."""
+
+    def __init__(self, clock: _Clock, steps: list[dict], mqtt: list[dict], starts: list[bool]) -> None:
+        self.clock = clock
+        self.steps = steps
+        self.mqtt = list(enumerate(mqtt))
+        self.starts = list(starts)
+        self.current: Any = None
+        self.spawned: list[Any] = []
+        self.uniform_draws = 0
+
+    def runtime_class(self) -> type:
+        harness = self
+
+        class FakeRuntime:
+            def __init__(
+                self,
+                *,
+                loop: Any,
+                decrypt_key_hex: str,
+                on_event: Callable[..., None],
+                on_decrypt_error: Callable[[], None] | None = None,
+                on_connack_refused: Callable[[int], None] | None = None,
+                on_connected: Callable[[], None] | None = None,
+                keepalive: int = 120,
+                logger: Any = None,
+            ) -> None:
+                self.key = decrypt_key_hex
+                self.on_event = on_event
+                self.on_decrypt_error = on_decrypt_error
+                self.on_connack_refused = on_connack_refused
+                self.on_connected = on_connected
+                self.keepalive = keepalive
+                self._running = False
+
+            @property
+            def is_running(self) -> bool:
+                return self._running
+
+            def update_decrypt_key(self, key_hex: str) -> None:
+                harness.steps.append({"mqtt_key": key_hex})
+
+            def start(self, bootstrap: Any) -> None:
+                harness.steps.append(
+                    {
+                        "mqtt_start": {
+                            "bootstrap": bootstrap.model_dump(mode="json"),
+                            "key": self.key,
+                            "keepalive": self.keepalive,
+                        }
+                    }
+                )
+                if not (harness.starts.pop(0) if harness.starts else True):
+                    raise exceptions.BydError("scripted MQTT start failure")
+                self._running = True
+                harness.current = self
+
+            def stop(self) -> None:
+                harness.steps.append({"mqtt_stop": None})
+                self._running = False
+                if harness.current is self:
+                    harness.current = None
+
+        return FakeRuntime
+
+    def deliver_one(self, limit: float) -> bool:
+        from pybyd._mqtt import MqttEvent
+
+        if not self.mqtt or self.mqtt[0][1]["at"] > limit:
+            return False
+        index, entry = self.mqtt.pop(0)
+        if entry["at"] > self.clock.slept:
+            self.clock.slept = entry["at"]
+        runtime = self.current if self.current is not None and self.current.is_running else None
+        self.steps.append({"mqtt" if runtime is not None else "mqtt_lost": index})
+        if runtime is not None:
+            if "event" in entry:
+                runtime.on_event(MqttEvent.model_validate(entry["event"]))
+            elif "decrypt_error" in entry:
+                runtime.on_decrypt_error()
+            elif "connack_refused" in entry:
+                runtime.on_connack_refused(entry["connack_refused"])
+            elif "connected" in entry:
+                runtime.on_connected()
+            while self.spawned:
+                drive(self.spawned.pop(0))
+        return True
+
+    def drain(self) -> None:
+        while self.deliver_one(math.inf):
+            pass
+
+
+def _is_hex32(text: str) -> bool:
+    return len(text) == 32 and all(ch in "0123456789abcdefABCDEF" for ch in text)
+
+
+_PLAIN_READS = {
+    "get_latest_config",
+    "get_hvac_status",
+    "get_charging_status",
+    "get_charging_schedule",
+    "get_energy_consumption",
+    "get_push_state",
+    "get_booking_list",
+}
+_SIMPLE_COMMANDS = {
+    "lock",
+    "unlock",
+    "stop_climate",
+    "flash_lights",
+    "close_windows",
+    "open_windows",
+    "find_car",
+    "open_trunk",
+    "close_trunk",
+}
+
+
+async def _client_method(client: Any, method: str, args: dict) -> Any:  # noqa: C901, PLR0911, PLR0912
+    """Calls ``method`` on pyBYD's client and returns its result as JSON data."""
+    from pybyd.models import control
+    from pybyd.models.message_center import NotificationCategory
+
+    from parity.models_support import jsonable
+
+    vin = args.get("vin")
+    pwd = args.get("command_pwd")
+    polls = {key: args[key] for key in ("poll_attempts", "poll_interval", "mqtt_timeout", "signal_retries") if key in args}
+    charge = {key: args[key] for key in ("mqtt_timeout", "poll_attempts", "poll_interval") if key in args}
+    params = {
+        "start_climate": control.ClimateStartParams,
+        "schedule_climate": control.ClimateScheduleParams,
+        "set_seat_climate": control.SeatClimateParams,
+        "set_battery_heat": control.BatteryHeatParams,
+    }
+    if method == "login":
+        return await client.login()
+    if method == "ensure_session":
+        session = await client.ensure_session()
+        return [session.user_id, _num(session.created_at)]
+    if method == "invalidate_session":
+        return client.invalidate_session()
+    if method == "async_start":
+        client._transport = client._parity_transport
+        client._loop = _FakeLoop()
+        return None
+    if method == "async_close":
+        return await client.async_close()
+    if method == "commands_enabled":
+        return client.commands_enabled
+    if method == "get_command_ack_diagnostics":
+        return jsonable(client.get_command_ack_diagnostics())
+    if method == "on_mqtt_events":
+        return None
+    if method == "get_vehicles":
+        return jsonable(await client.get_vehicles())
+    if method == "get_latest_configs":
+        return jsonable(await client.get_latest_configs(list(args.get("vins") or [])))
+    if method in _PLAIN_READS:
+        return jsonable(await getattr(client, method)(vin))
+    if method == "get_vehicle_capabilities":
+        force = bool(args.get("force_refresh", False))
+        return jsonable(await client.get_vehicle_capabilities(vin, force_refresh=force))
+    if method in ("get_vehicle_realtime", "get_gps_info"):
+        return jsonable(await getattr(client, method)(vin, **polls))
+    if method == "get_charging_homepage":
+        return jsonable(list(await client.get_charging_homepage(vin)))
+    if method == "get_ac_current_limit":
+        return jsonable(await client.get_ac_current_limit(vin, energy_type=args.get("energy_type")))
+    if method == "set_push_state":
+        enable = bool(args.get("enable", False))
+        return jsonable(await client.set_push_state(vin, enable=enable, push_type=args.get("push_type", 701)))
+    if method == "get_notifications":
+        category = args.get("category")
+        chosen = NotificationCategory.VEHICLE if category is None else NotificationCategory(category)
+        return jsonable(await client.get_notifications(chosen))
+    if method == "get_all_notifications":
+        found = await client.get_all_notifications()
+        return {str(int(category)): jsonable(messages) for category, messages in found.items()}
+    if method == "rename_vehicle":
+        return jsonable(await client.rename_vehicle(vin, name=args["name"]))
+    if method == "verify_command_access":
+        return jsonable(await client.verify_command_access(vin, command_pwd=pwd))
+    if method in _SIMPLE_COMMANDS:
+        return jsonable(await getattr(client, method)(vin, command_pwd=pwd))
+    if method in params:
+        built = params[method](**args["params"])
+        return jsonable(await getattr(client, method)(vin, params=built, command_pwd=pwd))
+    if method == "save_charging_schedule":
+        result = await client.save_charging_schedule(
+            vin,
+            start_charge_time=args["start_charge_time"],
+            end_charge_time=args["end_charge_time"],
+            charge_way=args["charge_way"],
+            enabled=bool(args.get("enabled", True)),
+            **charge,
+        )
+        return jsonable(result)
+    if method == "toggle_smart_charging":
+        return jsonable(await client.toggle_smart_charging(vin, enable=bool(args.get("enable", False))))
+    if method in ("start_charging", "stop_charging"):
+        return jsonable(await getattr(client, method)(vin, **charge))
+    raise KeyError(f"no client method {method!r}")
+
+
+def run_client(  # noqa: C901, PLR0913, PLR0915
+    method: str,
+    *,
+    config: dict,
+    now_ms: int,
+    seed: str,
+    replies: list[dict],
+    args: dict | None = None,
+    mqtt: list[dict] | None = None,
+    mqtt_starts: list[bool] | None = None,
+    callbacks: bool = False,
+    options: dict | None = None,
+    state: dict | None = None,
+    setup: list[dict] | None = None,
+) -> dict:
+    """Run pyBYD's ``BydClient.<method>`` against the script and return its trace."""
+    import pybyd.client as client_module
+    from pybyd.models.latest_config import VehicleCapabilities, VehicleLatestConfig
+    from pybyd.models.vehicle import Vehicle
+
+    from parity.models_support import jsonable
+
+    clock = _Clock(now_ms, seed)
+    steps: list[dict] = []
+    transport = ScriptedTransport(replies, steps)
+    harness = _ClientHarness(clock, steps, mqtt or [], mqtt_starts or [])
+    options = options or {}
+
+    async def sleep(delay: float, result: Any = None) -> Any:
+        clock.slept += delay
+        steps.append({"sleep": float(delay)})
+        limit = clock.slept
+        while harness.deliver_one(limit):
+            pass
+        return result
+
+    async def wait_for(future: Any, timeout: float) -> Any:
+        steps.append({"mqtt_wait": float(timeout)})
+        deadline = clock.slept + timeout
+        while True:
+            if future.done():
+                return future.result()
+            if not harness.deliver_one(deadline):
+                break
+        if deadline > clock.slept:
+            clock.slept = deadline
+        steps.append({"mqtt_timeout": float(timeout)})
+        raise TimeoutError
+
+    def ensure_future(coroutine: Any, **_: Any) -> None:
+        harness.spawned.append(coroutine)
+
+    def uniform(low: float, high: float) -> float:
+        draw = harness.uniform_draws
+        harness.uniform_draws += 1
+        unit = int(hashlib.md5(f"{seed}:uniform:{draw}".encode()).hexdigest()[:13], 16) / 16**13
+        return low + (high - low) * unit
+
+    original_session = client_module.Session
+    original_pending = client_module._PendingCommand
+
+    def make_session(**kwargs: Any) -> Any:
+        kwargs.setdefault("created_at", time.monotonic())
+        return original_session(**kwargs)
+
+    def make_pending(*, command: str) -> Any:
+        return original_pending(command=command, created_at=time.monotonic())
+
+    def record(name: str) -> Callable[..., None]:
+        def callback(*values: Any) -> None:
+            if name == "on_mqtt_event":
+                steps.append({name: [values[0], values[1], jsonable(copy.deepcopy(values[2]))]})
+            elif name == "on_vehicle_info":
+                steps.append({name: [values[0], jsonable(values[1])]})
+            elif name == "on_mqtt_connect":
+                steps.append({name: None})
+            else:
+                steps.append({name: jsonable(values[0])})
+
+        return callback
+
+    trace: dict[str, Any] = {"steps": steps}
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch.object(time, "time", clock.time))
+        stack.enter_context(mock.patch.object(time, "monotonic", clock.monotonic))
+        stack.enter_context(mock.patch.object(secrets, "token_hex", clock.token_hex))
+        stack.enter_context(mock.patch.object(asyncio, "sleep", sleep))
+        stack.enter_context(mock.patch.object(asyncio, "wait_for", wait_for))
+        stack.enter_context(mock.patch.object(asyncio, "ensure_future", ensure_future))
+        stack.enter_context(mock.patch.object(client_module.random, "uniform", uniform))
+        stack.enter_context(mock.patch.object(client_module, "BydMqttRuntime", harness.runtime_class()))
+        stack.enter_context(mock.patch.object(client_module, "Session", make_session))
+        stack.enter_context(mock.patch.object(client_module, "_PendingCommand", make_pending))
+        if "command_retries" in options:
+            # What applications patch today: poll_remote_control with a fixed retry count.
+            original_poll = client_module._control_api.poll_remote_control
+
+            async def poll_remote_control(*positional: Any, **keywords: Any) -> Any:
+                keywords["command_retries"] = options["command_retries"]
+                return await original_poll(*positional, **keywords)
+
+            stack.enter_context(
+                mock.patch.object(client_module._control_api, "poll_remote_control", poll_remote_control)
+            )
+        if options.get("gate_bypass"):
+            # What applications patch today: the gate, letting some refusals through.
+            original_gate = client_module.evaluate_command_gate
+            bypass = set(options["gate_bypass"])
+
+            def evaluate_command_gate(*positional: Any, **keywords: Any) -> Any:
+                verdict = original_gate(*positional, **keywords)
+                if not verdict.supported and verdict.reason in bypass:
+                    return verdict.model_copy(update={"supported": True})
+                return verdict
+
+            stack.enter_context(mock.patch.object(client_module, "evaluate_command_gate", evaluate_command_gate))
+
+        hooks = {}
+        if callbacks:
+            names = ("on_vehicle_info", "on_mqtt_event", "on_command_ack", "on_command_lifecycle", "on_mqtt_connect")
+            hooks = {name: record(name) for name in names}
+        client = client_module.BydClient(
+            BydConfig(**config),
+            command_ack_ttl_seconds=options.get("command_ack_ttl_seconds", 300.0),
+            **hooks,
+        )
+        client._transport = transport
+        client._parity_transport = transport
+        client._loop = _FakeLoop()
+        if options.get("pin_passthrough"):
+            # What applications patch today: a digest goes out as given.
+            original_resolve = client._resolve_command_pwd
+
+            def resolve(command_pwd: str | None) -> str:
+                if command_pwd is not None and _is_hex32(command_pwd.strip()):
+                    return command_pwd.strip()
+                return original_resolve(command_pwd)
+
+            client._resolve_command_pwd = resolve
+
+        start = state or {}
+        session = None
+        if start.get("session") is not None:
+            session = make_session(**start["session"])
+            client._session = session
+            client._guest_vins = session.guest_vins
+            session.guest_vins.update(start.get("guest_vins") or {})
+            session.user_type_settled.update((vin, endpoint) for vin, endpoint in start.get("user_type_settled") or [])
+        else:
+            client._guest_vins.update(start.get("guest_vins") or {})
+        client._commands_enabled = bool(start.get("commands_enabled", False))
+        for raw in start.get("vehicles") or []:
+            vehicle = Vehicle.model_validate(raw)
+            client._vehicle_metadata_by_vin[vehicle.vin] = vehicle
+        for vin, raw in (start.get("capabilities") or {}).items():
+            client._vehicle_capabilities[vin] = VehicleCapabilities.from_latest_config(
+                vin, VehicleLatestConfig.model_validate(raw)
+            )
+        if start.get("mqtt"):
+            runtime = harness.runtime_class()(
+                loop=client._loop,
+                decrypt_key_hex=session.content_key() if session is not None else "",
+                on_event=client._on_mqtt_event,
+                on_decrypt_error=client._schedule_mqtt_reauth,
+                on_connack_refused=client._on_mqtt_connack_refused,
+                on_connected=client._on_mqtt_connected,
+            )
+            runtime._running = True
+            harness.current = runtime
+            client._mqtt_runtime = runtime
+
+        for step in setup or []:
+            if "advance" in step:
+                clock.slept += step["advance"]
+                steps.append({"advance": step["advance"]})
+                limit = clock.slept
+                while harness.deliver_one(limit):
+                    pass
+                continue
+            try:
+                drive(_client_method(client, step["method"], step.get("args") or {}))
+            except Stalled:
+                raise
+            except BaseException as error:  # noqa: BLE001 - recorded in the trace
+                steps.append({"setup_error": type(error).__name__})
+
+        try:
+            trace["result"] = drive(_client_method(client, method, args or {}))
+        except Stalled:
+            raise
+        except BaseException as error:  # noqa: BLE001 - every failure is part of the trace
+            trace["error"] = describe(error)
+        harness.drain()
+
+        current = client._session
+        trace["state"] = {
+            "session": None
+            if current is None
+            else [current.user_id, current.sign_token, current.encry_token, _num(current.created_at), _num(current.ttl)],
+            "guest_vins": dict(sorted(client._guest_vins.items())),
+            "user_type_settled": [list(pair) for pair in sorted(current.user_type_settled)] if current else [],
+            "commands_enabled": client._commands_enabled,
+            "vehicles": list(client._vehicle_metadata_by_vin),
+            "capabilities": sorted([vin, caps.source] for vin, caps in client._vehicle_capabilities.items()),
+            "mqtt_running": client._mqtt_runtime is not None and client._mqtt_runtime.is_running,
+            "waiters": len(client._mqtt_waiters),
+            "pending": [
+                [vin, serial, pending.command, _num(pending.created_at)]
+                for (vin, serial), pending in client._pending_commands.items()
+            ],
+            "counters": [
+                client._pending_matched_count,
+                client._pending_expired_count,
+                client._pending_uncorrelated_count,
+            ],
+            "data_poll_serials": len(client._data_poll_serials),
+            "reauth": [_num(client._mqtt_reauth_at), client._mqtt_decrypt_reauths],
+            "recovery": [client._mqtt_recovery_attempts, _num(client._mqtt_recovery_last_at)],
+            "closed": client._transport is None,
+        }
+    trace["unused_replies"] = len(transport.replies)
+    trace["unused_mqtt"] = len(harness.mqtt)
+    return trace
+
+
+# ---------------------------------------------------------------------------
+# Client case builders
+# ---------------------------------------------------------------------------
+
+#: The token a scripted login returns: the tokens of ``SAMPLE_SESSION``, so
+#: replies sealed with ``ok_reply(SAMPLE_SESSION, ...)`` read before and
+#: after a login.
+LOGIN_TOKEN = {
+    "userId": SAMPLE_SESSION["user_id"],
+    "signToken": SAMPLE_SESSION["sign_token"],
+    "encryToken": SAMPLE_SESSION["encry_token"],
+}
+#: A session created now (``NOW_MS``), so it has not expired.
+LIVE_SESSION = {**SAMPLE_SESSION, "created_at": NOW_MS / 1000}
+#: A session that expired long ago.
+OLD_SESSION = {**SAMPLE_SESSION, "created_at": 100.0}
+#: The broker lookup a login with MQTT makes.
+BROKER_REPLY_DATA = {"emqBorker": "emq.example.com:8883"}
+
+
+def login_reply(token: Any = None, *, password: str | None = None, code: Any = "0") -> dict:
+    """A login reply carrying ``token`` (``LOGIN_TOKEN`` by default),
+    sealed with the key of ``password`` (the sample config's by default)."""
+    from pybyd._crypto.hashing import pwd_login_key
+
+    key = pwd_login_key(SAMPLE_CONFIG["password"] if password is None else password)
+    inner = json.dumps({"token": LOGIN_TOKEN if token is None else token}, ensure_ascii=False)
+    return {"reply": {"code": code, "message": "ok", "respondData": aes_encrypt_hex(inner, key)}}
+
+
+def broker_reply(session: dict = SAMPLE_SESSION) -> dict:
+    """The answer to the MQTT broker lookup."""
+    return ok_reply(session, BROKER_REPLY_DATA)
+
+
+def login_replies() -> list[dict]:
+    """A successful login and its MQTT broker lookup."""
+    return [login_reply(), broker_reply()]
+
+
+def logged_in(*, mqtt: bool = True, session: dict | None = None, **more: Any) -> dict:
+    """The starting state of a logged-in client (MQTT running by default)."""
+    return {"session": LIVE_SESSION if session is None else session, "mqtt": mqtt, **more}
+
+
+def mqtt_event(at: float, event: str, data: Any, *, vin: str = VIN, uuid: Any = None, topic: str = "oversea/res/1234567") -> dict:
+    """An MQTT event arriving at ``at``: ``data`` is the ``data`` object
+    (put ``respondData`` in it), with ``uuid`` when given."""
+    payload_data = dict(data) if isinstance(data, dict) else data
+    if uuid is not None and isinstance(payload_data, dict):
+        payload_data["uuid"] = uuid
+    return {"at": at, "event": {"event": event, "vin": vin, "topic": topic, "payload": {"event": event, "vin": vin, "data": payload_data}}}
+
+
+def client_case(
+    *,
+    replies: Iterable[dict] = (),
+    mqtt: Iterable[dict] = (),
+    mqtt_starts: Iterable[bool] = (),
+    state: dict | None = None,
+    setup: Iterable[dict] = (),
+    options: dict | None = None,
+    callbacks: bool = True,
+    config: dict | None = None,
+    now_ms: int = NOW_MS,
+    seed: str = "seed",
+    **args: Any,
+) -> dict:
+    """The arguments of a ``client.<method>`` parity call; keywords not named
+    here are the method's own arguments."""
+    return {
+        "config": SAMPLE_CONFIG if config is None else config,
+        "now_ms": now_ms,
+        "seed": seed,
+        "replies": list(replies),
+        "mqtt": list(mqtt),
+        "mqtt_starts": list(mqtt_starts),
+        "callbacks": callbacks,
+        "options": options or {},
+        "state": state or {},
+        "setup": list(setup),
+        "args": args,
+    }
+
+
+def client_oracle(group: Group, method: str) -> None:
+    """Register pyBYD's ``BydClient.<method>`` as the oracle of ``client.<method>``."""
+
+    def oracle(**call_args: Any) -> dict:
+        return run_client(method, **call_args)
+
+    oracle.__name__ = f"client_{method}"
+    group.oracle(f"client.{method}")(oracle)

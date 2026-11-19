@@ -1,3 +1,1439 @@
-//! The client itself: sessions, reads, commands (`pybyd/client.py`).
+//! The client itself: sessions, reads, commands and the MQTT channel
+//! (`pybyd/client.py`).
 //!
-//! Not written yet.
+//! [`BydClient`] is pyBYD's `BydClient`, with the same methods, argument
+//! names and behaviour, built on the flows of [`crate::api`]. It is generic
+//! over a [`ClientEnv`], so the whole client runs against the scripted
+//! environment in the parity tests; in production it runs on
+//! [`ProductionEnv`] (an [`HttpEnv`] and a [`crate::mqtt::MqttRuntime`]):
+//!
+//! ```no_run
+//! # async fn demo() -> Result<(), openbyd_protocol::error::Error> {
+//! use openbyd_client::client::BydClient;
+//! use openbyd_client::http::HttpPool;
+//! use openbyd_protocol::config::BydConfig;
+//!
+//! let pool = HttpPool::new(); // one per process, shared by every client
+//! let client = BydClient::connect(BydConfig::new("user@example.com", "secret"), &pool);
+//! client.login().await?;
+//! for vehicle in client.get_vehicles().await? {
+//!     let _realtime = client.get_vehicle_realtime(&vehicle.vin, Default::default()).await?;
+//! }
+//! client.async_close();
+//! # Ok(()) }
+//! ```
+//!
+//! # Many clients in one process
+//!
+//! A client is a handle (`Clone` shares it) over its own state: the
+//! session, the caches, the pending commands and the MQTT waits, each
+//! behind a short-lived lock of its own; no lock is held across an `await`
+//! and none is shared between clients. Every method takes `&self` and may
+//! run concurrently with the others. The HTTP connections come from the
+//! shared [`crate::http::HttpPool`]; the MQTT channel is one tokio task per
+//! client. Nothing spawns a thread or blocks.
+//!
+//! # What pyBYD's users patched, as options
+//!
+//! [`ClientOptions`] carries what applications used to monkeypatch: a
+//! command [gate policy](ClientOptions::gate_policy), the default
+//! [command retries](ClientOptions::command_retries), the
+//! [PIN resolver](ClientOptions::pin_resolver), the
+//! [re-login policy](ReloginPolicy), a [request observer](RequestRecord) and
+//! the user callbacks. Sessions can be [exported](BydClient::export_session)
+//! and [imported](BydClient::import_session), and vehicle metadata
+//! [seeded](BydClient::seed_vehicle_metadata) without a vehicle list.
+//!
+//! # Not here
+//!
+//! pyBYD's `get_car` and the per-car `BydCar` aggregates belong to the car
+//! layer (`crate::car`); the client routes MQTT pushes to it through a
+//! [`CarRouter`].
+
+mod commands;
+pub(crate) mod parity;
+mod production;
+mod push;
+
+use std::collections::HashMap;
+use std::fmt;
+use std::future::Future;
+use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
+use std::time::{Duration, Instant};
+
+use openbyd_protocol::coerce::IntEnum;
+use openbyd_protocol::config::BydConfig;
+use openbyd_protocol::envelope::{build_login_request, parse_login_response};
+use openbyd_protocol::error::{Error, ErrorKind};
+use openbyd_protocol::models::base::BydModel;
+use openbyd_protocol::models::booking::BookingList;
+use openbyd_protocol::models::charging::ChargingStatus;
+use openbyd_protocol::models::command_gating::CommandGateVerdict;
+use openbyd_protocol::models::control::{CommandAck, CommandAckEvent, CommandLifecycleEvent};
+use openbyd_protocol::models::energy::EnergyConsumption;
+use openbyd_protocol::models::gps::GpsInfo;
+use openbyd_protocol::models::hvac::HvacStatus;
+use openbyd_protocol::models::latest_config::{VehicleCapabilities, VehicleLatestConfig};
+use openbyd_protocol::models::message_center::{NotificationCategory, VehicleMsgItemInfo};
+use openbyd_protocol::models::push_notification::PushNotificationState;
+use openbyd_protocol::models::realtime::VehicleRealtimeData;
+use openbyd_protocol::models::smart_charging::{AcCurrentLimit, SmartChargingSchedule};
+use openbyd_protocol::models::vehicle::{EnergyType, Vehicle};
+use openbyd_protocol::mqtt::{MqttBootstrap, MqttEvent};
+use openbyd_protocol::pyjson::py_str;
+use openbyd_protocol::session::Session;
+use serde_json::{Map, Value, json};
+
+use crate::api::Context;
+use crate::api::control::truthy;
+use crate::api::smart_charging::{
+    ChangeChargeFetchFn, EnergyTypeArg, FetchFn, SaveChargingScheduleFetchFn,
+    is_charge_change_ready,
+};
+use crate::api::vehicle::parse_model;
+use crate::api::{
+    booking, charging, energy, gps, hvac, latest_config, message_center, push_notifications,
+    realtime, smart_charging, vehicle, vehicle_settings,
+};
+use crate::env::{BoxFuture, ClientEnv, Env, MqttSink};
+use crate::http::{HttpEnv, HttpPool};
+use crate::mqtt::fetch_mqtt_bootstrap;
+
+pub use commands::{ControlParamsArg, resolve_command_pwd};
+pub use production::ProductionEnv;
+
+/// Where the login request goes.
+pub const LOGIN_ENDPOINT: &str = "/app/account/login";
+/// Where a missing latest config is reported from.
+pub const LATEST_CONFIG_ENDPOINT: &str = "/vehicle/vehicleswitch/getLatestConfig";
+
+/// MQTT error codes meaning the requested data is unavailable (no GPS fix):
+/// a matching push ends the wait without polling (pyBYD's
+/// `_MQTT_DATA_UNAVAILABLE_CODES`).
+pub const MQTT_DATA_UNAVAILABLE_CODES: [&str; 1] = ["6051"];
+
+// ---------------------------------------------------------------------------
+// Options
+// ---------------------------------------------------------------------------
+
+/// Called with the VIN and the parsed realtime data of every MQTT
+/// `vehicleInfo` push (pyBYD's `on_vehicle_info`).
+pub type VehicleInfoCallback = Arc<dyn Fn(&str, &VehicleRealtimeData) + Send + Sync>;
+/// Called with the event name, the VIN and the `respondData` of every MQTT
+/// event that names a VIN (pyBYD's `on_mqtt_event`).
+pub type MqttEventCallback = Arc<dyn Fn(&str, &str, &Map<String, Value>) + Send + Sync>;
+/// Called with every remote-control acknowledgement over MQTT (pyBYD's `on_command_ack`).
+pub type CommandAckCallback = Arc<dyn Fn(&CommandAckEvent) + Send + Sync>;
+/// Called with every command lifecycle event (pyBYD's `on_command_lifecycle`).
+pub type CommandLifecycleCallback = Arc<dyn Fn(&CommandLifecycleEvent) + Send + Sync>;
+/// Called after every accepted MQTT connection (pyBYD's `on_mqtt_connect`).
+pub type MqttConnectCallback = Arc<dyn Fn() + Send + Sync>;
+/// Decides whether a command may be sent despite (or because of) the
+/// command gate's verdict: given the VIN and the verdict, returns `true` to
+/// send. See [`ClientOptions::gate_policy`].
+pub type GatePolicy = Arc<dyn Fn(&str, &CommandGateVerdict) -> bool + Send + Sync>;
+/// Turns the `command_pwd` a caller passed (or `None`) and the config into
+/// what is sent as `commandPwd`; empty means "no PIN". See
+/// [`ClientOptions::pin_resolver`].
+pub type PinResolver = Arc<dyn Fn(Option<&str>, &BydConfig) -> String + Send + Sync>;
+/// Hears about every request the client sends. See [`RequestRecord`].
+pub type RequestObserver = Arc<dyn Fn(&RequestRecord) + Send + Sync>;
+/// Produces a new session when the current one has expired, for
+/// [`ReloginPolicy::Handler`].
+pub type ReloginHandler =
+    Arc<dyn Fn() -> BoxFuture<'static, Result<SessionTokens, Error>> + Send + Sync>;
+
+/// What the client does when it needs a new session: the session's TTL ran
+/// out, the cloud said it expired, or MQTT asks for a re-login.
+#[derive(Clone, Default)]
+pub enum ReloginPolicy {
+    /// Log in again with the configured password, as pyBYD does.
+    #[default]
+    Password,
+    /// Never log in by itself: the call fails with
+    /// `BydSessionExpiredError` (code `"relogin_disabled"`) and MQTT
+    /// recovery stays idle. For clients restored from saved tokens that
+    /// must never send the password; the application logs in or imports a
+    /// new session itself.
+    Never,
+    /// Ask the application for a new session (for example one refreshed
+    /// elsewhere); an error from the handler is the call's error.
+    Handler(ReloginHandler),
+}
+
+impl fmt::Debug for ReloginPolicy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Password => "Password",
+            Self::Never => "Never",
+            Self::Handler(_) => "Handler",
+        })
+    }
+}
+
+/// Car-layer hooks: where MQTT pushes for a VIN go besides the callbacks
+/// (pyBYD routes them to its `BydCar` instances).
+pub trait CarRouter: Send + Sync {
+    /// A parsed `vehicleInfo` push.
+    fn handle_mqtt_realtime(&self, vin: &str, data: &VehicleRealtimeData);
+    /// A parsed `smartCharge` push.
+    fn handle_mqtt_charging(&self, vin: &str, data: &ChargingStatus);
+    /// A parsed `energyConsumption` push.
+    fn handle_mqtt_energy(&self, vin: &str, data: &EnergyConsumption);
+}
+
+/// How a request ended, for a [`RequestObserver`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RequestOutcome {
+    /// The API answered; `code` is the reply's `code` as text (`"0"` is
+    /// success), `None` when the reply had none.
+    Reply {
+        /// The reply's code.
+        code: Option<String>,
+    },
+    /// The HTTP request failed (`BydTransportError`), with its status when
+    /// the server answered.
+    Transport {
+        /// The HTTP status.
+        status: Option<u16>,
+    },
+    /// Any other failure (the reply could not be decoded, ...).
+    Failed(ErrorKind),
+}
+
+/// One request the client sent, for metrics.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RequestRecord {
+    /// The endpoint, such as `"/control/getGpsInfo"`.
+    pub endpoint: String,
+    /// How it ended.
+    pub outcome: RequestOutcome,
+    /// How long it took.
+    pub duration: Duration,
+}
+
+/// A session as an application stores it, to build a client from later
+/// without logging in ([`BydClient::import_session`], [`BydClient::export_session`]).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SessionTokens {
+    /// The account's user ID.
+    pub user_id: String,
+    /// The token requests are signed with. A secret.
+    pub sign_token: String,
+    /// The token the content key derives from. A secret.
+    pub encry_token: String,
+    /// Seconds the session has left; `None` for no expiry.
+    pub ttl_remaining: Option<f64>,
+    /// Whether the account reaches each VIN as a guest.
+    pub guest_vins: HashMap<String, bool>,
+}
+
+/// Everything a client is built with besides its config: pyBYD's
+/// constructor arguments, and the options openbyd adds in place of
+/// monkeypatching. Start from `ClientOptions::default()`.
+#[derive(Clone)]
+#[non_exhaustive]
+pub struct ClientOptions {
+    /// pyBYD's `on_vehicle_info`.
+    pub on_vehicle_info: Option<VehicleInfoCallback>,
+    /// pyBYD's `on_mqtt_event`.
+    pub on_mqtt_event: Option<MqttEventCallback>,
+    /// pyBYD's `on_command_ack`.
+    pub on_command_ack: Option<CommandAckCallback>,
+    /// pyBYD's `on_command_lifecycle`.
+    pub on_command_lifecycle: Option<CommandLifecycleCallback>,
+    /// pyBYD's `on_mqtt_connect`.
+    pub on_mqtt_connect: Option<MqttConnectCallback>,
+    /// How long a sent command waits for its MQTT acknowledgement before it
+    /// counts as expired (default 300 seconds; not above 0 means 300).
+    pub command_ack_ttl_seconds: f64,
+    /// Overrides the command gate. `None` (the default) sends a command
+    /// only when the verdict is `supported`, as pyBYD does. A policy that
+    /// returns `true` for the reasons `"function_no_missing"` and
+    /// `"learn_info_missing"` lets commands through for cars whose
+    /// capability data is incomplete.
+    pub gate_policy: Option<GatePolicy>,
+    /// `command_retries` of every remote command (default 3, pyBYD's).
+    /// 1 sends a refused or unconfirmed command once and never again.
+    pub command_retries: i64,
+    /// Turns a given PIN into the `commandPwd` sent. `None` (the default)
+    /// is pyBYD's [`resolve_command_pwd`]: a 32-digit hex string is taken
+    /// as an MD5 digest and upper-cased, anything else is hashed. A
+    /// resolver that returns digests unchanged keeps their case.
+    pub pin_resolver: Option<PinResolver>,
+    /// What to do when a new session is needed.
+    pub relogin: ReloginPolicy,
+    /// Hears about every request, with its outcome and duration.
+    pub request_observer: Option<RequestObserver>,
+    /// Where MQTT pushes go for the car layer.
+    pub car_router: Option<Arc<dyn CarRouter>>,
+}
+
+impl Default for ClientOptions {
+    fn default() -> Self {
+        Self {
+            on_vehicle_info: None,
+            on_mqtt_event: None,
+            on_command_ack: None,
+            on_command_lifecycle: None,
+            on_mqtt_connect: None,
+            command_ack_ttl_seconds: 300.0,
+            gate_policy: None,
+            command_retries: 3,
+            pin_resolver: None,
+            relogin: ReloginPolicy::Password,
+            request_observer: None,
+            car_router: None,
+        }
+    }
+}
+
+impl fmt::Debug for ClientOptions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let set = |present: bool| if present { "set" } else { "none" };
+        f.debug_struct("ClientOptions")
+            .field("on_vehicle_info", &set(self.on_vehicle_info.is_some()))
+            .field("on_mqtt_event", &set(self.on_mqtt_event.is_some()))
+            .field("on_command_ack", &set(self.on_command_ack.is_some()))
+            .field(
+                "on_command_lifecycle",
+                &set(self.on_command_lifecycle.is_some()),
+            )
+            .field("on_mqtt_connect", &set(self.on_mqtt_connect.is_some()))
+            .field("command_ack_ttl_seconds", &self.command_ack_ttl_seconds)
+            .field("gate_policy", &set(self.gate_policy.is_some()))
+            .field("command_retries", &self.command_retries)
+            .field("pin_resolver", &set(self.pin_resolver.is_some()))
+            .field("relogin", &self.relogin)
+            .field("request_observer", &set(self.request_observer.is_some()))
+            .field("car_router", &set(self.car_router.is_some()))
+            .finish()
+    }
+}
+
+/// How a trigger-and-poll read waits (pyBYD's keyword arguments of
+/// `get_vehicle_realtime` and `get_gps_info`, with their defaults).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PollSettings {
+    /// HTTP polls after the MQTT wait (default 10).
+    pub poll_attempts: i64,
+    /// Seconds slept before each poll; none when not above 0 (default 1.5).
+    pub poll_interval: f64,
+    /// Seconds to wait for the MQTT push; `None` is `config.mqtt_timeout`.
+    pub mqtt_timeout: Option<f64>,
+    /// "Data unavailable" answers in a row that end the polling (default 2).
+    pub signal_retries: i64,
+}
+
+impl Default for PollSettings {
+    fn default() -> Self {
+        Self {
+            poll_attempts: 10,
+            poll_interval: 1.5,
+            mqtt_timeout: None,
+            signal_retries: 2,
+        }
+    }
+}
+
+/// How a charging change waits (pyBYD's keyword arguments of
+/// `start_charging` and `save_charging_schedule`, with their defaults).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ChargePollSettings {
+    /// Seconds to wait for the MQTT push; `None` is `config.mqtt_timeout`.
+    pub mqtt_timeout: Option<f64>,
+    /// HTTP polls after the MQTT wait (default 6).
+    pub poll_attempts: i64,
+    /// Seconds slept before each poll (default 2.0).
+    pub poll_interval: f64,
+}
+
+impl Default for ChargePollSettings {
+    fn default() -> Self {
+        Self {
+            mqtt_timeout: None,
+            poll_attempts: 6,
+            poll_interval: 2.0,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The observed environment
+// ---------------------------------------------------------------------------
+
+/// The client's environment with the request observer around `post_secure`.
+pub struct Observed<E> {
+    env: E,
+    observer: Option<RequestObserver>,
+}
+
+impl<E: fmt::Debug> fmt::Debug for Observed<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.env.fmt(f)
+    }
+}
+
+fn outcome_of(result: &Result<Value, Error>) -> RequestOutcome {
+    match result {
+        Ok(reply) => RequestOutcome::Reply {
+            code: reply.get("code").map(py_str),
+        },
+        Err(error) if error.is_a(ErrorKind::BydTransportError) => RequestOutcome::Transport {
+            status: error.status_code(),
+        },
+        Err(error) => RequestOutcome::Failed(error.kind()),
+    }
+}
+
+impl<E: Env> Env for Observed<E> {
+    fn now_ms(&self) -> i64 {
+        self.env.now_ms()
+    }
+
+    fn monotonic(&self) -> f64 {
+        self.env.monotonic()
+    }
+
+    fn random_bytes(&self) -> [u8; 16] {
+        self.env.random_bytes()
+    }
+
+    fn sleep(&self, seconds: f64) -> impl Future<Output = ()> + Send {
+        self.env.sleep(seconds)
+    }
+
+    async fn post_secure(
+        &self,
+        endpoint: &str,
+        outer: &Map<String, Value>,
+    ) -> Result<Value, Error> {
+        let Some(observer) = &self.observer else {
+            return self.env.post_secure(endpoint, outer).await;
+        };
+        let started = Instant::now();
+        let result = self.env.post_secure(endpoint, outer).await;
+        let record = RequestRecord {
+            endpoint: endpoint.to_owned(),
+            outcome: outcome_of(&result),
+            duration: started.elapsed(),
+        };
+        guard("request observer", || observer(&record));
+        result
+    }
+}
+
+impl<E: ClientEnv> ClientEnv for Observed<E> {
+    fn wait_for<'a, T: Send + 'a>(
+        &'a self,
+        future: BoxFuture<'a, T>,
+        timeout: f64,
+    ) -> impl Future<Output = Option<T>> + Send + 'a {
+        self.env.wait_for(future, timeout)
+    }
+
+    fn spawn(&self, task: BoxFuture<'static, ()>) {
+        self.env.spawn(task);
+    }
+
+    fn uniform(&self, low: f64, high: f64) -> f64 {
+        self.env.uniform(low, high)
+    }
+
+    fn start_mqtt(
+        &self,
+        bootstrap: &MqttBootstrap,
+        decrypt_key: &str,
+        keepalive: i64,
+        sink: Weak<dyn MqttSink>,
+    ) -> impl Future<Output = Result<(), Error>> + Send {
+        self.env.start_mqtt(bootstrap, decrypt_key, keepalive, sink)
+    }
+
+    fn stop_mqtt(&self) {
+        self.env.stop_mqtt();
+    }
+
+    fn mqtt_running(&self) -> bool {
+        self.env.mqtt_running()
+    }
+
+    fn update_mqtt_key(&self, decrypt_key: &str) {
+        self.env.update_mqtt_key(decrypt_key);
+    }
+}
+
+/// Runs a user hook, as pyBYD runs callbacks inside `try/except Exception`:
+/// a panic is logged and does not reach the client.
+fn guard(what: &str, hook: impl FnOnce()) {
+    if catch_unwind(AssertUnwindSafe(hook)).is_err() {
+        log::debug!("{what} callback failed");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+/// A pending MQTT wait (pyBYD's `_MqttWaiter`).
+struct Waiter {
+    id: u64,
+    vin: String,
+    event_type: Option<String>,
+    serial: Option<Value>,
+    /// Gets the event's `respondData`, or `None` when the wait is cancelled.
+    slot: tokio::sync::oneshot::Sender<Option<Map<String, Value>>>,
+}
+
+/// A command waiting for its acknowledgement (pyBYD's `_PendingCommand`).
+#[derive(Debug, Clone)]
+struct PendingCommand {
+    vin: String,
+    serial: Value,
+    command: String,
+    created_at: f64,
+}
+
+#[derive(Default)]
+struct State {
+    /// pyBYD's `_transport is None`: before `async_start` or after `async_close`.
+    closed: bool,
+    session: Option<Arc<Session>>,
+    /// The session whose guest map is the client's (pyBYD's `_guest_vins`
+    /// is the last session's dict).
+    guest_owner: Option<Arc<Session>>,
+    /// The guest map before any session.
+    guest_vins: HashMap<String, bool>,
+    /// pyBYD's `_vehicle_metadata_by_vin`, in insertion order.
+    vehicles: Vec<(String, Vehicle)>,
+    capabilities: HashMap<String, VehicleCapabilities>,
+    commands_enabled: bool,
+    /// pyBYD's `_mqtt_runtime is not None`.
+    mqtt_started: bool,
+    waiters: Vec<Waiter>,
+    next_waiter: u64,
+    reauth_at: f64,
+    decrypt_reauths: i64,
+    recovery_attempts: i64,
+    recovery_last_at: f64,
+    pending: Vec<PendingCommand>,
+    matched: i64,
+    expired: i64,
+    uncorrelated: i64,
+    data_poll_serials: Vec<Value>,
+}
+
+impl State {
+    fn guest_map(&self) -> HashMap<String, bool> {
+        match &self.guest_owner {
+            Some(session) => session.guest_vins(),
+            None => self.guest_vins.clone(),
+        }
+    }
+
+    /// `self._guest_vins.setdefault(vin, guest)`.
+    fn guest_setdefault(&mut self, vin: &str, guest: bool) {
+        match &self.guest_owner {
+            Some(session) => {
+                if !session.guest_vins().contains_key(vin) {
+                    session.set_guest(vin, guest);
+                }
+            }
+            None => {
+                self.guest_vins.entry(vin.to_owned()).or_insert(guest);
+            }
+        }
+    }
+
+    fn vehicle(&self, vin: &str) -> Option<&Vehicle> {
+        self.vehicles
+            .iter()
+            .find(|(key, _)| key == vin)
+            .map(|(_, vehicle)| vehicle)
+    }
+
+    /// `self._vehicle_metadata_by_vin[vin] = vehicle`, keeping the key's place.
+    fn put_vehicle(&mut self, vehicle: Vehicle) {
+        match self
+            .vehicles
+            .iter_mut()
+            .find(|(key, _)| *key == vehicle.vin)
+        {
+            Some(entry) => entry.1 = vehicle,
+            None => self.vehicles.push((vehicle.vin.clone(), vehicle)),
+        }
+    }
+}
+
+/// What a client handle shares.
+pub(crate) struct Inner<E> {
+    env: Observed<E>,
+    config: BydConfig,
+    options: ClientOptions,
+    me: Weak<Inner<E>>,
+    state: Mutex<State>,
+}
+
+/// The async client for the BYD API: pyBYD's `BydClient`. See the
+/// [module documentation](self).
+pub struct BydClient<E: ClientEnv> {
+    inner: Arc<Inner<E>>,
+}
+
+impl<E: ClientEnv> Clone for BydClient<E> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
+}
+
+impl<E: ClientEnv> fmt::Debug for BydClient<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BydClient")
+            .field("username", &self.inner.config.username)
+            .field("logged_in", &self.state().session.is_some())
+            .finish_non_exhaustive()
+    }
+}
+
+impl BydClient<ProductionEnv> {
+    /// A client for `config` on the shared HTTP `pool`, with MQTT, ready to
+    /// [`login`](Self::login). Must be used inside a tokio runtime.
+    pub fn connect(config: BydConfig, pool: &HttpPool) -> Self {
+        Self::connect_with(config, pool, ClientOptions::default())
+    }
+
+    /// [`connect`](Self::connect) with options.
+    pub fn connect_with(config: BydConfig, pool: &HttpPool, options: ClientOptions) -> Self {
+        let env = ProductionEnv::new(HttpEnv::for_config(pool, &config));
+        Self::new(config, env, options)
+    }
+}
+
+/// Seconds as pyBYD stores a TTL: `session_ttl` when above 0, else no expiry.
+fn session_ttl(config: &BydConfig) -> f64 {
+    if config.session_ttl > 0.0 {
+        config.session_ttl
+    } else {
+        f64::INFINITY
+    }
+}
+
+impl<E: ClientEnv> BydClient<E> {
+    /// A client for `config` in `env`, started (pyBYD's `BydClient(config,
+    /// ...)` followed by `async_start()`).
+    pub fn new(config: BydConfig, env: E, options: ClientOptions) -> Self {
+        let observer = options.request_observer.clone();
+        let inner = Arc::new_cyclic(|me| Inner {
+            env: Observed { env, observer },
+            config,
+            options,
+            me: me.clone(),
+            state: Mutex::new(State::default()),
+        });
+        Self { inner }
+    }
+
+    fn state(&self) -> MutexGuard<'_, State> {
+        self.inner
+            .state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// The environment the client runs in.
+    pub fn env(&self) -> &E {
+        &self.inner.env.env
+    }
+
+    /// The configuration.
+    pub fn config(&self) -> &BydConfig {
+        &self.inner.config
+    }
+
+    /// The options the client was built with.
+    pub fn options(&self) -> &ClientOptions {
+        &self.inner.options
+    }
+
+    fn context<'a>(&'a self, session: &'a Session) -> Context<'a, Observed<E>> {
+        Context::new(&self.inner.env, &self.inner.config, session)
+    }
+
+    // -----------------------------------------------------------------------
+    // Lifecycle
+    // -----------------------------------------------------------------------
+
+    /// Makes the client usable again after [`async_close`](Self::async_close)
+    /// (pyBYD's `async_start`). A new client is already started.
+    pub fn async_start(&self) {
+        self.state().closed = false;
+    }
+
+    /// Stops MQTT, drops the capability cache and makes every call fail
+    /// until [`async_start`](Self::async_start) (pyBYD's `async_close`).
+    pub fn async_close(&self) {
+        self.state().capabilities.clear();
+        self.stop_mqtt();
+        self.state().closed = true;
+    }
+
+    /// pyBYD's `_require_transport`.
+    fn require_transport(&self) -> Result<(), Error> {
+        if self.state().closed {
+            return Err(Error::new(
+                ErrorKind::BydError,
+                "Client not initialized. Use 'async with BydClient(...) as client:'",
+            ));
+        }
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Sessions
+    // -----------------------------------------------------------------------
+
+    /// Logs in with the configured password and starts MQTT (pyBYD's `login`).
+    pub async fn login(&self) -> Result<(), Error> {
+        self.login_session().await.map(drop)
+    }
+
+    async fn login_session(&self) -> Result<Arc<Session>, Error> {
+        self.require_transport()?;
+        let env = &self.inner.env;
+        let config = &self.inner.config;
+        let now_ms = env.now_ms();
+        let random = env.random_bytes();
+        let outer = build_login_request(config, now_ms, &random, env.now_ms());
+        let response = env.post_secure(LOGIN_ENDPOINT, &outer).await?;
+        let token = parse_login_response(&response, &config.password)?;
+        let session = Session::new(
+            &token.user_id,
+            &token.sign_token,
+            &token.encry_token,
+            env.monotonic(),
+            session_ttl(config),
+        );
+        Ok(self.install_session(session).await)
+    }
+
+    /// The second half of pyBYD's `login`: the new session takes over the
+    /// guest map, MQTT gets the new key and is restarted.
+    async fn install_session(&self, session: Session) -> Arc<Session> {
+        let session = Arc::new(session);
+        let had_runtime = {
+            let mut state = self.state();
+            for (vin, guest) in state.guest_map() {
+                session.set_guest(&vin, guest);
+            }
+            state.session = Some(Arc::clone(&session));
+            state.guest_owner = Some(Arc::clone(&session));
+            state.mqtt_started
+        };
+        if had_runtime {
+            self.inner.env.update_mqtt_key(session.content_key());
+        }
+        self.stop_mqtt();
+        self.ensure_mqtt_started().await;
+        session
+    }
+
+    /// The current session, logging in (as the [`ReloginPolicy`] says) when
+    /// there is none or it has expired (pyBYD's `ensure_session`).
+    pub async fn ensure_session(&self) -> Result<Arc<Session>, Error> {
+        let current = self.state().session.clone();
+        if let Some(session) = current
+            && !session.is_expired(self.inner.env.monotonic())
+        {
+            return Ok(session);
+        }
+        self.relogin().await
+    }
+
+    /// A new session as the [`ReloginPolicy`] says.
+    async fn relogin(&self) -> Result<Arc<Session>, Error> {
+        match &self.inner.options.relogin {
+            ReloginPolicy::Password => self.login_session().await,
+            ReloginPolicy::Never => Err(Error::api(
+                ErrorKind::BydSessionExpiredError,
+                "Session expired and re-login is disabled for this client",
+                "relogin_disabled",
+                "",
+            )),
+            ReloginPolicy::Handler(handler) => {
+                let tokens = handler().await?;
+                Ok(self.import_session(tokens).await)
+            }
+        }
+    }
+
+    /// Forgets the session: the next call logs in again (pyBYD's
+    /// `invalidate_session`). Command access stays verified.
+    pub fn invalidate_session(&self) {
+        self.state().session = None;
+    }
+
+    /// The current session, if any, without checking its age.
+    pub fn session(&self) -> Option<Arc<Session>> {
+        self.state().session.clone()
+    }
+
+    /// Installs a saved session as if a login had returned it (the guest
+    /// map is the saved one, merged into what the client knows) and starts
+    /// MQTT with it. Returns the session.
+    pub async fn import_session(&self, tokens: SessionTokens) -> Arc<Session> {
+        {
+            let mut state = self.state();
+            for (vin, guest) in &tokens.guest_vins {
+                match &state.guest_owner {
+                    Some(session) => session.set_guest(vin, *guest),
+                    None => {
+                        state.guest_vins.insert(vin.clone(), *guest);
+                    }
+                }
+            }
+        }
+        let ttl = tokens.ttl_remaining.unwrap_or(f64::INFINITY);
+        let session = Session::new(
+            &tokens.user_id,
+            &tokens.sign_token,
+            &tokens.encry_token,
+            self.inner.env.monotonic(),
+            ttl,
+        );
+        self.install_session(session).await
+    }
+
+    /// The current session as an application stores it, or `None` when
+    /// logged out.
+    pub fn export_session(&self) -> Option<SessionTokens> {
+        let (session, guest_vins) = {
+            let state = self.state();
+            (state.session.clone()?, state.guest_map())
+        };
+        let remaining = session.ttl() - session.age(self.inner.env.monotonic());
+        Some(SessionTokens {
+            user_id: session.user_id().to_owned(),
+            sign_token: session.sign_token().to_owned(),
+            encry_token: session.encry_token().to_owned(),
+            ttl_remaining: remaining.is_finite().then_some(remaining.max(0.0)),
+            guest_vins,
+        })
+    }
+
+    /// Runs `call`, and once more after a fresh session when it fails with
+    /// `BydSessionExpiredError` (pyBYD's `_call_with_reauth`).
+    async fn call_with_reauth<T>(
+        &self,
+        call: impl AsyncFn() -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        match call().await {
+            Err(error) if error.is_a(ErrorKind::BydSessionExpiredError) => {
+                self.invalidate_session();
+                self.ensure_session().await?;
+                call().await
+            }
+            other => other,
+        }
+    }
+
+    /// Runs a flow with the current session, with [`Self::call_with_reauth`]
+    /// (pyBYD's `_authed_call`).
+    async fn authed_call<T>(
+        &self,
+        flow: impl AsyncFn(Context<'_, Observed<E>>) -> Result<T, Error>,
+    ) -> Result<T, Error> {
+        self.call_with_reauth(async || {
+            let session = self.ensure_session().await?;
+            self.require_transport()?;
+            flow(self.context(&session)).await
+        })
+        .await
+    }
+
+    // -----------------------------------------------------------------------
+    // Vehicles and caches
+    // -----------------------------------------------------------------------
+
+    /// The account's vehicles. Refreshes the metadata cache and seeds the
+    /// guest map for VINs it does not know yet (pyBYD's `get_vehicles`).
+    pub async fn get_vehicles(&self) -> Result<Vec<Vehicle>, Error> {
+        let vehicles = self
+            .authed_call(async |cx| vehicle::fetch_vehicle_list(cx).await)
+            .await?;
+        let mut state = self.state();
+        state.vehicles.clear();
+        for vehicle in vehicles.iter().filter(|vehicle| !vehicle.vin.is_empty()) {
+            state.put_vehicle(vehicle.clone());
+        }
+        // A car shared with this account must be addressed as a guest; the
+        // list gives the first guess and never overrides what the cloud's
+        // answers already settled.
+        for vehicle in vehicles.iter().filter(|vehicle| !vehicle.vin.is_empty()) {
+            let guest = vehicle.empower_id.is_some_and(|id| id != 0) || vehicle.is_shared();
+            state.guest_setdefault(&vehicle.vin, guest);
+        }
+        Ok(vehicles)
+    }
+
+    /// Caches metadata for `vin` as if the vehicle list had returned it, so
+    /// realtime, energy and AC-limit reads need no vehicle list.
+    /// `energy_type` is BYD's value (0 EV, 1 ICE, 2 hybrid).
+    pub fn seed_vehicle_metadata(
+        &self,
+        vin: &str,
+        energy_type: EnergyType,
+        model_name: Option<&str>,
+    ) -> Result<(), Error> {
+        let mut raw = json!({"vin": vin, "energyType": energy_type.value().to_string()});
+        if let Some(model_name) = model_name {
+            raw["modelName"] = json!(model_name);
+        }
+        let vehicle: Vehicle = parse_model(&raw)?;
+        self.state().put_vehicle(vehicle);
+        Ok(())
+    }
+
+    /// The cached metadata of `vin`, if the vehicle list or a seed gave it.
+    pub fn vehicle_metadata(&self, vin: &str) -> Option<Vehicle> {
+        self.state().vehicle(vin).cloned()
+    }
+
+    /// pyBYD's `_energy_type_for`: the cached energy type, fetching the
+    /// vehicle list once on a miss; EV when unknown.
+    async fn energy_type_for(&self, vin: &str) -> Result<EnergyType, Error> {
+        let mut cached = self.vehicle_metadata(vin);
+        if cached.is_none() {
+            self.get_vehicles().await?;
+            cached = self.vehicle_metadata(vin);
+        }
+        Ok(match cached {
+            Some(vehicle) if vehicle.energy_type != EnergyType::Unknown => vehicle.energy_type,
+            _ => EnergyType::Ev,
+        })
+    }
+
+    /// pyBYD's `_vehicle_fun_learn_info_for`: the cached learn info, `None`
+    /// when unknown or empty (a failing vehicle list counts as unknown).
+    async fn vehicle_fun_learn_info_for(&self, vin: &str) -> Option<Map<String, Value>> {
+        let mut cached = self.vehicle_metadata(vin);
+        if cached.is_none() {
+            if self.get_vehicles().await.is_err() {
+                log::debug!("get_vehicles failed while resolving learn_info");
+                return None;
+            }
+            cached = self.vehicle_metadata(vin);
+        }
+        let info: Map<String, Value> = cached?
+            .vehicle_fun_learn_info
+            .iter()
+            .map(|(key, value)| (key.clone(), json!(value)))
+            .collect();
+        (!info.is_empty()).then_some(info)
+    }
+
+    /// The latest config of each VIN the cloud knows (pyBYD's `get_latest_configs`).
+    pub async fn get_latest_configs(
+        &self,
+        vins: &[String],
+    ) -> Result<Vec<(String, VehicleLatestConfig)>, Error> {
+        self.authed_call(async |cx| latest_config::fetch_latest_config(cx, vins).await)
+            .await
+    }
+
+    /// The latest config of one VIN; `BydDataUnavailableError` (code
+    /// `"latest_config_missing"`) when the reply has none (pyBYD's `get_latest_config`).
+    pub async fn get_latest_config(&self, vin: &str) -> Result<VehicleLatestConfig, Error> {
+        let configs = self.get_latest_configs(&[vin.to_owned()]).await?;
+        configs
+            .into_iter()
+            .find(|(key, _)| key == vin)
+            .map(|(_, config)| config)
+            .ok_or_else(|| {
+                Error::api(
+                    ErrorKind::BydDataUnavailableError,
+                    format!("Latest config unavailable for VIN {vin}"),
+                    "latest_config_missing",
+                    LATEST_CONFIG_ENDPOINT,
+                )
+            })
+    }
+
+    /// What the vehicle supports, cached per VIN; a failing fetch gives
+    /// "unknown" capabilities (reason `"fetch_error"`), cached too (pyBYD's
+    /// `get_vehicle_capabilities`).
+    pub async fn get_vehicle_capabilities(
+        &self,
+        vin: &str,
+        force_refresh: bool,
+    ) -> VehicleCapabilities {
+        if !force_refresh && let Some(cached) = self.state().capabilities.get(vin).cloned() {
+            return cached;
+        }
+        let capabilities = match self.get_latest_config(vin).await {
+            Ok(latest) => VehicleCapabilities::from_latest_config(vin, &latest),
+            Err(_) => {
+                log::debug!("Failed to build capabilities");
+                VehicleCapabilities::unknown(vin, "fetch_error")
+            }
+        };
+        self.state()
+            .capabilities
+            .insert(vin.to_owned(), capabilities.clone());
+        capabilities
+    }
+
+    // -----------------------------------------------------------------------
+    // Reads
+    // -----------------------------------------------------------------------
+
+    /// pyBYD's `_trigger_and_poll`: trigger, wait for the MQTT push, then
+    /// poll over HTTP. Returns the payload to validate.
+    async fn trigger_and_poll(&self, read: TriggeredRead<'_>) -> Result<Value, Error> {
+        let session = self.ensure_session().await?;
+        self.require_transport()?;
+        let cx = self.context(&session);
+        let fetch = &read.fetch;
+        let (trigger_info, serial) = fetch
+            .fetch(cx, read.trigger_endpoint, read.vin, None)
+            .await?;
+        let merged = match &trigger_info {
+            Value::Object(_) => trigger_info.clone(),
+            _ => json!({}),
+        };
+        if let Value::Object(info) = &trigger_info
+            && fetch.is_ready(info)?
+        {
+            return Ok(merged);
+        }
+        if !truthy(&serial) {
+            return Ok(merged);
+        }
+        self.add_data_poll_serial(&serial)?;
+        let result = self.wait_then_poll(cx, &read, merged, serial.clone()).await;
+        self.discard_data_poll_serial(&serial);
+        result
+    }
+
+    async fn wait_then_poll(
+        &self,
+        cx: Context<'_, Observed<E>>,
+        read: &TriggeredRead<'_>,
+        mut merged: Value,
+        mut serial: Value,
+    ) -> Result<Value, Error> {
+        let fetch = &read.fetch;
+        let pushed = self
+            .mqtt_wait(
+                read.vin,
+                read.mqtt_event_type,
+                Some(&serial),
+                read.mqtt_timeout,
+            )
+            .await?;
+        if let Some(raw) = &pushed {
+            if fetch.is_ready(raw)? {
+                log::debug!("{} data received via MQTT", read.label);
+                return Ok(Value::Object(raw.clone()));
+            }
+            if let Some(Value::String(code)) = raw.get("code")
+                && MQTT_DATA_UNAVAILABLE_CODES.contains(&code.as_str())
+            {
+                return Ok(merged);
+            }
+        }
+        let mut unavailable = 0;
+        for _ in 0..read.poll_attempts.max(0) {
+            if read.poll_interval > 0.0 {
+                cx.env.sleep(read.poll_interval).await;
+            }
+            match fetch
+                .fetch(cx, read.poll_endpoint, read.vin, Some(&serial))
+                .await
+            {
+                Ok((latest, next)) => {
+                    serial = next;
+                    unavailable = 0;
+                    if latest.is_object() {
+                        merged = latest.clone();
+                    }
+                    if let Value::Object(latest) = &latest
+                        && fetch.is_ready(latest).unwrap_or(false)
+                    {
+                        break;
+                    }
+                }
+                Err(error) if error.is_a(ErrorKind::BydSessionExpiredError) => return Err(error),
+                Err(error) if error.is_a(ErrorKind::BydDataUnavailableError) => {
+                    unavailable += 1;
+                    if unavailable >= read.signal_retries {
+                        break;
+                    }
+                }
+                Err(_) => unavailable = 0,
+            }
+        }
+        Ok(merged)
+    }
+
+    /// pyBYD's `self._data_poll_serials.add(serial)`: a list or object is
+    /// unhashable (`TypeError`).
+    fn add_data_poll_serial(&self, serial: &Value) -> Result<(), Error> {
+        let key = push::hash_key(serial).ok_or_else(|| {
+            Error::new(ErrorKind::TypeError, "unhashable type for a request serial")
+        })?;
+        let mut state = self.state();
+        if !state
+            .data_poll_serials
+            .iter()
+            .any(|known| push::hash_key(known).as_deref() == Some(key.as_str()))
+        {
+            state.data_poll_serials.push(serial.clone());
+        }
+        Ok(())
+    }
+
+    fn discard_data_poll_serial(&self, serial: &Value) {
+        let key = push::hash_key(serial);
+        self.state()
+            .data_poll_serials
+            .retain(|known| push::hash_key(known) != key);
+    }
+
+    /// Realtime data: triggers a refresh, waits for the MQTT `vehicleInfo`
+    /// push, and polls over HTTP if it does not come (pyBYD's
+    /// `get_vehicle_realtime`).
+    pub async fn get_vehicle_realtime(
+        &self,
+        vin: &str,
+        settings: PollSettings,
+    ) -> Result<VehicleRealtimeData, Error> {
+        let energy_type = self.energy_type_for(vin).await?;
+        let context = json!({"energy_type": {"EnergyType": energy_type.value()}});
+        self.call_with_reauth(async || {
+            let raw = self
+                .trigger_and_poll(TriggeredRead {
+                    vin,
+                    trigger_endpoint: "/vehicleInfo/vehicle/vehicleRealTimeRequest",
+                    poll_endpoint: "/vehicleInfo/vehicle/vehicleRealTimeResult",
+                    fetch: ReadFetch::Realtime(energy_type),
+                    label: "Realtime",
+                    mqtt_event_type: Some("vehicleInfo"),
+                    mqtt_timeout: settings.mqtt_timeout,
+                    poll_attempts: settings.poll_attempts,
+                    poll_interval: settings.poll_interval,
+                    signal_retries: settings.signal_retries,
+                })
+                .await?;
+            VehicleRealtimeData::parse(&raw, &context).map_err(crate::api::vehicle::model_error)
+        })
+        .await
+    }
+
+    /// The vehicle's position: triggers a fix, waits for the MQTT push with
+    /// its serial, and polls over HTTP if it does not come (pyBYD's `get_gps_info`).
+    pub async fn get_gps_info(&self, vin: &str, settings: PollSettings) -> Result<GpsInfo, Error> {
+        self.call_with_reauth(async || {
+            let raw = self
+                .trigger_and_poll(TriggeredRead {
+                    vin,
+                    trigger_endpoint: "/control/getGpsInfo",
+                    poll_endpoint: "/control/getGpsInfoResult",
+                    fetch: ReadFetch::Gps,
+                    label: "GPS",
+                    mqtt_event_type: None,
+                    mqtt_timeout: settings.mqtt_timeout,
+                    poll_attempts: settings.poll_attempts,
+                    poll_interval: settings.poll_interval,
+                    signal_retries: settings.signal_retries,
+                })
+                .await?;
+            parse_model(&raw)
+        })
+        .await
+    }
+
+    /// Climate status (pyBYD's `get_hvac_status`).
+    pub async fn get_hvac_status(&self, vin: &str) -> Result<HvacStatus, Error> {
+        self.authed_call(async |cx| hvac::fetch_hvac_status(cx, vin).await)
+            .await
+    }
+
+    /// Charging status (pyBYD's `get_charging_status`).
+    pub async fn get_charging_status(&self, vin: &str) -> Result<ChargingStatus, Error> {
+        self.authed_call(async |cx| charging::fetch_charging_status(cx, vin).await)
+            .await
+    }
+
+    /// The smart charging schedule (pyBYD's `get_charging_schedule`).
+    pub async fn get_charging_schedule(&self, vin: &str) -> Result<SmartChargingSchedule, Error> {
+        self.authed_call(async |cx| smart_charging::fetch_charging_schedule(cx, vin).await)
+            .await
+    }
+
+    /// Live charging state and schedule from one `homePage` call (pyBYD's
+    /// `get_charging_homepage`).
+    pub async fn get_charging_homepage(
+        &self,
+        vin: &str,
+    ) -> Result<(ChargingStatus, SmartChargingSchedule), Error> {
+        let raw = self
+            .authed_call(async |cx| charging::fetch_charging_homepage(cx, vin).await)
+            .await?;
+        let status: ChargingStatus = parse_model(&Value::Object(raw.clone()))?;
+        let schedule: SmartChargingSchedule =
+            parse_model(&crate::api::control::with_vin(vin, &raw, false))?;
+        Ok((status, schedule))
+    }
+
+    /// Supported and active AC charging current limits; `energy_type`
+    /// defaults to the vehicle's own (pyBYD's `get_ac_current_limit`).
+    pub async fn get_ac_current_limit(
+        &self,
+        vin: &str,
+        energy_type: Option<EnergyTypeArg>,
+    ) -> Result<AcCurrentLimit, Error> {
+        let energy_type = match energy_type {
+            Some(energy_type) => energy_type,
+            None => self.energy_type_for(vin).await?.into(),
+        };
+        self.authed_call(async |cx| {
+            smart_charging::fetch_ac_current_limit(cx, vin, energy_type.clone()).await
+        })
+        .await
+    }
+
+    /// Energy consumption, asked with the vehicle's energy type and model
+    /// (pyBYD's `get_energy_consumption`).
+    pub async fn get_energy_consumption(&self, vin: &str) -> Result<EnergyConsumption, Error> {
+        let power_type = self.energy_type_for(vin).await?;
+        let auto_model_name = self.vehicle_metadata(vin).and_then(|vehicle| {
+            [vehicle.out_model_type, vehicle.model_name]
+                .into_iter()
+                .find(|name| !name.is_empty())
+        });
+        self.authed_call(async |cx| {
+            energy::fetch_energy_consumption(cx, vin, power_type, auto_model_name.as_deref()).await
+        })
+        .await
+    }
+
+    /// Push notification state (pyBYD's `get_push_state`).
+    pub async fn get_push_state(&self, vin: &str) -> Result<PushNotificationState, Error> {
+        self.authed_call(async |cx| push_notifications::fetch_push_state(cx, vin).await)
+            .await
+    }
+
+    /// Turns a push notification type on or off; pyBYD's default type is
+    /// 701, the vehicle status push (pyBYD's `set_push_state`).
+    pub async fn set_push_state(
+        &self,
+        vin: &str,
+        enable: bool,
+        push_type: i64,
+    ) -> Result<CommandAck, Error> {
+        self.authed_call(async |cx| {
+            push_notifications::set_push_state(cx, vin, enable, push_type).await
+        })
+        .await
+    }
+
+    /// The account's unread inbox messages of one category (pyBYD's
+    /// `get_notifications`; its default category is `VEHICLE`).
+    pub async fn get_notifications(
+        &self,
+        category: NotificationCategory,
+    ) -> Result<Vec<VehicleMsgItemInfo>, Error> {
+        let response = self
+            .authed_call(async |cx| message_center::fetch_notifications(cx, category).await)
+            .await?;
+        Ok(response.messages)
+    }
+
+    /// The unread inbox messages of every category, in pyBYD's order
+    /// (pyBYD's `get_all_notifications`).
+    pub async fn get_all_notifications(
+        &self,
+    ) -> Result<Vec<(NotificationCategory, Vec<VehicleMsgItemInfo>)>, Error> {
+        let mut all = Vec::new();
+        for category in [NotificationCategory::Vehicle, NotificationCategory::System] {
+            all.push((category, self.get_notifications(category).await?));
+        }
+        Ok(all)
+    }
+
+    /// Renames the vehicle (pyBYD's `rename_vehicle`).
+    pub async fn rename_vehicle(&self, vin: &str, name: &str) -> Result<CommandAck, Error> {
+        self.authed_call(async |cx| vehicle_settings::rename_vehicle(cx, vin, name).await)
+            .await
+    }
+
+    /// The scheduled-climate timers (pyBYD's `get_booking_list`).
+    pub async fn get_booking_list(&self, vin: &str) -> Result<BookingList, Error> {
+        self.authed_call(async |cx| booking::fetch_booking_list(cx, vin).await)
+            .await
+    }
+
+    // -----------------------------------------------------------------------
+    // MQTT start and stop
+    // -----------------------------------------------------------------------
+
+    /// Starts MQTT if enabled and not running; failures are logged, never
+    /// raised (pyBYD's `_ensure_mqtt_started`).
+    async fn ensure_mqtt_started(&self) {
+        if !self.inner.config.mqtt_enabled || self.mqtt_is_running() {
+            return;
+        }
+        let session = {
+            let state = self.state();
+            if state.closed {
+                return;
+            }
+            state.session.clone()
+        };
+        let Some(session) = session else {
+            return;
+        };
+        let bootstrap = match fetch_mqtt_bootstrap(self.context(&session)).await {
+            Ok(bootstrap) => bootstrap,
+            Err(error) => {
+                log::debug!("MQTT startup failed: {error}");
+                return;
+            }
+        };
+        let sink: Weak<dyn MqttSink> = self.inner.me.clone();
+        match self
+            .inner
+            .env
+            .start_mqtt(
+                &bootstrap,
+                session.content_key(),
+                self.inner.config.mqtt_keepalive,
+                sink,
+            )
+            .await
+        {
+            Ok(()) => self.state().mqtt_started = true,
+            Err(error) => log::debug!("MQTT startup failed: {error}"),
+        }
+    }
+
+    /// Starts MQTT for the current session if it is not running, as a login
+    /// does. For a client whose MQTT stopped (see the recovery ceiling).
+    pub async fn start_mqtt(&self) {
+        self.ensure_mqtt_started().await;
+    }
+
+    /// Whether the MQTT channel runs.
+    pub fn mqtt_is_running(&self) -> bool {
+        self.state().mqtt_started && self.inner.env.mqtt_running()
+    }
+
+    /// Stops MQTT and cancels every pending wait (pyBYD's `_stop_mqtt`).
+    pub fn stop_mqtt(&self) {
+        let (started, waiters) = {
+            let mut state = self.state();
+            let started = std::mem::take(&mut state.mqtt_started);
+            (started, std::mem::take(&mut state.waiters))
+        };
+        if started {
+            self.inner.env.stop_mqtt();
+        }
+        for waiter in waiters {
+            let _ = waiter.slot.send(None);
+        }
+    }
+}
+
+/// One `_trigger_and_poll` call's arguments.
+struct TriggeredRead<'a> {
+    vin: &'a str,
+    trigger_endpoint: &'a str,
+    poll_endpoint: &'a str,
+    fetch: ReadFetch<'a>,
+    label: &'a str,
+    mqtt_event_type: Option<&'a str>,
+    mqtt_timeout: Option<f64>,
+    poll_attempts: i64,
+    poll_interval: f64,
+    signal_retries: i64,
+}
+
+/// The `fetch_fn` and `is_ready` of a `_trigger_and_poll`.
+enum ReadFetch<'a> {
+    Realtime(EnergyType),
+    Gps,
+    Charge(&'a ChangeChargeFetchFn),
+    Save(&'a SaveChargingScheduleFetchFn),
+}
+
+impl ReadFetch<'_> {
+    /// Fetches `endpoint`; returns the reply and the serial to poll with next.
+    async fn fetch<E: Env>(
+        &self,
+        cx: Context<'_, E>,
+        endpoint: &str,
+        vin: &str,
+        serial: Option<&Value>,
+    ) -> Result<(Value, Value), Error> {
+        // `build_inner_base` sends `str(serial)` when it is truthy.
+        let text = serial.filter(|serial| truthy(serial)).map(py_str);
+        match self {
+            Self::Realtime(energy_type) => {
+                let (info, next) = realtime::fetch_realtime_endpoint(
+                    cx,
+                    endpoint,
+                    vin,
+                    text.as_deref(),
+                    *energy_type,
+                )
+                .await?;
+                Ok((Value::Object(info), next.unwrap_or(Value::Null)))
+            }
+            Self::Gps => {
+                let (info, next) =
+                    gps::fetch_gps_endpoint(cx, endpoint, vin, text.as_deref()).await?;
+                Ok((info, next.map_or(Value::Null, Value::String)))
+            }
+            Self::Charge(fetch) => fetch.fetch(cx, endpoint, vin, serial).await,
+            Self::Save(fetch) => fetch.fetch(cx, endpoint, vin, serial).await,
+        }
+    }
+
+    fn is_ready(&self, raw: &Map<String, Value>) -> Result<bool, Error> {
+        match self {
+            Self::Realtime(_) => VehicleRealtimeData::is_ready_raw(&Value::Object(raw.clone()))
+                .map_err(crate::api::control::model_error),
+            Self::Gps => Ok(gps::is_gps_info_ready(raw)),
+            Self::Charge(_) | Self::Save(_) => Ok(is_charge_change_ready(raw)),
+        }
+    }
+}
+
+impl<E: ClientEnv> MqttSink for Inner<E> {
+    fn on_event(&self, event: &MqttEvent) {
+        if let Some(inner) = self.me.upgrade() {
+            BydClient { inner }.on_mqtt_event(event);
+        }
+    }
+
+    fn on_decrypt_error(&self) {
+        if let Some(inner) = self.me.upgrade() {
+            BydClient { inner }.schedule_mqtt_reauth();
+        }
+    }
+
+    fn on_connack_refused(&self, consecutive: u32) {
+        if let Some(inner) = self.me.upgrade() {
+            BydClient { inner }.on_mqtt_connack_refused(consecutive);
+        }
+    }
+
+    fn on_connected(&self) {
+        if let Some(inner) = self.me.upgrade() {
+            BydClient { inner }.on_mqtt_connected();
+        }
+    }
+}

@@ -10,7 +10,11 @@ use serde_json::Value;
 
 pub use openbyd_protocol::parity::{Outcome, ParityError};
 
-const MODULES: &[Handler] = &[crate::api::parity_call, crate::mqtt::parity_call];
+const MODULES: &[Handler] = &[
+    crate::api::parity_call,
+    crate::mqtt::parity_call,
+    crate::client::parity::parity_call,
+];
 
 /// Runs the call named `name` with JSON `args`.
 pub fn call(name: &str, args: &Value) -> Outcome {

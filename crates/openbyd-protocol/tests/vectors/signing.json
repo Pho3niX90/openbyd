@@ -1,54 +1,6 @@
-{
- "group": "signing",
- "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
- "cases": [
-  {
-   "call": "signing.build_sign_string",
-   "args": {
-    "fields": {},
-    "password": "P"
-   },
-   "ok": "&password=P"
-  },
-  {
-   "call": "signing.build_sign_string",
-   "args": {
-    "fields": {
-     "b": "2",
-     "a": "1",
-     "B": "3",
-     "\u00e9": "4",
-     "_": "5"
-    },
-    "password": ""
-   },
-   "ok": "B=3&_=5&a=1&b=2&\u00e9=4&password="
-  },
-  {
-   "call": "signing.build_sign_string",
-   "args": {
-    "fields": {
-     "x": null,
-     "y": true,
-     "z": 1,
-     "w": 1.0,
-     "v": 1e+16,
-     "u": ""
-    },
-    "password": "pa$$&="
-   },
-   "ok": "u=&v=1e+16&w=1.0&x=null&y=True&z=1&password=pa$$&="
-  },
-  {
-   "call": "signing.build_sign_string",
-   "args": {
-    "fields": {
-     "name": "My \"Seal\" \ud83d\ude97",
-     "k": "a&b=c"
-    },
-    "password": "Zo\u00eb \ud83d\ude97"
-   },
-   "ok": "k=a&b=c&name=My \"Seal\" \ud83d\ude97&password=Zo\u00eb \ud83d\ude97"
-  }
- ]
-}
+{"group": "signing", "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef", "cases": [
+{"call":"signing.build_sign_string","args":{"fields":{},"password":"P"},"ok":"&password=P"},
+{"call":"signing.build_sign_string","args":{"fields":{"b":"2","a":"1","B":"3","\u00e9":"4","_":"5"},"password":""},"ok":"B=3&_=5&a=1&b=2&\u00e9=4&password="},
+{"call":"signing.build_sign_string","args":{"fields":{"x":null,"y":true,"z":1,"w":1.0,"v":1e+16,"u":""},"password":"pa$$&="},"ok":"u=&v=1e+16&w=1.0&x=null&y=True&z=1&password=pa$$&="},
+{"call":"signing.build_sign_string","args":{"fields":{"name":"My \"Seal\" \ud83d\ude97","k":"a&b=c"},"password":"Zo\u00eb \ud83d\ude97"},"ok":"k=a&b=c&name=My \"Seal\" \ud83d\ude97&password=Zo\u00eb \ud83d\ude97"}
+]}

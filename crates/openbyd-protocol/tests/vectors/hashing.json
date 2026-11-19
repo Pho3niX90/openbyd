@@ -1,642 +1,89 @@
-{
- "group": "hashing",
- "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
- "cases": [
-  {
-   "call": "hashing.md5_hex",
-   "args": {
-    "value": ""
-   },
-   "ok": "D41D8CD98F00B204E9800998ECF8427E"
-  },
-  {
-   "call": "hashing.pwd_login_key",
-   "args": {
-    "password": ""
-   },
-   "ok": "80404D0C6D24E87F650FF7D1985CD762"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": ""
-   },
-   "ok": "DA39A3ee5E6b4Bd3255BFef95601890AFd879"
-  },
-  {
-   "call": "hashing.md5_hex",
-   "args": {
-    "value": "a"
-   },
-   "ok": "0CC175B9C0F1B6A831C399E269772661"
-  },
-  {
-   "call": "hashing.pwd_login_key",
-   "args": {
-    "password": "a"
-   },
-   "ok": "B75005AA8388D5F08735BC1DE789ECE1"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "a"
-   },
-   "ok": "86f7E437FAa5A7fcE15d1DdcB9eaEAea377667b8"
-  },
-  {
-   "call": "hashing.md5_hex",
-   "args": {
-    "value": "password"
-   },
-   "ok": "5F4DCC3B5AA765D61D8327DEB882CF99"
-  },
-  {
-   "call": "hashing.pwd_login_key",
-   "args": {
-    "password": "password"
-   },
-   "ok": "3B73CCA8B7D9D93A834631FB22769334"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "password"
-   },
-   "ok": "5Baa61e4C9b93F3f68225b6Cf8331b7Ee68Fd8"
-  },
-  {
-   "call": "hashing.md5_hex",
-   "args": {
-    "value": "Tr0ub4dor&3"
-   },
-   "ok": "4ECE57A61323B52CCFFDBEF021956754"
-  },
-  {
-   "call": "hashing.pwd_login_key",
-   "args": {
-    "password": "Tr0ub4dor&3"
-   },
-   "ok": "F8C29D6FB3A70FD88F846F19EC30AC22"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "Tr0ub4dor&3"
-   },
-   "ok": "874572e7A5ae6A49466a6Ac578b98AdbA78c6Aa6"
-  },
-  {
-   "call": "hashing.md5_hex",
-   "args": {
-    "value": "name+byd@example.com"
-   },
-   "ok": "38B8AEA917BC4563F325A82FAB298ECF"
-  },
-  {
-   "call": "hashing.pwd_login_key",
-   "args": {
-    "password": "name+byd@example.com"
-   },
-   "ok": "721AA9909CF67AAE7FB6F7FCC4F00A75"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "name+byd@example.com"
-   },
-   "ok": "B8744E55DEd4DA235243E73114167b0F5cc5Ad4"
-  },
-  {
-   "call": "hashing.md5_hex",
-   "args": {
-    "value": "Zo\u00eb\u2019s Seal \u6bd4\u4e9a\u8fea \ud83d\ude97"
-   },
-   "ok": "8ED1D8C4A3E538FBF98934419CDF8DE6"
-  },
-  {
-   "call": "hashing.pwd_login_key",
-   "args": {
-    "password": "Zo\u00eb\u2019s Seal \u6bd4\u4e9a\u8fea \ud83d\ude97"
-   },
-   "ok": "69D750408EEEE447C49280B13B8397D0"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "Zo\u00eb\u2019s Seal \u6bd4\u4e9a\u8fea \ud83d\ude97"
-   },
-   "ok": "6B4dC8817A63D06a5F4258cdC99d1A65962Eeb"
-  },
-  {
-   "call": "hashing.md5_hex",
-   "args": {
-    "value": "a=1&b=2&password=X"
-   },
-   "ok": "5BC2AB2ED11634BB0A061C744F7436A5"
-  },
-  {
-   "call": "hashing.pwd_login_key",
-   "args": {
-    "password": "a=1&b=2&password=X"
-   },
-   "ok": "C27037521EF80273AA7B109AD13A1A03"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "a=1&b=2&password=X"
-   },
-   "ok": "9B66E76f6Cf74416B01eA771C31eFB3923cf505"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-0"
-   },
-   "ok": "C93bCF4e3b42e6C8bc9E2bE97bB1fc9b865b7"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-1"
-   },
-   "ok": "F3175a7A29a9DcfCC217C7fEde9A81Ba955b"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-2"
-   },
-   "ok": "72b8587cE37eB5e211aaE8c2CA248F42B1f87676"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-3"
-   },
-   "ok": "4C375b1Ea18C4666cc5B11DEda72f39Ed21060"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-4"
-   },
-   "ok": "ACcF2578931AA54FAf7164d8E4cB611FFc0474c"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-5"
-   },
-   "ok": "13878Ed9761EA83AA9a7C9fED583D9865a9D165"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-6"
-   },
-   "ok": "B822E5c64898FEdd16e50db7Ac155c786925C93"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-7"
-   },
-   "ok": "E99aE7a96c613aE516BAbe42b20678E34DA5e"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-8"
-   },
-   "ok": "9A719F3b1Dd530b467acCCa56Cf5A2937D7dD48d"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-9"
-   },
-   "ok": "4763F54790c4421757dbEA51D22AE962B35E0c8"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-10"
-   },
-   "ok": "FEd79E4398a56086F4c281a39Bf44D432983315b"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-11"
-   },
-   "ok": "18214ebB8967F3e66a725a0113f44bCBce1F9e"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-12"
-   },
-   "ok": "F9b764fbD892Ce6C2da7747F315C532C37602c"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-13"
-   },
-   "ok": "32e5B3569e81B3f939034bd221e9732E04c2Dbf"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-14"
-   },
-   "ok": "1D7fCbfC20CB7250eb762dB5c68Bd1E3cf3C1c"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-15"
-   },
-   "ok": "DB7A7be68f1B6bf2E3bC7e2F269952726dc6De5"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-16"
-   },
-   "ok": "796d9Ef7D673FD304472114153528458934f8B84"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-17"
-   },
-   "ok": "4C133734976f232dAA4f1Cbb5Db827826672F74"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-18"
-   },
-   "ok": "AD156Df2643903d71705e9F553C7597cdB772"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-19"
-   },
-   "ok": "5C8BE3aF4bb51a9CD648CbfF7459111A651215"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-20"
-   },
-   "ok": "93c86E63A9824D1f46105A11E329B8c5AAe4D529"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-21"
-   },
-   "ok": "FA5d99138B8fC73aDC607F527c29Fca1Bd7FF45"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-22"
-   },
-   "ok": "8B7d22a2B649415fDD5cC98B4368097FBf2CA7d"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-23"
-   },
-   "ok": "D6220167A1139415Ca585381C8b7Ed56759C46b"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-24"
-   },
-   "ok": "F02f7377d498daCEab46c6419F481263b217b"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-25"
-   },
-   "ok": "71b327eFB288C8516148bD995D37f8A19799a"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-26"
-   },
-   "ok": "D1b463c5AAb7C74996dDB737Bd6A3b1317C266"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-27"
-   },
-   "ok": "28a91081B11491fcB9a986472C621050A934798f"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-28"
-   },
-   "ok": "97d315b7D25eF214649532f196aa3C276526A5fa"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-29"
-   },
-   "ok": "F81fC12e765dD215DCe172b66Bd45519D974DCb7"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-30"
-   },
-   "ok": "C2322Ffa4A811Ef9D8b7D3dF7b8ACa235de1B3b"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-31"
-   },
-   "ok": "71e4C162D6fE716F59a3810955023a6D464B10"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-32"
-   },
-   "ok": "34dcF3e3ABe0AAbe9B9481bf3930DF7e9Dd7F782"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-33"
-   },
-   "ok": "786b6Cb2612934a9ABe983c04362920CEc05Abb"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-34"
-   },
-   "ok": "A51924f9D95038c39c2AF8D85dE26aC432C72"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-35"
-   },
-   "ok": "6B66468fB349B4d5AE9143c2E27b366E63fBA42"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-36"
-   },
-   "ok": "E68aC42a727B7e810DEe3FA336F214131621"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-37"
-   },
-   "ok": "17e0C5f445dfE627E9e0E6abBDb1AEa7929b5796"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-38"
-   },
-   "ok": "3750487a45cF2bD63056d6BdD1dD36a298a"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-39"
-   },
-   "ok": "CB8eE168107fF3a576d1F2e58D3e2F964BbdD989"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-40"
-   },
-   "ok": "6Aae62622C25751eF26e353fB22aAF92791bF534"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-41"
-   },
-   "ok": "42fCAe428378281A53288e944e3ABd9DA26987"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-42"
-   },
-   "ok": "139fCC32D3ed3fc02eC601BbbD9e2EBd8C7bd"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-43"
-   },
-   "ok": "565aA6faE9b3AFbe9257F8354e73068A0b32566"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-44"
-   },
-   "ok": "696011928142313293f2CD7e9CabAA3c9Dd6F82b"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-45"
-   },
-   "ok": "735522dAE67F844C617E22b9218363141e265b3"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-46"
-   },
-   "ok": "88cb23ee42d1EFd85Ca6DEbdE9f875d1EFf78Ab9"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-47"
-   },
-   "ok": "265FA90221b31e75c05Ad658a7944321741f5"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-48"
-   },
-   "ok": "DA324b63b15Fc665625E399C2d74a3F723409a"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-49"
-   },
-   "ok": "7B1aD77bCb8E3ad24894B992Cda6445EC375C39"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-50"
-   },
-   "ok": "7Ce8C6fd4D32F8fe556b51ca4Fd89828E0e947dc"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-51"
-   },
-   "ok": "794d750Dd350242C4bB7f711b4Fc1BBc45A39"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-52"
-   },
-   "ok": "70e154fbAA937a53Fab41818E136B826F849119"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-53"
-   },
-   "ok": "C74527886cd35deA122110E7faF23aE805Df5"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-54"
-   },
-   "ok": "1Ac8AB17787a113e2Cc2Da3E2ac876eB92eB17d"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-55"
-   },
-   "ok": "1Cb974bd10752DbA541AFf13F82E2deFFa6878"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-56"
-   },
-   "ok": "3Ca48C43Fe4933769eF987A4e783a020371930"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-57"
-   },
-   "ok": "FBe8C8ec9F917B492Dbd8A985E523B14BE81C1f1"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-58"
-   },
-   "ok": "3842C789D955041B1bb64da42b2ABc1F4da86ad"
-  },
-  {
-   "call": "hashing.sha1_mixed",
-   "args": {
-    "value": "sample-59"
-   },
-   "ok": "80183677B280A7802Ab23Ce12Ee7Ac9DEdb6990"
-  },
-  {
-   "call": "hashing.compute_checkcode",
-   "args": {
-    "payload": {}
-   },
-   "ok": "c90ae93b2bd37a50b983c5e799914b93"
-  },
-  {
-   "call": "hashing.compute_checkcode",
-   "args": {
-    "payload": {
-     "a": "1",
-     "b": 2,
-     "c": 1.0,
-     "d": null,
-     "e": true
-    }
-   },
-   "ok": "6c67e94fa458190e472081bbd3ac8764"
-  },
-  {
-   "call": "hashing.compute_checkcode",
-   "args": {
-    "payload": {
-     "name": "My \"Seal\" \ud83d\ude97",
-     "path": "a/b\\c",
-     "ctl": "\u0000\u001f\u007f",
-     "big": 18446744073709551615
-    }
-   },
-   "ok": "d59d63eab4e1a888647e01a594d295ec"
-  },
-  {
-   "call": "hashing.compute_checkcode",
-   "args": {
-    "payload": {
-     "f": 1e+16,
-     "g": 1e-05,
-     "h": -0.0,
-     "i": [
-      1,
-      {
-       "j": "k"
-      }
-     ]
-    }
-   },
-   "ok": "dcbf05e712f907d3f3724557ad5daa7e"
-  },
-  {
-   "call": "hashing.compute_checkcode",
-   "args": {
-    "payload": {
-     "z": "1",
-     "a": "2"
-    }
-   },
-   "ok": "9a9e949eda18d3e9d668a79085f5251d"
-  },
-  {
-   "call": "hashing.compute_checkcode",
-   "args": {
-    "payload": [
-     1,
-     "x"
-    ]
-   },
-   "ok": "9b908ad410ea67bb72605194977f047b"
-  }
- ]
-}
+{"group": "hashing", "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef", "cases": [
+{"call":"hashing.md5_hex","args":{"value":""},"ok":"D41D8CD98F00B204E9800998ECF8427E"},
+{"call":"hashing.pwd_login_key","args":{"password":""},"ok":"80404D0C6D24E87F650FF7D1985CD762"},
+{"call":"hashing.sha1_mixed","args":{"value":""},"ok":"DA39A3ee5E6b4Bd3255BFef95601890AFd879"},
+{"call":"hashing.md5_hex","args":{"value":"a"},"ok":"0CC175B9C0F1B6A831C399E269772661"},
+{"call":"hashing.pwd_login_key","args":{"password":"a"},"ok":"B75005AA8388D5F08735BC1DE789ECE1"},
+{"call":"hashing.sha1_mixed","args":{"value":"a"},"ok":"86f7E437FAa5A7fcE15d1DdcB9eaEAea377667b8"},
+{"call":"hashing.md5_hex","args":{"value":"password"},"ok":"5F4DCC3B5AA765D61D8327DEB882CF99"},
+{"call":"hashing.pwd_login_key","args":{"password":"password"},"ok":"3B73CCA8B7D9D93A834631FB22769334"},
+{"call":"hashing.sha1_mixed","args":{"value":"password"},"ok":"5Baa61e4C9b93F3f68225b6Cf8331b7Ee68Fd8"},
+{"call":"hashing.md5_hex","args":{"value":"Tr0ub4dor&3"},"ok":"4ECE57A61323B52CCFFDBEF021956754"},
+{"call":"hashing.pwd_login_key","args":{"password":"Tr0ub4dor&3"},"ok":"F8C29D6FB3A70FD88F846F19EC30AC22"},
+{"call":"hashing.sha1_mixed","args":{"value":"Tr0ub4dor&3"},"ok":"874572e7A5ae6A49466a6Ac578b98AdbA78c6Aa6"},
+{"call":"hashing.md5_hex","args":{"value":"name+byd@example.com"},"ok":"38B8AEA917BC4563F325A82FAB298ECF"},
+{"call":"hashing.pwd_login_key","args":{"password":"name+byd@example.com"},"ok":"721AA9909CF67AAE7FB6F7FCC4F00A75"},
+{"call":"hashing.sha1_mixed","args":{"value":"name+byd@example.com"},"ok":"B8744E55DEd4DA235243E73114167b0F5cc5Ad4"},
+{"call":"hashing.md5_hex","args":{"value":"Zo\u00eb\u2019s Seal \u6bd4\u4e9a\u8fea \ud83d\ude97"},"ok":"8ED1D8C4A3E538FBF98934419CDF8DE6"},
+{"call":"hashing.pwd_login_key","args":{"password":"Zo\u00eb\u2019s Seal \u6bd4\u4e9a\u8fea \ud83d\ude97"},"ok":"69D750408EEEE447C49280B13B8397D0"},
+{"call":"hashing.sha1_mixed","args":{"value":"Zo\u00eb\u2019s Seal \u6bd4\u4e9a\u8fea \ud83d\ude97"},"ok":"6B4dC8817A63D06a5F4258cdC99d1A65962Eeb"},
+{"call":"hashing.md5_hex","args":{"value":"a=1&b=2&password=X"},"ok":"5BC2AB2ED11634BB0A061C744F7436A5"},
+{"call":"hashing.pwd_login_key","args":{"password":"a=1&b=2&password=X"},"ok":"C27037521EF80273AA7B109AD13A1A03"},
+{"call":"hashing.sha1_mixed","args":{"value":"a=1&b=2&password=X"},"ok":"9B66E76f6Cf74416B01eA771C31eFB3923cf505"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-0"},"ok":"C93bCF4e3b42e6C8bc9E2bE97bB1fc9b865b7"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-1"},"ok":"F3175a7A29a9DcfCC217C7fEde9A81Ba955b"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-2"},"ok":"72b8587cE37eB5e211aaE8c2CA248F42B1f87676"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-3"},"ok":"4C375b1Ea18C4666cc5B11DEda72f39Ed21060"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-4"},"ok":"ACcF2578931AA54FAf7164d8E4cB611FFc0474c"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-5"},"ok":"13878Ed9761EA83AA9a7C9fED583D9865a9D165"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-6"},"ok":"B822E5c64898FEdd16e50db7Ac155c786925C93"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-7"},"ok":"E99aE7a96c613aE516BAbe42b20678E34DA5e"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-8"},"ok":"9A719F3b1Dd530b467acCCa56Cf5A2937D7dD48d"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-9"},"ok":"4763F54790c4421757dbEA51D22AE962B35E0c8"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-10"},"ok":"FEd79E4398a56086F4c281a39Bf44D432983315b"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-11"},"ok":"18214ebB8967F3e66a725a0113f44bCBce1F9e"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-12"},"ok":"F9b764fbD892Ce6C2da7747F315C532C37602c"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-13"},"ok":"32e5B3569e81B3f939034bd221e9732E04c2Dbf"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-14"},"ok":"1D7fCbfC20CB7250eb762dB5c68Bd1E3cf3C1c"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-15"},"ok":"DB7A7be68f1B6bf2E3bC7e2F269952726dc6De5"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-16"},"ok":"796d9Ef7D673FD304472114153528458934f8B84"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-17"},"ok":"4C133734976f232dAA4f1Cbb5Db827826672F74"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-18"},"ok":"AD156Df2643903d71705e9F553C7597cdB772"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-19"},"ok":"5C8BE3aF4bb51a9CD648CbfF7459111A651215"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-20"},"ok":"93c86E63A9824D1f46105A11E329B8c5AAe4D529"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-21"},"ok":"FA5d99138B8fC73aDC607F527c29Fca1Bd7FF45"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-22"},"ok":"8B7d22a2B649415fDD5cC98B4368097FBf2CA7d"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-23"},"ok":"D6220167A1139415Ca585381C8b7Ed56759C46b"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-24"},"ok":"F02f7377d498daCEab46c6419F481263b217b"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-25"},"ok":"71b327eFB288C8516148bD995D37f8A19799a"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-26"},"ok":"D1b463c5AAb7C74996dDB737Bd6A3b1317C266"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-27"},"ok":"28a91081B11491fcB9a986472C621050A934798f"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-28"},"ok":"97d315b7D25eF214649532f196aa3C276526A5fa"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-29"},"ok":"F81fC12e765dD215DCe172b66Bd45519D974DCb7"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-30"},"ok":"C2322Ffa4A811Ef9D8b7D3dF7b8ACa235de1B3b"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-31"},"ok":"71e4C162D6fE716F59a3810955023a6D464B10"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-32"},"ok":"34dcF3e3ABe0AAbe9B9481bf3930DF7e9Dd7F782"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-33"},"ok":"786b6Cb2612934a9ABe983c04362920CEc05Abb"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-34"},"ok":"A51924f9D95038c39c2AF8D85dE26aC432C72"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-35"},"ok":"6B66468fB349B4d5AE9143c2E27b366E63fBA42"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-36"},"ok":"E68aC42a727B7e810DEe3FA336F214131621"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-37"},"ok":"17e0C5f445dfE627E9e0E6abBDb1AEa7929b5796"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-38"},"ok":"3750487a45cF2bD63056d6BdD1dD36a298a"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-39"},"ok":"CB8eE168107fF3a576d1F2e58D3e2F964BbdD989"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-40"},"ok":"6Aae62622C25751eF26e353fB22aAF92791bF534"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-41"},"ok":"42fCAe428378281A53288e944e3ABd9DA26987"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-42"},"ok":"139fCC32D3ed3fc02eC601BbbD9e2EBd8C7bd"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-43"},"ok":"565aA6faE9b3AFbe9257F8354e73068A0b32566"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-44"},"ok":"696011928142313293f2CD7e9CabAA3c9Dd6F82b"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-45"},"ok":"735522dAE67F844C617E22b9218363141e265b3"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-46"},"ok":"88cb23ee42d1EFd85Ca6DEbdE9f875d1EFf78Ab9"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-47"},"ok":"265FA90221b31e75c05Ad658a7944321741f5"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-48"},"ok":"DA324b63b15Fc665625E399C2d74a3F723409a"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-49"},"ok":"7B1aD77bCb8E3ad24894B992Cda6445EC375C39"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-50"},"ok":"7Ce8C6fd4D32F8fe556b51ca4Fd89828E0e947dc"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-51"},"ok":"794d750Dd350242C4bB7f711b4Fc1BBc45A39"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-52"},"ok":"70e154fbAA937a53Fab41818E136B826F849119"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-53"},"ok":"C74527886cd35deA122110E7faF23aE805Df5"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-54"},"ok":"1Ac8AB17787a113e2Cc2Da3E2ac876eB92eB17d"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-55"},"ok":"1Cb974bd10752DbA541AFf13F82E2deFFa6878"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-56"},"ok":"3Ca48C43Fe4933769eF987A4e783a020371930"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-57"},"ok":"FBe8C8ec9F917B492Dbd8A985E523B14BE81C1f1"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-58"},"ok":"3842C789D955041B1bb64da42b2ABc1F4da86ad"},
+{"call":"hashing.sha1_mixed","args":{"value":"sample-59"},"ok":"80183677B280A7802Ab23Ce12Ee7Ac9DEdb6990"},
+{"call":"hashing.compute_checkcode","args":{"payload":{}},"ok":"c90ae93b2bd37a50b983c5e799914b93"},
+{"call":"hashing.compute_checkcode","args":{"payload":{"a":"1","b":2,"c":1.0,"d":null,"e":true}},"ok":"6c67e94fa458190e472081bbd3ac8764"},
+{"call":"hashing.compute_checkcode","args":{"payload":{"name":"My \"Seal\" \ud83d\ude97","path":"a/b\\c","ctl":"\u0000\u001f\u007f","big":18446744073709551615}},"ok":"d59d63eab4e1a888647e01a594d295ec"},
+{"call":"hashing.compute_checkcode","args":{"payload":{"f":1e+16,"g":1e-05,"h":-0.0,"i":[1,{"j":"k"}]}},"ok":"dcbf05e712f907d3f3724557ad5daa7e"},
+{"call":"hashing.compute_checkcode","args":{"payload":{"z":"1","a":"2"}},"ok":"9a9e949eda18d3e9d668a79085f5251d"},
+{"call":"hashing.compute_checkcode","args":{"payload":[1,"x"]},"ok":"9b908ad410ea67bb72605194977f047b"}
+]}

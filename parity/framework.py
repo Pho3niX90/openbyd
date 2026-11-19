@@ -162,8 +162,10 @@ class Group:
     def vector_document(self) -> str:
         """The text of this group's vector file, from running pyBYD now."""
         cases = [{"call": call, "args": args, **self.answer(call, args)} for call, args in self.recorded_cases()]
-        document = {"group": self.name, "upstream_commit": UPSTREAM_COMMIT, "cases": cases}
-        return json.dumps(document, indent=1, ensure_ascii=True) + "\n"
+        # One case per line: small on disk, and a changed case is one changed line.
+        lines = [json.dumps(case, ensure_ascii=True, separators=(",", ":")) for case in cases]
+        head = json.dumps({"group": self.name, "upstream_commit": UPSTREAM_COMMIT}, ensure_ascii=True)
+        return head[:-1] + ', "cases": [\n' + ",\n".join(lines) + "\n]}\n"
 
 
 def load_groups() -> dict[str, Group]:

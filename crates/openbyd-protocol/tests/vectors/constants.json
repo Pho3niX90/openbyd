@@ -1,2958 +1,371 @@
-{
- "group": "constants",
- "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
- "cases": [
-  {
-   "call": "constants.values",
-   "args": {},
-   "ok": {
-    "USER_AGENT": "okhttp/4.12.0",
-    "SESSION_EXPIRED_CODES": [
-     "1002",
-     "1005",
-     "1010"
-    ],
-    "DEFAULT_TEMP_OFFSET_C": 14.0,
-    "VALID_CLIMATE_DURATIONS": [
-     10,
-     15,
-     20,
-     25,
-     30
-    ]
-   }
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": null,
-    "range_max": null
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": null,
-    "range_max": 31
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": null,
-    "range_max": 33
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": null,
-    "range_max": 33.0
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": null,
-    "range_max": 32
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": null,
-    "range_max": 17
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": null,
-    "range_max": 15
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": null,
-    "range_max": 34
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": null,
-    "range_max": 33.5
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": null,
-    "range_max": "33"
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": null,
-    "range_max": [
-     1
-    ]
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15,
-    "range_max": null
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15,
-    "range_max": 31
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15,
-    "range_max": 33
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15,
-    "range_max": 33.0
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15,
-    "range_max": 32
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15,
-    "range_max": 17
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15,
-    "range_max": 15
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15,
-    "range_max": 34
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15,
-    "range_max": 33.5
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15,
-    "range_max": "33"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15,
-    "range_max": [
-     1
-    ]
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15.0,
-    "range_max": null
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15.0,
-    "range_max": 31
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15.0,
-    "range_max": 33
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15.0,
-    "range_max": 33.0
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15.0,
-    "range_max": 32
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15.0,
-    "range_max": 17
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15.0,
-    "range_max": 15
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15.0,
-    "range_max": 34
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15.0,
-    "range_max": 33.5
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15.0,
-    "range_max": "33"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 15.0,
-    "range_max": [
-     1
-    ]
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17,
-    "range_max": null
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17,
-    "range_max": 31
-   },
-   "ok": 16.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17,
-    "range_max": 33
-   },
-   "ok": 16.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17,
-    "range_max": 33.0
-   },
-   "ok": 16.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17,
-    "range_max": 32
-   },
-   "ok": 16.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17,
-    "range_max": 17
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17,
-    "range_max": 15
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17,
-    "range_max": 34
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17,
-    "range_max": 33.5
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17,
-    "range_max": "33"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17,
-    "range_max": [
-     1
-    ]
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17.5,
-    "range_max": null
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17.5,
-    "range_max": 31
-   },
-   "ok": 16.5
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17.5,
-    "range_max": 33
-   },
-   "ok": 16.5
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17.5,
-    "range_max": 33.0
-   },
-   "ok": 16.5
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17.5,
-    "range_max": 32
-   },
-   "ok": 16.5
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17.5,
-    "range_max": 17
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17.5,
-    "range_max": 15
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17.5,
-    "range_max": 34
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17.5,
-    "range_max": 33.5
-   },
-   "ok": 16.5
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17.5,
-    "range_max": "33"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 17.5,
-    "range_max": [
-     1
-    ]
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 16,
-    "range_max": null
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 16,
-    "range_max": 31
-   },
-   "ok": 15.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 16,
-    "range_max": 33
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 16,
-    "range_max": 33.0
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 16,
-    "range_max": 32
-   },
-   "ok": 15.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 16,
-    "range_max": 17
-   },
-   "ok": 15.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 16,
-    "range_max": 15
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 16,
-    "range_max": 34
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 16,
-    "range_max": 33.5
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 16,
-    "range_max": "33"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": 16,
-    "range_max": [
-     1
-    ]
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": "15",
-    "range_max": null
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": "15",
-    "range_max": 31
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": "15",
-    "range_max": 33
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": "15",
-    "range_max": 33.0
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": "15",
-    "range_max": 32
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": "15",
-    "range_max": 17
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": "15",
-    "range_max": 15
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": "15",
-    "range_max": 34
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": "15",
-    "range_max": 33.5
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": "15",
-    "range_max": "33"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": "15",
-    "range_max": [
-     1
-    ]
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": true,
-    "range_max": null
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": true,
-    "range_max": 31
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": true,
-    "range_max": 33
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": true,
-    "range_max": 33.0
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": true,
-    "range_max": 32
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": true,
-    "range_max": 17
-   },
-   "ok": 0.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": true,
-    "range_max": 15
-   },
-   "ok": 0.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": true,
-    "range_max": 34
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": true,
-    "range_max": 33.5
-   },
-   "ok": 14.0
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": true,
-    "range_max": "33"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.temp_offset_from_range",
-   "args": {
-    "range_min": true,
-    "range_max": [
-     1
-    ]
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 0,
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 0,
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 0,
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 0,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 0,
-    "offset": -1.5
-   },
-   "ok": 2
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 0,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 0,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 0,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1,
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1,
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1,
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1,
-    "offset": -1.5
-   },
-   "ok": 2
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14,
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14,
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14,
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14,
-    "offset": -1.5
-   },
-   "ok": 16
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14,
-    "offset": true
-   },
-   "ok": 13
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15
-   },
-   "ok": 1
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15,
-    "offset": 14.0
-   },
-   "ok": 1
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15,
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15,
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15,
-    "offset": -1.5
-   },
-   "ok": 16
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15,
-    "offset": true
-   },
-   "ok": 14
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15.0
-   },
-   "ok": 1
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15.0,
-    "offset": 14.0
-   },
-   "ok": 1
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15.0,
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15.0,
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15.0,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15.0,
-    "offset": -1.5
-   },
-   "ok": 16
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15.0,
-    "offset": true
-   },
-   "ok": 14
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15.0,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 15.0,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 16.5
-   },
-   "ok": 2
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 16.5,
-    "offset": 14.0
-   },
-   "ok": 2
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 16.5,
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 16.5,
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 16.5,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 16.5,
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 16.5,
-    "offset": true
-   },
-   "ok": 16
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 16.5,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 16.5,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17
-   },
-   "ok": 3
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17,
-    "offset": 14.0
-   },
-   "ok": 3
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17,
-    "offset": 16
-   },
-   "ok": 1
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17,
-    "offset": 16.0
-   },
-   "ok": 1
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17,
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17,
-    "offset": true
-   },
-   "ok": 16
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17.0
-   },
-   "ok": 3
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17.0,
-    "offset": 14.0
-   },
-   "ok": 3
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17.0,
-    "offset": 16
-   },
-   "ok": 1
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17.0,
-    "offset": 16.0
-   },
-   "ok": 1
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17.0,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17.0,
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17.0,
-    "offset": true
-   },
-   "ok": 16
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17.0,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 17.0,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21
-   },
-   "ok": 7
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21,
-    "offset": 14.0
-   },
-   "ok": 7
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21,
-    "offset": 16
-   },
-   "ok": 5
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21,
-    "offset": 16.0
-   },
-   "ok": 5
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21,
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21.5
-   },
-   "ok": 8
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21.5,
-    "offset": 14.0
-   },
-   "ok": 8
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21.5,
-    "offset": 16
-   },
-   "ok": 6
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21.5,
-    "offset": 16.0
-   },
-   "ok": 6
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21.5,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21.5,
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21.5,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21.5,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 21.5,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 22.5
-   },
-   "ok": 8
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 22.5,
-    "offset": 14.0
-   },
-   "ok": 8
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 22.5,
-    "offset": 16
-   },
-   "ok": 6
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 22.5,
-    "offset": 16.0
-   },
-   "ok": 6
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 22.5,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 22.5,
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 22.5,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 22.5,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 22.5,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31
-   },
-   "ok": 17
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31,
-    "offset": 14.0
-   },
-   "ok": 17
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31,
-    "offset": 16
-   },
-   "ok": 15
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31,
-    "offset": 16.0
-   },
-   "ok": 15
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31,
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.0
-   },
-   "ok": 17
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.0,
-    "offset": 14.0
-   },
-   "ok": 17
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.0,
-    "offset": 16
-   },
-   "ok": 15
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.0,
-    "offset": 16.0
-   },
-   "ok": 15
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.0,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.0,
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.0,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.0,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.0,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.5,
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.5,
-    "offset": 16
-   },
-   "ok": 16
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.5,
-    "offset": 16.0
-   },
-   "ok": 16
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.5,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.5,
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.5,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.5,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 31.5,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33,
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33,
-    "offset": 16
-   },
-   "ok": 17
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33,
-    "offset": 16.0
-   },
-   "ok": 17
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33,
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33.0,
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33.0,
-    "offset": 16
-   },
-   "ok": 17
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33.0,
-    "offset": 16.0
-   },
-   "ok": 17
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33.0,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33.0,
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33.0,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33.0,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 33.0,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14.999
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14.999,
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14.999,
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14.999,
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14.999,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14.999,
-    "offset": -1.5
-   },
-   "ok": 16
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14.999,
-    "offset": true
-   },
-   "ok": 14
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14.999,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 14.999,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -1
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -1,
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -1,
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -1,
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -1,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -1,
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -1,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -1,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -1,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1e+300
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1e+300,
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1e+300,
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1e+300,
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1e+300,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1e+300,
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1e+300,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1e+300,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": 1e+300,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -0.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -0.0,
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -0.0,
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -0.0,
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -0.0,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -0.0,
-    "offset": -1.5
-   },
-   "ok": 2
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -0.0,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -0.0,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": -0.0,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": true,
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": true,
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": true,
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": true,
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": true,
-    "offset": -1.5
-   },
-   "ok": 2
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": true,
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": true,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": true,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21"
-   },
-   "ok": 7
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21",
-    "offset": 14.0
-   },
-   "ok": 7
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21",
-    "offset": 16
-   },
-   "ok": 5
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21",
-    "offset": 16.0
-   },
-   "ok": 5
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21",
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21",
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21",
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21",
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21",
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": " 21.5 "
-   },
-   "ok": 8
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": " 21.5 ",
-    "offset": 14.0
-   },
-   "ok": 8
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": " 21.5 ",
-    "offset": 16
-   },
-   "ok": 6
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": " 21.5 ",
-    "offset": 16.0
-   },
-   "ok": 6
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": " 21.5 ",
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": " 21.5 ",
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": " 21.5 ",
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": " 21.5 ",
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": " 21.5 ",
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21,5"
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21,5",
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21,5",
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21,5",
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21,5",
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21,5",
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21,5",
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21,5",
-    "offset": "14"
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "21,5",
-    "offset": null
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "nan"
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "nan",
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "nan",
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "nan",
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "nan",
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "nan",
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "nan",
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "nan",
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "nan",
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "inf"
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "inf",
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "inf",
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "inf",
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "inf",
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "inf",
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "inf",
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "inf",
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "inf",
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": ""
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "",
-    "offset": 14.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "",
-    "offset": 16
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "",
-    "offset": 16.0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "",
-    "offset": 4611686018427387904
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "",
-    "offset": -1.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "",
-    "offset": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "",
-    "offset": "14"
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": "",
-    "offset": null
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": null,
-    "offset": 14.0
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": null,
-    "offset": 16
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": null,
-    "offset": 16.0
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": null,
-    "offset": 4611686018427387904
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": null,
-    "offset": -1.5
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": null,
-    "offset": true
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": null,
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": null,
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": [
-     21
-    ]
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": [
-     21
-    ],
-    "offset": 14.0
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": [
-     21
-    ],
-    "offset": 16
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": [
-     21
-    ],
-    "offset": 16.0
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": [
-     21
-    ],
-    "offset": 4611686018427387904
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": [
-     21
-    ],
-    "offset": -1.5
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": [
-     21
-    ],
-    "offset": true
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": [
-     21
-    ],
-    "offset": "14"
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.celsius_to_scale",
-   "args": {
-    "temp_c": [
-     21
-    ],
-    "offset": null
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": 10
-   },
-   "ok": 1
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": 15
-   },
-   "ok": 2
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": 20
-   },
-   "ok": 3
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": 25
-   },
-   "ok": 4
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": 30
-   },
-   "ok": 5
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": 10.0
-   },
-   "ok": 1
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": 30.0
-   },
-   "ok": 5
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": 10.5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": 0
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": 5
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": 35
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": -10
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": true
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": false
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": "10"
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": null
-   },
-   "error": "ValueError"
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": [
-     10
-    ]
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": {}
-   },
-   "error": "TypeError"
-  },
-  {
-   "call": "constants.minutes_to_time_span",
-   "args": {
-    "minutes": 1e+20
-   },
-   "error": "ValueError"
-  }
- ]
-}
+{"group": "constants", "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef", "cases": [
+{"call":"constants.values","args":{},"ok":{"USER_AGENT":"okhttp/4.12.0","SESSION_EXPIRED_CODES":["1002","1005","1010"],"DEFAULT_TEMP_OFFSET_C":14.0,"VALID_CLIMATE_DURATIONS":[10,15,20,25,30]}},
+{"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":null},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":31},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":33},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":33.0},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":32},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":17},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":15},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":34},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":33.5},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":"33"},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":[1]},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15,"range_max":null},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15,"range_max":31},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15,"range_max":33},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15,"range_max":33.0},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15,"range_max":32},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15,"range_max":17},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15,"range_max":15},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15,"range_max":34},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15,"range_max":33.5},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15,"range_max":"33"},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15,"range_max":[1]},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15.0,"range_max":null},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15.0,"range_max":31},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15.0,"range_max":33},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15.0,"range_max":33.0},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15.0,"range_max":32},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15.0,"range_max":17},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15.0,"range_max":15},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15.0,"range_max":34},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15.0,"range_max":33.5},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15.0,"range_max":"33"},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":15.0,"range_max":[1]},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17,"range_max":null},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17,"range_max":31},"ok":16.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17,"range_max":33},"ok":16.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17,"range_max":33.0},"ok":16.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17,"range_max":32},"ok":16.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17,"range_max":17},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17,"range_max":15},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17,"range_max":34},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17,"range_max":33.5},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17,"range_max":"33"},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17,"range_max":[1]},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17.5,"range_max":null},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17.5,"range_max":31},"ok":16.5},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17.5,"range_max":33},"ok":16.5},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17.5,"range_max":33.0},"ok":16.5},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17.5,"range_max":32},"ok":16.5},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17.5,"range_max":17},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17.5,"range_max":15},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17.5,"range_max":34},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17.5,"range_max":33.5},"ok":16.5},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17.5,"range_max":"33"},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":17.5,"range_max":[1]},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":16,"range_max":null},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":16,"range_max":31},"ok":15.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":16,"range_max":33},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":16,"range_max":33.0},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":16,"range_max":32},"ok":15.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":16,"range_max":17},"ok":15.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":16,"range_max":15},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":16,"range_max":34},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":16,"range_max":33.5},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":16,"range_max":"33"},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":16,"range_max":[1]},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":"15","range_max":null},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":"15","range_max":31},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":"15","range_max":33},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":"15","range_max":33.0},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":"15","range_max":32},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":"15","range_max":17},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":"15","range_max":15},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":"15","range_max":34},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":"15","range_max":33.5},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":"15","range_max":"33"},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":"15","range_max":[1]},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":true,"range_max":null},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":true,"range_max":31},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":true,"range_max":33},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":true,"range_max":33.0},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":true,"range_max":32},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":true,"range_max":17},"ok":0.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":true,"range_max":15},"ok":0.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":true,"range_max":34},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":true,"range_max":33.5},"ok":14.0},
+{"call":"constants.temp_offset_from_range","args":{"range_min":true,"range_max":"33"},"error":"TypeError"},
+{"call":"constants.temp_offset_from_range","args":{"range_min":true,"range_max":[1]},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":0,"offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":0,"offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":0,"offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":0,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":0,"offset":-1.5},"ok":2},
+{"call":"constants.celsius_to_scale","args":{"temp_c":0,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":0,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":0,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1,"offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1,"offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1,"offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1,"offset":-1.5},"ok":2},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14,"offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14,"offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14,"offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14,"offset":-1.5},"ok":16},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14,"offset":true},"ok":13},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15},"ok":1},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15,"offset":14.0},"ok":1},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15,"offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15,"offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15,"offset":-1.5},"ok":16},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15,"offset":true},"ok":14},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15.0},"ok":1},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15.0,"offset":14.0},"ok":1},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15.0,"offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15.0,"offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15.0,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15.0,"offset":-1.5},"ok":16},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15.0,"offset":true},"ok":14},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15.0,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":15.0,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":16.5},"ok":2},
+{"call":"constants.celsius_to_scale","args":{"temp_c":16.5,"offset":14.0},"ok":2},
+{"call":"constants.celsius_to_scale","args":{"temp_c":16.5,"offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":16.5,"offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":16.5,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":16.5,"offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":16.5,"offset":true},"ok":16},
+{"call":"constants.celsius_to_scale","args":{"temp_c":16.5,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":16.5,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17},"ok":3},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17,"offset":14.0},"ok":3},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17,"offset":16},"ok":1},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17,"offset":16.0},"ok":1},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17,"offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17,"offset":true},"ok":16},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17.0},"ok":3},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17.0,"offset":14.0},"ok":3},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17.0,"offset":16},"ok":1},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17.0,"offset":16.0},"ok":1},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17.0,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17.0,"offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17.0,"offset":true},"ok":16},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17.0,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":17.0,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21},"ok":7},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21,"offset":14.0},"ok":7},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21,"offset":16},"ok":5},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21,"offset":16.0},"ok":5},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21,"offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21.5},"ok":8},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21.5,"offset":14.0},"ok":8},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21.5,"offset":16},"ok":6},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21.5,"offset":16.0},"ok":6},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21.5,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21.5,"offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21.5,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21.5,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":21.5,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":22.5},"ok":8},
+{"call":"constants.celsius_to_scale","args":{"temp_c":22.5,"offset":14.0},"ok":8},
+{"call":"constants.celsius_to_scale","args":{"temp_c":22.5,"offset":16},"ok":6},
+{"call":"constants.celsius_to_scale","args":{"temp_c":22.5,"offset":16.0},"ok":6},
+{"call":"constants.celsius_to_scale","args":{"temp_c":22.5,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":22.5,"offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":22.5,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":22.5,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":22.5,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31},"ok":17},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31,"offset":14.0},"ok":17},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31,"offset":16},"ok":15},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31,"offset":16.0},"ok":15},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31,"offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.0},"ok":17},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.0,"offset":14.0},"ok":17},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.0,"offset":16},"ok":15},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.0,"offset":16.0},"ok":15},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.0,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.0,"offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.0,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.0,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.0,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.5,"offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.5,"offset":16},"ok":16},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.5,"offset":16.0},"ok":16},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.5,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.5,"offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.5,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.5,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":31.5,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33,"offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33,"offset":16},"ok":17},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33,"offset":16.0},"ok":17},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33,"offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33.0,"offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33.0,"offset":16},"ok":17},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33.0,"offset":16.0},"ok":17},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33.0,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33.0,"offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33.0,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33.0,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":33.0,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14.999},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14.999,"offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14.999,"offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14.999,"offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14.999,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14.999,"offset":-1.5},"ok":16},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14.999,"offset":true},"ok":14},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14.999,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":14.999,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-1},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-1,"offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-1,"offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-1,"offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-1,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-1,"offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-1,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-1,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-1,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1e+300},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1e+300,"offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1e+300,"offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1e+300,"offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1e+300,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1e+300,"offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1e+300,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1e+300,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":1e+300,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-0.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-0.0,"offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-0.0,"offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-0.0,"offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-0.0,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-0.0,"offset":-1.5},"ok":2},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-0.0,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-0.0,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":-0.0,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":true,"offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":true,"offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":true,"offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":true,"offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":true,"offset":-1.5},"ok":2},
+{"call":"constants.celsius_to_scale","args":{"temp_c":true,"offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":true,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":true,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21"},"ok":7},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21","offset":14.0},"ok":7},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21","offset":16},"ok":5},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21","offset":16.0},"ok":5},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21","offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21","offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21","offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21","offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21","offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":" 21.5 "},"ok":8},
+{"call":"constants.celsius_to_scale","args":{"temp_c":" 21.5 ","offset":14.0},"ok":8},
+{"call":"constants.celsius_to_scale","args":{"temp_c":" 21.5 ","offset":16},"ok":6},
+{"call":"constants.celsius_to_scale","args":{"temp_c":" 21.5 ","offset":16.0},"ok":6},
+{"call":"constants.celsius_to_scale","args":{"temp_c":" 21.5 ","offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":" 21.5 ","offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":" 21.5 ","offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":" 21.5 ","offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":" 21.5 ","offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21,5"},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21,5","offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21,5","offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21,5","offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21,5","offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21,5","offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21,5","offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21,5","offset":"14"},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"21,5","offset":null},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"nan"},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"nan","offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"nan","offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"nan","offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"nan","offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"nan","offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"nan","offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"nan","offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"nan","offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"inf"},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"inf","offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"inf","offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"inf","offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"inf","offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"inf","offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"inf","offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"inf","offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"inf","offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":""},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"","offset":14.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"","offset":16},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"","offset":16.0},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"","offset":4611686018427387904},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"","offset":-1.5},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"","offset":true},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"","offset":"14"},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":"","offset":null},"error":"ValueError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":null,"offset":14.0},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":null,"offset":16},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":null,"offset":16.0},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":null,"offset":4611686018427387904},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":null,"offset":-1.5},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":null,"offset":true},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":null,"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":null,"offset":null},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":[21]},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":[21],"offset":14.0},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":[21],"offset":16},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":[21],"offset":16.0},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":[21],"offset":4611686018427387904},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":[21],"offset":-1.5},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":[21],"offset":true},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":[21],"offset":"14"},"error":"TypeError"},
+{"call":"constants.celsius_to_scale","args":{"temp_c":[21],"offset":null},"error":"TypeError"},
+{"call":"constants.minutes_to_time_span","args":{"minutes":10},"ok":1},
+{"call":"constants.minutes_to_time_span","args":{"minutes":15},"ok":2},
+{"call":"constants.minutes_to_time_span","args":{"minutes":20},"ok":3},
+{"call":"constants.minutes_to_time_span","args":{"minutes":25},"ok":4},
+{"call":"constants.minutes_to_time_span","args":{"minutes":30},"ok":5},
+{"call":"constants.minutes_to_time_span","args":{"minutes":10.0},"ok":1},
+{"call":"constants.minutes_to_time_span","args":{"minutes":30.0},"ok":5},
+{"call":"constants.minutes_to_time_span","args":{"minutes":10.5},"error":"ValueError"},
+{"call":"constants.minutes_to_time_span","args":{"minutes":0},"error":"ValueError"},
+{"call":"constants.minutes_to_time_span","args":{"minutes":5},"error":"ValueError"},
+{"call":"constants.minutes_to_time_span","args":{"minutes":35},"error":"ValueError"},
+{"call":"constants.minutes_to_time_span","args":{"minutes":-10},"error":"ValueError"},
+{"call":"constants.minutes_to_time_span","args":{"minutes":true},"error":"ValueError"},
+{"call":"constants.minutes_to_time_span","args":{"minutes":false},"error":"ValueError"},
+{"call":"constants.minutes_to_time_span","args":{"minutes":"10"},"error":"ValueError"},
+{"call":"constants.minutes_to_time_span","args":{"minutes":null},"error":"ValueError"},
+{"call":"constants.minutes_to_time_span","args":{"minutes":[10]},"error":"TypeError"},
+{"call":"constants.minutes_to_time_span","args":{"minutes":{}},"error":"TypeError"},
+{"call":"constants.minutes_to_time_span","args":{"minutes":1e+20},"error":"ValueError"}
+]}

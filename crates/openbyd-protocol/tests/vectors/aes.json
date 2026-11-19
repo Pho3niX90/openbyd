@@ -1,1358 +1,171 @@
-{
- "group": "aes",
- "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
- "cases": [
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "954F64F2E4E86E9EEE82D20216684899"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "FE123486508B0EB503A8468388EF5812"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "B30D304C8F13E60FDCF2DB6E9F36E5A07D4FD119CEFCE44529E3FCD354FC7E99"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "B953A57F30EA7AC2B1A9CFE20203A969"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "F0F3E2A2C029664E358741F6DD35665C998E0B4990699E7E6D4C8568984D1B25"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "1E56C13E7FBB7EE975FB73EC95765D0A"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "ok": "3FE7286ABDE5F03943D5777020259626"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "ok": "A9AC66478803DE4358F38BC3DA782990"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "ok": "271C61638B81FD2BEEA7E474C2EDE844B1C3CC3B4549316A2AEBB5D2A7393440"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "ok": "74AD1DCCB3352AFCA65E6F498B0D3097"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "ok": "94F6652586C60D54CD3652EF7C95DA0F82E9CEF41826F348AE4C8BB2493B6FB4"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "ok": "ACE8613226711F23FD02B82AB913C2F6"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "ok": "9F3B7504926F8BD36E3118E903A4CD4A"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "ok": "9A75BCEC03BCFF27DA6E4B587201C1EF"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "ok": "B8A8338D565CE922AF9BDB361FE70672C8A1EFD7320224EE0F3136351B30D961"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "ok": "9537BBEFF918C2FAE6980C823A8E55E0"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "ok": "4D0E19CF91D203C4A6DA9809F05FC0790AE23AC4FC36DA2C80511D881005DCC0"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "ok": "CAC69D24A08CD5D0F3CCF7CA59AD8829"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": ""
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": ""
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": ""
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": ""
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": ""
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": ""
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": " "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": " "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": " "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": " "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": " "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": " "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "0x"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "0x"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "0x"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "0x"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "0x"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "0x"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "0X000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "954F64F2E4E86E9EEE82D20216684899"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "0X000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "FE123486508B0EB503A8468388EF5812"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "0X000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "B30D304C8F13E60FDCF2DB6E9F36E5A07D4FD119CEFCE44529E3FCD354FC7E99"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "0X000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "B953A57F30EA7AC2B1A9CFE20203A969"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "0X000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "F0F3E2A2C029664E358741F6DD35665C998E0B4990699E7E6D4C8568984D1B25"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "0X000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "1E56C13E7FBB7EE975FB73EC95765D0A"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": " 000102030405060708090A0B0C0D0E0F\n"
-   },
-   "ok": "954F64F2E4E86E9EEE82D20216684899"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": " 000102030405060708090A0B0C0D0E0F\n"
-   },
-   "ok": "FE123486508B0EB503A8468388EF5812"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": " 000102030405060708090A0B0C0D0E0F\n"
-   },
-   "ok": "B30D304C8F13E60FDCF2DB6E9F36E5A07D4FD119CEFCE44529E3FCD354FC7E99"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": " 000102030405060708090A0B0C0D0E0F\n"
-   },
-   "ok": "B953A57F30EA7AC2B1A9CFE20203A969"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": " 000102030405060708090A0B0C0D0E0F\n"
-   },
-   "ok": "F0F3E2A2C029664E358741F6DD35665C998E0B4990699E7E6D4C8568984D1B25"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": " 000102030405060708090A0B0C0D0E0F\n"
-   },
-   "ok": "1E56C13E7FBB7EE975FB73EC95765D0A"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "000102030405060708090a0b0c0d0e0f"
-   },
-   "ok": "954F64F2E4E86E9EEE82D20216684899"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "000102030405060708090a0b0c0d0e0f"
-   },
-   "ok": "FE123486508B0EB503A8468388EF5812"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "000102030405060708090a0b0c0d0e0f"
-   },
-   "ok": "B30D304C8F13E60FDCF2DB6E9F36E5A07D4FD119CEFCE44529E3FCD354FC7E99"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "000102030405060708090a0b0c0d0e0f"
-   },
-   "ok": "B953A57F30EA7AC2B1A9CFE20203A969"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "000102030405060708090a0b0c0d0e0f"
-   },
-   "ok": "F0F3E2A2C029664E358741F6DD35665C998E0B4990699E7E6D4C8568984D1B25"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "000102030405060708090a0b0c0d0e0f"
-   },
-   "ok": "1E56C13E7FBB7EE975FB73EC95765D0A"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "000102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "000102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "000102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "000102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "000102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "000102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "000102030405060708090A0B0C0D0E0F00"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "000102030405060708090A0B0C0D0E0F00"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "000102030405060708090A0B0C0D0E0F00"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "000102030405060708090A0B0C0D0E0F00"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "000102030405060708090A0B0C0D0E0F00"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "000102030405060708090A0B0C0D0E0F00"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "00 0102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "00 0102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "00 0102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "00 0102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "00 0102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "00 0102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "\u001c000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "954F64F2E4E86E9EEE82D20216684899"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "\u001c000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "FE123486508B0EB503A8468388EF5812"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "\u001c000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "B30D304C8F13E60FDCF2DB6E9F36E5A07D4FD119CEFCE44529E3FCD354FC7E99"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "\u001c000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "B953A57F30EA7AC2B1A9CFE20203A969"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "\u001c000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "F0F3E2A2C029664E358741F6DD35665C998E0B4990699E7E6D4C8568984D1B25"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "\u001c000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "1E56C13E7FBB7EE975FB73EC95765D0A"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "000102030405060708090A0B0C0D0E0F\u3000"
-   },
-   "ok": "954F64F2E4E86E9EEE82D20216684899"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "000102030405060708090A0B0C0D0E0F\u3000"
-   },
-   "ok": "FE123486508B0EB503A8468388EF5812"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "000102030405060708090A0B0C0D0E0F\u3000"
-   },
-   "ok": "B30D304C8F13E60FDCF2DB6E9F36E5A07D4FD119CEFCE44529E3FCD354FC7E99"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "000102030405060708090A0B0C0D0E0F\u3000"
-   },
-   "ok": "B953A57F30EA7AC2B1A9CFE20203A969"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "000102030405060708090A0B0C0D0E0F\u3000"
-   },
-   "ok": "F0F3E2A2C029664E358741F6DD35665C998E0B4990699E7E6D4C8568984D1B25"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "000102030405060708090A0B0C0D0E0F\u3000"
-   },
-   "ok": "1E56C13E7FBB7EE975FB73EC95765D0A"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "0x0x000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "0x0x000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "0x0x000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "0x0x000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "0x0x000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "0x0x000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "",
-    "key_hex": "000102030405060708090A0B0C0D0E\u00e90"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "a",
-    "key_hex": "000102030405060708090A0B0C0D0E\u00e90"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "exactly sixteen!",
-    "key_hex": "000102030405060708090A0B0C0D0E\u00e90"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "{\"a\":\"b\"}",
-    "key_hex": "000102030405060708090A0B0C0D0E\u00e90"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97",
-    "key_hex": "000102030405060708090A0B0C0D0E\u00e90"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_encrypt_hex",
-   "args": {
-    "plaintext": "\u0000\u007f",
-    "key_hex": "000102030405060708090A0B0C0D0E\u00e90"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "6CDEB394B7C5558DE2EE57B0416F0F04EFC8566F55E72F7A1131C63604AED40C168AC991467F2D959CE9E6D6DF9B4547",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "\u2028\u00a0\u00a0\u2028\u0000\u200b\u007f\u0001\u00a0\u2028\u0000\u007f\u001f\u007f\u00a0\u0000\u00a0\u2028\u007f\u0001\u2028\u00a0\u200b\u007f\u0000\u007f"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "6cdeb394b7c5558de2ee57b0416f0f04efc8566f55e72f7a1131c63604aed40c168ac991467f2d959ce9e6d6df9b4547",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "\u2028\u00a0\u00a0\u2028\u0000\u200b\u007f\u0001\u00a0\u2028\u0000\u007f\u001f\u007f\u00a0\u0000\u00a0\u2028\u007f\u0001\u2028\u00a0\u200b\u007f\u0000\u007f"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": " 0x6CDEB394B7C5558DE2EE57B0416F0F04EFC8566F55E72F7A1131C63604AED40C168AC991467F2D959CE9E6D6DF9B4547 ",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "\u2028\u00a0\u00a0\u2028\u0000\u200b\u007f\u0001\u00a0\u2028\u0000\u007f\u001f\u007f\u00a0\u0000\u00a0\u2028\u007f\u0001\u2028\u00a0\u200b\u007f\u0000\u007f"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "6CDEB394B7C5558DE2EE57B0416F0F04EFC8566F55E72F7A1131C63604AED40C168AC991467F2D959CE9E6D6DF9B45",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "6CDEB394B7C5558DE2EE57B0416F0F04EFC8566F55E72F7A1131C63604AED40C",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "6cdeb394b7c5558de2ee57b0416f0f04efc8566f55e72f7a1131c63604aed40c168ac991467f2d959ce9f6d6df9b4547",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "770086217BAC9F24871119F26BEB6B60",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "113D79BD870F558DB95D9E590E2951DF",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "9CEE81F0D33141A33307629ACD71FD76",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "14B480E452C92E8614AB2515C48C6681",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "7F15867F4A1686580AD365D6B754EEF9",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "954F64F2E4E86E9EEE82D20216684899",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": ""
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "86810000C4B1FDD62B4E487943D12E005E7E8743E258CC38D25A1CF98607",
-    "key_hex": "000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "31FAB455A0AF44F6109D5ED9A44A0085",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "ok": "nBl7LvfY"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "31fab455a0af44f6109d5ed9a44a0085",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "ok": "nBl7LvfY"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": " 0x31FAB455A0AF44F6109D5ED9A44A0085 ",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "ok": "nBl7LvfY"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "31FAB455A0AF44F6109D5ED9A44A00",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "31fab455a0af44f6109dded9a44a0085",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "6AECBBEE484A005B1AE29B1D905D2471",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "F4EE75A3F81BCCFFF4F23C519C6BF4CBB2B7E466A8C55E42E89CF0C64EF9F160",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "C494790A4060364D55F2FC6AF104DF4E",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "5AC0399FE795928DFA98DD67B1BC633B",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "15C04AF7781F8BE269D642A64FC932A0",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "3FE7286ABDE5F03943D5777020259626",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "ok": ""
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "AC5B20D00F512AC4BFDA9AC5D07A2DF9BD36BB675C1D1608E8ED8155B88246008B8E",
-    "key_hex": "000102030405060708090A0B0C0D0E0F1011121314151617"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "28F3414C1085769D9F95C628147EFDDF856A553DE5B38AF73022A6A50875C42A",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "ok": "\u00df\u00f8\u00fc\u2028j\u2028X\ud83d\ude97N\u00e7\u26a1\u26a1\u26a1"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "28f3414c1085769d9f95c628147efddf856a553de5b38af73022a6a50875c42a",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "ok": "\u00df\u00f8\u00fc\u2028j\u2028X\ud83d\ude97N\u00e7\u26a1\u26a1\u26a1"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": " 0x28F3414C1085769D9F95C628147EFDDF856A553DE5B38AF73022A6A50875C42A ",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "ok": "\u00df\u00f8\u00fc\u2028j\u2028X\ud83d\ude97N\u00e7\u26a1\u26a1\u26a1"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "28F3414C1085769D9F95C628147EFDDF856A553DE5B38AF73022A6A50875C4",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "28F3414C1085769D9F95C628147EFDDF",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "28f3414c1085769d9f95c620147efddf856a553de5b38af73022a6a50875c42a",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "374FF28CAE0AF1907493EB19CE1F613C",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "FC4BBD57491517CC3C081EAD370AD3F5CCB5639B76037A3142CF3670465A7F6A86BB63BAA3F2ED6F11F19D3FEF979E12",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "7CC3F6028090C40C64E62174F8DDEB8F",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "60ACA688B672DCDC45C850CC57509A68",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "572B0CA4DD92B426A6E669E815304AC5",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "9F3B7504926F8BD36E3118E903A4CD4A",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "ok": ""
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "BCF2E48C852FF7214AB02C32B35892962A2BA3BE197339F8D948ACFE9525FEB7C530368116",
-    "key_hex": "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": ""
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": " "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": "0x"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": "0X000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "x"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": " 000102030405060708090A0B0C0D0E0F\n"
-   },
-   "ok": "x"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": "000102030405060708090a0b0c0d0e0f"
-   },
-   "ok": "x"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": "000102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": "000102030405060708090A0B0C0D0E0F00"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": "00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": "00 0102030405060708090A0B0C0D0E0"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": "\u001c000102030405060708090A0B0C0D0E0F"
-   },
-   "ok": "x"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": "000102030405060708090A0B0C0D0E0F\u3000"
-   },
-   "ok": "x"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": "0x0x000102030405060708090A0B0C0D0E0F"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": "\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"
-   },
-   "error": "BydCryptoError"
-  },
-  {
-   "call": "aes.aes_decrypt_utf8",
-   "args": {
-    "cipher_hex": "8CBD19E60F2300E08F7DFF69DB5F66D8",
-    "key_hex": "000102030405060708090A0B0C0D0E\u00e90"
-   },
-   "error": "BydCryptoError"
-  }
- ]
-}
+{"group": "aes", "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef", "cases": [
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"000102030405060708090A0B0C0D0E0F"},"ok":"954F64F2E4E86E9EEE82D20216684899"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"000102030405060708090A0B0C0D0E0F"},"ok":"FE123486508B0EB503A8468388EF5812"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"000102030405060708090A0B0C0D0E0F"},"ok":"B30D304C8F13E60FDCF2DB6E9F36E5A07D4FD119CEFCE44529E3FCD354FC7E99"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"000102030405060708090A0B0C0D0E0F"},"ok":"B953A57F30EA7AC2B1A9CFE20203A969"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"000102030405060708090A0B0C0D0E0F"},"ok":"F0F3E2A2C029664E358741F6DD35665C998E0B4990699E7E6D4C8568984D1B25"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"000102030405060708090A0B0C0D0E0F"},"ok":"1E56C13E7FBB7EE975FB73EC95765D0A"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"ok":"3FE7286ABDE5F03943D5777020259626"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"ok":"A9AC66478803DE4358F38BC3DA782990"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"ok":"271C61638B81FD2BEEA7E474C2EDE844B1C3CC3B4549316A2AEBB5D2A7393440"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"ok":"74AD1DCCB3352AFCA65E6F498B0D3097"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"ok":"94F6652586C60D54CD3652EF7C95DA0F82E9CEF41826F348AE4C8BB2493B6FB4"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"ok":"ACE8613226711F23FD02B82AB913C2F6"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"ok":"9F3B7504926F8BD36E3118E903A4CD4A"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"ok":"9A75BCEC03BCFF27DA6E4B587201C1EF"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"ok":"B8A8338D565CE922AF9BDB361FE70672C8A1EFD7320224EE0F3136351B30D961"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"ok":"9537BBEFF918C2FAE6980C823A8E55E0"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"ok":"4D0E19CF91D203C4A6DA9809F05FC0790AE23AC4FC36DA2C80511D881005DCC0"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"ok":"CAC69D24A08CD5D0F3CCF7CA59AD8829"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":""},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":""},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":""},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":""},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":""},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":""},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":" "},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":" "},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":" "},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":" "},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":" "},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":" "},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"0x"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"0x"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"0x"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"0x"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"0x"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"0x"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"0X000102030405060708090A0B0C0D0E0F"},"ok":"954F64F2E4E86E9EEE82D20216684899"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"0X000102030405060708090A0B0C0D0E0F"},"ok":"FE123486508B0EB503A8468388EF5812"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"0X000102030405060708090A0B0C0D0E0F"},"ok":"B30D304C8F13E60FDCF2DB6E9F36E5A07D4FD119CEFCE44529E3FCD354FC7E99"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"0X000102030405060708090A0B0C0D0E0F"},"ok":"B953A57F30EA7AC2B1A9CFE20203A969"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"0X000102030405060708090A0B0C0D0E0F"},"ok":"F0F3E2A2C029664E358741F6DD35665C998E0B4990699E7E6D4C8568984D1B25"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"0X000102030405060708090A0B0C0D0E0F"},"ok":"1E56C13E7FBB7EE975FB73EC95765D0A"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":" 000102030405060708090A0B0C0D0E0F\n"},"ok":"954F64F2E4E86E9EEE82D20216684899"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":" 000102030405060708090A0B0C0D0E0F\n"},"ok":"FE123486508B0EB503A8468388EF5812"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":" 000102030405060708090A0B0C0D0E0F\n"},"ok":"B30D304C8F13E60FDCF2DB6E9F36E5A07D4FD119CEFCE44529E3FCD354FC7E99"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":" 000102030405060708090A0B0C0D0E0F\n"},"ok":"B953A57F30EA7AC2B1A9CFE20203A969"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":" 000102030405060708090A0B0C0D0E0F\n"},"ok":"F0F3E2A2C029664E358741F6DD35665C998E0B4990699E7E6D4C8568984D1B25"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":" 000102030405060708090A0B0C0D0E0F\n"},"ok":"1E56C13E7FBB7EE975FB73EC95765D0A"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"000102030405060708090a0b0c0d0e0f"},"ok":"954F64F2E4E86E9EEE82D20216684899"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"000102030405060708090a0b0c0d0e0f"},"ok":"FE123486508B0EB503A8468388EF5812"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"000102030405060708090a0b0c0d0e0f"},"ok":"B30D304C8F13E60FDCF2DB6E9F36E5A07D4FD119CEFCE44529E3FCD354FC7E99"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"000102030405060708090a0b0c0d0e0f"},"ok":"B953A57F30EA7AC2B1A9CFE20203A969"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"000102030405060708090a0b0c0d0e0f"},"ok":"F0F3E2A2C029664E358741F6DD35665C998E0B4990699E7E6D4C8568984D1B25"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"000102030405060708090a0b0c0d0e0f"},"ok":"1E56C13E7FBB7EE975FB73EC95765D0A"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"000102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"000102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"000102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"000102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"000102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"000102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"000102030405060708090A0B0C0D0E0F00"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"000102030405060708090A0B0C0D0E0F00"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"000102030405060708090A0B0C0D0E0F00"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"000102030405060708090A0B0C0D0E0F00"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"000102030405060708090A0B0C0D0E0F00"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"000102030405060708090A0B0C0D0E0F00"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"00 0102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"00 0102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"00 0102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"00 0102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"00 0102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"00 0102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"\u001c000102030405060708090A0B0C0D0E0F"},"ok":"954F64F2E4E86E9EEE82D20216684899"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"\u001c000102030405060708090A0B0C0D0E0F"},"ok":"FE123486508B0EB503A8468388EF5812"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"\u001c000102030405060708090A0B0C0D0E0F"},"ok":"B30D304C8F13E60FDCF2DB6E9F36E5A07D4FD119CEFCE44529E3FCD354FC7E99"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"\u001c000102030405060708090A0B0C0D0E0F"},"ok":"B953A57F30EA7AC2B1A9CFE20203A969"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"\u001c000102030405060708090A0B0C0D0E0F"},"ok":"F0F3E2A2C029664E358741F6DD35665C998E0B4990699E7E6D4C8568984D1B25"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"\u001c000102030405060708090A0B0C0D0E0F"},"ok":"1E56C13E7FBB7EE975FB73EC95765D0A"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"000102030405060708090A0B0C0D0E0F\u3000"},"ok":"954F64F2E4E86E9EEE82D20216684899"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"000102030405060708090A0B0C0D0E0F\u3000"},"ok":"FE123486508B0EB503A8468388EF5812"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"000102030405060708090A0B0C0D0E0F\u3000"},"ok":"B30D304C8F13E60FDCF2DB6E9F36E5A07D4FD119CEFCE44529E3FCD354FC7E99"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"000102030405060708090A0B0C0D0E0F\u3000"},"ok":"B953A57F30EA7AC2B1A9CFE20203A969"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"000102030405060708090A0B0C0D0E0F\u3000"},"ok":"F0F3E2A2C029664E358741F6DD35665C998E0B4990699E7E6D4C8568984D1B25"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"000102030405060708090A0B0C0D0E0F\u3000"},"ok":"1E56C13E7FBB7EE975FB73EC95765D0A"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"0x0x000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"0x0x000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"0x0x000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"0x0x000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"0x0x000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"0x0x000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"000102030405060708090A0B0C0D0E\u00e90"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"000102030405060708090A0B0C0D0E\u00e90"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"000102030405060708090A0B0C0D0E\u00e90"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"{\"a\":\"b\"}","key_hex":"000102030405060708090A0B0C0D0E\u00e90"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"Zo\u00eb\u2019s \u6bd4\u4e9a\u8fea \ud83d\ude97","key_hex":"000102030405060708090A0B0C0D0E\u00e90"},"error":"BydCryptoError"},
+{"call":"aes.aes_encrypt_hex","args":{"plaintext":"\u0000\u007f","key_hex":"000102030405060708090A0B0C0D0E\u00e90"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"6CDEB394B7C5558DE2EE57B0416F0F04EFC8566F55E72F7A1131C63604AED40C168AC991467F2D959CE9E6D6DF9B4547","key_hex":"000102030405060708090A0B0C0D0E0F"},"ok":"\u2028\u00a0\u00a0\u2028\u0000\u200b\u007f\u0001\u00a0\u2028\u0000\u007f\u001f\u007f\u00a0\u0000\u00a0\u2028\u007f\u0001\u2028\u00a0\u200b\u007f\u0000\u007f"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"6cdeb394b7c5558de2ee57b0416f0f04efc8566f55e72f7a1131c63604aed40c168ac991467f2d959ce9e6d6df9b4547","key_hex":"000102030405060708090A0B0C0D0E0F"},"ok":"\u2028\u00a0\u00a0\u2028\u0000\u200b\u007f\u0001\u00a0\u2028\u0000\u007f\u001f\u007f\u00a0\u0000\u00a0\u2028\u007f\u0001\u2028\u00a0\u200b\u007f\u0000\u007f"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":" 0x6CDEB394B7C5558DE2EE57B0416F0F04EFC8566F55E72F7A1131C63604AED40C168AC991467F2D959CE9E6D6DF9B4547 ","key_hex":"000102030405060708090A0B0C0D0E0F"},"ok":"\u2028\u00a0\u00a0\u2028\u0000\u200b\u007f\u0001\u00a0\u2028\u0000\u007f\u001f\u007f\u00a0\u0000\u00a0\u2028\u007f\u0001\u2028\u00a0\u200b\u007f\u0000\u007f"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"6CDEB394B7C5558DE2EE57B0416F0F04EFC8566F55E72F7A1131C63604AED40C168AC991467F2D959CE9E6D6DF9B45","key_hex":"000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"6CDEB394B7C5558DE2EE57B0416F0F04EFC8566F55E72F7A1131C63604AED40C","key_hex":"000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"6cdeb394b7c5558de2ee57b0416f0f04efc8566f55e72f7a1131c63604aed40c168ac991467f2d959ce9f6d6df9b4547","key_hex":"000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"770086217BAC9F24871119F26BEB6B60","key_hex":"000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"113D79BD870F558DB95D9E590E2951DF","key_hex":"000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"9CEE81F0D33141A33307629ACD71FD76","key_hex":"000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"14B480E452C92E8614AB2515C48C6681","key_hex":"000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"7F15867F4A1686580AD365D6B754EEF9","key_hex":"000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"954F64F2E4E86E9EEE82D20216684899","key_hex":"000102030405060708090A0B0C0D0E0F"},"ok":""},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"86810000C4B1FDD62B4E487943D12E005E7E8743E258CC38D25A1CF98607","key_hex":"000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"31FAB455A0AF44F6109D5ED9A44A0085","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"ok":"nBl7LvfY"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"31fab455a0af44f6109d5ed9a44a0085","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"ok":"nBl7LvfY"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":" 0x31FAB455A0AF44F6109D5ED9A44A0085 ","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"ok":"nBl7LvfY"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"31FAB455A0AF44F6109D5ED9A44A00","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"31fab455a0af44f6109dded9a44a0085","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"6AECBBEE484A005B1AE29B1D905D2471","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"F4EE75A3F81BCCFFF4F23C519C6BF4CBB2B7E466A8C55E42E89CF0C64EF9F160","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"C494790A4060364D55F2FC6AF104DF4E","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"5AC0399FE795928DFA98DD67B1BC633B","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"15C04AF7781F8BE269D642A64FC932A0","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"3FE7286ABDE5F03943D5777020259626","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"ok":""},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"AC5B20D00F512AC4BFDA9AC5D07A2DF9BD36BB675C1D1608E8ED8155B88246008B8E","key_hex":"000102030405060708090A0B0C0D0E0F1011121314151617"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"28F3414C1085769D9F95C628147EFDDF856A553DE5B38AF73022A6A50875C42A","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"ok":"\u00df\u00f8\u00fc\u2028j\u2028X\ud83d\ude97N\u00e7\u26a1\u26a1\u26a1"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"28f3414c1085769d9f95c628147efddf856a553de5b38af73022a6a50875c42a","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"ok":"\u00df\u00f8\u00fc\u2028j\u2028X\ud83d\ude97N\u00e7\u26a1\u26a1\u26a1"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":" 0x28F3414C1085769D9F95C628147EFDDF856A553DE5B38AF73022A6A50875C42A ","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"ok":"\u00df\u00f8\u00fc\u2028j\u2028X\ud83d\ude97N\u00e7\u26a1\u26a1\u26a1"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"28F3414C1085769D9F95C628147EFDDF856A553DE5B38AF73022A6A50875C4","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"28F3414C1085769D9F95C628147EFDDF","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"28f3414c1085769d9f95c620147efddf856a553de5b38af73022a6a50875c42a","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"374FF28CAE0AF1907493EB19CE1F613C","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"FC4BBD57491517CC3C081EAD370AD3F5CCB5639B76037A3142CF3670465A7F6A86BB63BAA3F2ED6F11F19D3FEF979E12","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"7CC3F6028090C40C64E62174F8DDEB8F","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"60ACA688B672DCDC45C850CC57509A68","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"572B0CA4DD92B426A6E669E815304AC5","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"9F3B7504926F8BD36E3118E903A4CD4A","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"ok":""},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"BCF2E48C852FF7214AB02C32B35892962A2BA3BE197339F8D948ACFE9525FEB7C530368116","key_hex":"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":""},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":" "},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":"0x"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":"0X000102030405060708090A0B0C0D0E0F"},"ok":"x"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":" 000102030405060708090A0B0C0D0E0F\n"},"ok":"x"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":"000102030405060708090a0b0c0d0e0f"},"ok":"x"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":"000102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":"000102030405060708090A0B0C0D0E0F00"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":"zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":"00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F  "},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":"00 0102030405060708090A0B0C0D0E0"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":"\u001c000102030405060708090A0B0C0D0E0F"},"ok":"x"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":"000102030405060708090A0B0C0D0E0F\u3000"},"ok":"x"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":"0x0x000102030405060708090A0B0C0D0E0F"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":"\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661\u0661"},"error":"BydCryptoError"},
+{"call":"aes.aes_decrypt_utf8","args":{"cipher_hex":"8CBD19E60F2300E08F7DFF69DB5F66D8","key_hex":"000102030405060708090A0B0C0D0E\u00e90"},"error":"BydCryptoError"}
+]}

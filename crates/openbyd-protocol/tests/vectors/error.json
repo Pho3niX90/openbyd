@@ -1,3357 +1,416 @@
-{
- "group": "error",
- "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
- "cases": [
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BydApiError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BydCryptoError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BydApiError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydCryptoError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BydCryptoError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BangcleError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BydApiError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BydCryptoError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BangcleError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BydApiError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BangcleTableLoadError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BydTransportError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BydApiError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydTransportError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BydApiError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydApiError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BydApiError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydAuthenticationError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BydApiError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydSessionExpiredError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BydApiError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRemoteControlError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BydApiError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydControlPasswordError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BydApiError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydEndpointNotSupportedError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BydApiError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydDataUnavailableError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BydApiError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydRateLimitError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BydError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BydApiError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "BydServiceBusyError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BydError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BydApiError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "ValueError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValueError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BydError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BydApiError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "ValueError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "JSONDecodeError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BydError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BydApiError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "ValueError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "UnicodeDecodeError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BydError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BydApiError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "ValueError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "ValidationError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "ValidationError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BydError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BydApiError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "TypeError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "TypeError",
-    "parent": "AttributeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BydError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BydCryptoError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BangcleError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BangcleTableLoadError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BydTransportError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BydApiError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BydAuthenticationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BydSessionExpiredError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BydRemoteControlError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BydControlPasswordError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BydEndpointNotSupportedError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BydDataUnavailableError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BydRateLimitError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "BydServiceBusyError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "ValueError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "JSONDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "UnicodeDecodeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "ValidationError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "TypeError"
-   },
-   "ok": false
-  },
-  {
-   "call": "error.issubclass",
-   "args": {
-    "child": "AttributeError",
-    "parent": "AttributeError"
-   },
-   "ok": true
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BydError"
-   },
-   "ok": [
-    "BydError"
-   ]
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BydCryptoError"
-   },
-   "ok": [
-    "BydCryptoError",
-    "BydError"
-   ]
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BangcleError"
-   },
-   "ok": [
-    "BangcleError",
-    "BydCryptoError",
-    "BydError"
-   ]
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BangcleTableLoadError"
-   },
-   "ok": [
-    "BangcleTableLoadError",
-    "BangcleError",
-    "BydCryptoError",
-    "BydError"
-   ]
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BydTransportError"
-   },
-   "ok": [
-    "BydTransportError",
-    "BydError"
-   ]
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BydApiError"
-   },
-   "ok": [
-    "BydApiError",
-    "BydError"
-   ]
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BydAuthenticationError"
-   },
-   "ok": [
-    "BydAuthenticationError",
-    "BydApiError",
-    "BydError"
-   ]
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BydSessionExpiredError"
-   },
-   "ok": [
-    "BydSessionExpiredError",
-    "BydAuthenticationError",
-    "BydApiError",
-    "BydError"
-   ]
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BydRemoteControlError"
-   },
-   "ok": [
-    "BydRemoteControlError",
-    "BydApiError",
-    "BydError"
-   ]
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BydControlPasswordError"
-   },
-   "ok": [
-    "BydControlPasswordError",
-    "BydApiError",
-    "BydError"
-   ]
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BydEndpointNotSupportedError"
-   },
-   "ok": [
-    "BydEndpointNotSupportedError",
-    "BydApiError",
-    "BydError"
-   ]
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BydDataUnavailableError"
-   },
-   "ok": [
-    "BydDataUnavailableError",
-    "BydApiError",
-    "BydError"
-   ]
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BydRateLimitError"
-   },
-   "ok": [
-    "BydRateLimitError",
-    "BydApiError",
-    "BydError"
-   ]
-  },
-  {
-   "call": "error.lineage",
-   "args": {
-    "class": "BydServiceBusyError"
-   },
-   "ok": [
-    "BydServiceBusyError",
-    "BydApiError",
-    "BydError"
-   ]
-  }
- ]
-}
+{"group": "error", "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef", "cases": [
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BydApiError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BydCryptoError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BydApiError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydCryptoError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BydCryptoError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BangcleError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BydApiError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BydCryptoError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BangcleError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BangcleTableLoadError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BydApiError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BangcleTableLoadError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BydTransportError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BydApiError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydTransportError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BydApiError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydApiError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BydApiError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BydAuthenticationError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydAuthenticationError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BydApiError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BydAuthenticationError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BydSessionExpiredError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydSessionExpiredError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BydApiError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BydRemoteControlError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRemoteControlError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BydApiError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BydControlPasswordError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydControlPasswordError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BydApiError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BydEndpointNotSupportedError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydEndpointNotSupportedError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BydApiError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BydDataUnavailableError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydDataUnavailableError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BydApiError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BydRateLimitError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydRateLimitError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BydError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BydApiError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"BydServiceBusyError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"BydServiceBusyError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BydError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BydApiError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"ValueError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValueError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BydError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BydApiError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"ValueError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"JSONDecodeError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"JSONDecodeError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BydError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BydApiError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"ValueError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"UnicodeDecodeError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"UnicodeDecodeError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BydError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BydApiError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"ValueError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"ValidationError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"ValidationError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BydError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BydApiError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"TypeError"},"ok":true},
+{"call":"error.issubclass","args":{"child":"TypeError","parent":"AttributeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BydError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BydCryptoError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BangcleError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BangcleTableLoadError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BydTransportError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BydApiError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BydAuthenticationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BydSessionExpiredError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BydRemoteControlError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BydControlPasswordError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BydEndpointNotSupportedError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BydDataUnavailableError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BydRateLimitError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"BydServiceBusyError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"ValueError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"JSONDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"UnicodeDecodeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"ValidationError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"TypeError"},"ok":false},
+{"call":"error.issubclass","args":{"child":"AttributeError","parent":"AttributeError"},"ok":true},
+{"call":"error.lineage","args":{"class":"BydError"},"ok":["BydError"]},
+{"call":"error.lineage","args":{"class":"BydCryptoError"},"ok":["BydCryptoError","BydError"]},
+{"call":"error.lineage","args":{"class":"BangcleError"},"ok":["BangcleError","BydCryptoError","BydError"]},
+{"call":"error.lineage","args":{"class":"BangcleTableLoadError"},"ok":["BangcleTableLoadError","BangcleError","BydCryptoError","BydError"]},
+{"call":"error.lineage","args":{"class":"BydTransportError"},"ok":["BydTransportError","BydError"]},
+{"call":"error.lineage","args":{"class":"BydApiError"},"ok":["BydApiError","BydError"]},
+{"call":"error.lineage","args":{"class":"BydAuthenticationError"},"ok":["BydAuthenticationError","BydApiError","BydError"]},
+{"call":"error.lineage","args":{"class":"BydSessionExpiredError"},"ok":["BydSessionExpiredError","BydAuthenticationError","BydApiError","BydError"]},
+{"call":"error.lineage","args":{"class":"BydRemoteControlError"},"ok":["BydRemoteControlError","BydApiError","BydError"]},
+{"call":"error.lineage","args":{"class":"BydControlPasswordError"},"ok":["BydControlPasswordError","BydApiError","BydError"]},
+{"call":"error.lineage","args":{"class":"BydEndpointNotSupportedError"},"ok":["BydEndpointNotSupportedError","BydApiError","BydError"]},
+{"call":"error.lineage","args":{"class":"BydDataUnavailableError"},"ok":["BydDataUnavailableError","BydApiError","BydError"]},
+{"call":"error.lineage","args":{"class":"BydRateLimitError"},"ok":["BydRateLimitError","BydApiError","BydError"]},
+{"call":"error.lineage","args":{"class":"BydServiceBusyError"},"ok":["BydServiceBusyError","BydApiError","BydError"]}
+]}

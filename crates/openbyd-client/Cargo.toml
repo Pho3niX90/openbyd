@@ -6,6 +6,8 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 readme = "../../README.md"
+# The recorded vectors are large and only useful with the parity tooling in the repository.
+exclude = ["tests/"]
 
 [dependencies]
 openbyd-protocol.workspace = true

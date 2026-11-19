@@ -33,16 +33,17 @@ from pybyd.models.realtime import (
 from pybyd.models.vehicle import EnergyType
 
 from parity.framework import Group, random_text
-from parity.groups.models_vehicle import mutate_fields, register_enum
 from parity.models_support import (
     SENTINELS,
     ModelCases,
     json_safe,
     jsonable,
+    mutate_fields,
     property_names,
     random_json,
     random_numeric_text,
     random_scalar,
+    register_enum,
 )
 
 group = Group("models_realtime")

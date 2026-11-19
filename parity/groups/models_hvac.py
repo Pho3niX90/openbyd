@@ -15,8 +15,7 @@ from pybyd.models.hvac import (
 )
 
 from parity.framework import Group
-from parity.groups.models_vehicle import mutate_fields, register_enum
-from parity.models_support import SENTINELS, json_safe, random_json, register_model
+from parity.models_support import SENTINELS, json_safe, mutate_fields, random_json, register_enum, register_model
 
 group = Group("models_hvac")
 

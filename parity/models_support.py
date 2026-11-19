@@ -572,3 +572,84 @@ def register_model(
             yield call, {"raw": cases.fuzz(rng), "context": rng.choice(contexts)}
 
     return cases
+
+
+# ---------------------------------------------------------------------------
+# Enum calls and field mutation (shared by the model groups)
+# ---------------------------------------------------------------------------
+
+
+def enum_values(cls: type) -> list[Any]:
+    """Values worth calling an enum with: every member, near misses, other types."""
+    members = [member.value for member in cls]
+    extra = [
+        -1, 0, 1, 2, 3, 15, 999, -999, 2**63 - 1, -(2**63), 2**64 - 1,
+        *[float(value) for value in members], 2.0, 1.5, -0.0, 1e300,
+        *[str(value) for value in members], "2", " 1 ", "1.0", "x", "",
+        True, False, None, [], {}, [1], {"a": 1},
+    ]
+    return members + extra
+
+
+def register_enum(group: Group, call: str, cls: type, methods: tuple[str, ...] = ()) -> None:
+    """Register the oracle and cases of one ``BydEnum`` call."""
+
+    @group.oracle(call)
+    def oracle(value: Any) -> dict[str, Any]:
+        member = cls(value)
+        answer = {"name": member.name, "value": int(member.value)}
+        for method in methods:
+            answer[method] = getattr(member, method)()
+        return answer
+
+    @group.recorded
+    def recorded() -> Iterator[tuple[str, dict[str, Any]]]:
+        for value in enum_values(cls):
+            yield call, {"value": value}
+
+    @group.fuzz
+    def fuzz(rng: random.Random) -> Iterator[tuple[str, dict[str, Any]]]:
+        values = enum_values(cls)
+        members = [member.value for member in cls]
+        while True:
+            value = rng.choice([
+                lambda: rng.choice(values),
+                lambda: rng.randint(-5, 20),
+                lambda: random_scalar(rng),
+                lambda: random_json(rng),
+                lambda: rng.choice(members) + rng.choice([0.0, 0.5, -0.5]),
+                lambda: rng.choice([str, lambda v: f" {v} ", lambda v: f"{v}.0"])(rng.choice(members)),
+            ])()
+            if json_safe(value):
+                yield call, {"value": value}
+
+
+def mutate_fields(
+    rng: random.Random,
+    cases: ModelCases,
+    pools: dict[str, list[Any]] | None = None,
+    nested: Callable[[type], dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """A realistic sample with one to three fields changed.
+
+    Each changed field gets a value from ``pools`` (keyed by field name) when
+    there is one, else a sentinel, another key spelling, or a random value of
+    the field's kind.
+    """
+    pools = pools or {}
+    payload = copy.deepcopy(rng.choice(cases.samples))
+    for spec in rng.sample(cases.specs, k=min(len(cases.specs), rng.randint(1, 3))):
+        roll = rng.random()
+        if roll < 0.1:
+            payload = {key: value for key, value in payload.items() if key not in spec.all_keys}
+            continue
+        key = rng.choice(spec.all_keys) if roll < 0.3 else spec.keys[0]
+        if spec.name in pools and rng.random() < 0.6:
+            value = rng.choice(pools[spec.name])
+        elif rng.random() < 0.25:
+            value = rng.choice(SENTINELS)
+        else:
+            value = random_value(rng, spec.kind, nested or (lambda cls: {}))
+        if cases.accepts(spec, value):
+            payload[key] = value
+    return payload if json_safe(payload) else {}

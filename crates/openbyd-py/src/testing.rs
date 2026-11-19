@@ -3,6 +3,7 @@
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
+use openbyd_client::testing::broker::{Seen, TestBroker};
 use openbyd_client::testing::{Account, FakeBydServer, Reply, Request};
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -303,6 +304,130 @@ impl PyFakeServer {
         _traceback: &Bound<'_, PyAny>,
     ) -> bool {
         self.stop(py);
+        false
+    }
+}
+
+/// The TLS MQTT test broker, on the extension's shared runtime. Clients
+/// trust it when built with `openbyd.Client(..., _test_tls=True)`.
+#[pyclass(frozen, module = "openbyd._native", name = "TestBroker")]
+pub struct PyTestBroker {
+    broker: Mutex<Option<std::sync::Arc<TestBroker>>>,
+    port: u16,
+}
+
+impl PyTestBroker {
+    fn broker(&self) -> PyResult<std::sync::Arc<TestBroker>> {
+        self.broker
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+            .ok_or_else(|| PyRuntimeError::new_err("the test broker has been stopped"))
+    }
+}
+
+#[pymethods]
+impl PyTestBroker {
+    /// Starts a broker on an ephemeral port of 127.0.0.1.
+    #[new]
+    fn new(py: Python<'_>) -> PyResult<Self> {
+        let runtime = crate::bridge::handle()?;
+        let broker = py.detach(|| runtime.block_on(TestBroker::start()));
+        Ok(Self {
+            port: broker.port(),
+            broker: Mutex::new(Some(broker)),
+        })
+    }
+
+    /// The port it listens on.
+    #[getter]
+    fn port(&self) -> u16 {
+        self.port
+    }
+
+    /// The address as BYD's broker lookup gives it, for `Reply.data({"emqBorker": ...})`.
+    #[getter]
+    fn address(&self) -> String {
+        format!("127.0.0.1:{}", self.port)
+    }
+
+    /// Connections still open on the broker's side.
+    #[getter]
+    fn open(&self) -> PyResult<usize> {
+        Ok(self.broker()?.open())
+    }
+
+    /// Connections subscribed to `topic`.
+    fn subscribers(&self, topic: &str) -> PyResult<usize> {
+        Ok(self.broker()?.subscribers(topic))
+    }
+
+    /// Sends `payload` to every connection subscribed to `topic`; returns how many.
+    fn publish(&self, topic: &str, payload: Vec<u8>) -> PyResult<usize> {
+        Ok(self.broker()?.publish(topic, payload))
+    }
+
+    /// Sends `body` to the account of `session` (a dict with `user_id` and
+    /// `encry_token`, as `Client.export_session()` gives it) as BYD does:
+    /// on `oversea/res/<user_id>`, encrypted with the session's content key.
+    /// Returns how many connections it reached.
+    fn push(&self, session: &Bound<'_, PyAny>, body: &Bound<'_, PyAny>) -> PyResult<usize> {
+        let field = |name: &str| -> PyResult<String> { session.get_item(name)?.extract() };
+        let topic = format!("oversea/res/{}", field("user_id")?);
+        let key = openbyd_protocol::hashing::md5_hex(&field("encry_token")?);
+        let body = convert::to_value(body, Mode::Strict)?;
+        Ok(self.broker()?.publish_sealed(&topic, &body, &key))
+    }
+
+    /// Refuses the next `count` CONNECTs.
+    fn refuse_next(&self, count: usize) -> PyResult<()> {
+        self.broker()?.refuse_next(count);
+        Ok(())
+    }
+
+    /// Drops every connection.
+    fn drop_all(&self) -> PyResult<()> {
+        self.broker()?.drop_all();
+        Ok(())
+    }
+
+    /// How many CONNECTs the broker has seen.
+    #[getter]
+    fn connects(&self) -> PyResult<usize> {
+        Ok(self
+            .broker()?
+            .seen()
+            .iter()
+            .filter(|seen| matches!(seen, Seen::Connect { .. }))
+            .count())
+    }
+
+    /// Stops the broker. Calling it again does nothing.
+    fn stop(&self) {
+        let broker = self
+            .broker
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
+        if let Some(broker) = broker
+            && let Ok(runtime) = crate::bridge::handle()
+        {
+            let _entered = runtime.enter();
+            drop(broker);
+        }
+    }
+
+    fn __enter__(slf: Py<Self>) -> Py<Self> {
+        slf
+    }
+
+    fn __exit__(
+        &self,
+        _kind: &Bound<'_, PyAny>,
+        _value: &Bound<'_, PyAny>,
+        _traceback: &Bound<'_, PyAny>,
+    ) -> bool {
+        self.stop();
         false
     }
 }

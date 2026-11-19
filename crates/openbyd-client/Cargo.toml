@@ -11,25 +11,33 @@ exclude = ["tests/"]
 
 [features]
 # The fake BYD server (`openbyd_client::testing`) for tests, bindings and benchmarks.
-testing = ["dep:openbyd-crypto", "hyper/server", "tokio/macros", "tokio/net", "tokio/sync"]
+testing = ["dep:openbyd-crypto", "hyper/server", "tokio/net"]
 
 [dependencies]
 openbyd-protocol.workspace = true
+openbyd-crypto = { workspace = true, optional = true }
 serde_json.workspace = true
-# HTTP environment (`http.rs`): tokio, hyper's HTTP/1.1 client and rustls on ring with
-# bundled web-PKI roots, so every target builds without OpenSSL, cmake or NASM.
+log = "0.4"
+tokio = { version = "1", default-features = false, features = ["rt", "time", "sync", "macros"] }
+# TLS for both HTTP and MQTT: rustls on ring, so every target builds without OpenSSL, cmake or NASM.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+# HTTP environment (`http.rs`): hyper's HTTP/1.1 client with bundled web-PKI roots.
 getrandom = "0.2"
 http-body-util = "0.1"
 httpdate = "1"
 hyper = { version = "1", default-features = false, features = ["client", "http1"] }
 hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "tls12", "ring", "webpki-roots"] }
 hyper-util = { version = "0.1", default-features = false, features = ["client-legacy", "http1", "tokio"] }
-rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
-tokio = { version = "1", default-features = false, features = ["rt", "time"] }
-openbyd-crypto = { workspace = true, optional = true }
+# MQTT push channel (`mqtt.rs`): MQTT v5 with the platform's root certificates, as paho uses.
+rumqttc = { version = "0.25.1", default-features = false, features = ["use-rustls-no-provider"] }
+rustls-native-certs = "0.8"
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+bytes = "1"
+memory-stats = "1"
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"] }
 
 [lints]
 workspace = true

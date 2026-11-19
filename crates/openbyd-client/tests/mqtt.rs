@@ -529,12 +529,19 @@ async fn slow_or_panicking_consumers_do_not_hold_up_the_connection() {
         assert_eq!(event.payload["data"]["respondData"]["marker"], marker);
     }
     match slow.recv().await {
-        Err(broadcast::error::RecvError::Lagged(missed)) => assert!(missed >= 8, "{missed}"),
+        Err(broadcast::error::RecvError::Lagged(missed)) => assert!(missed >= 7, "{missed}"),
         other => panic!("expected lag, got {other:?}"),
     }
-    // The newest notices are still there.
-    assert_eq!(event_marker(&slow.recv().await.unwrap()), 8);
-    assert_eq!(event_marker(&slow.recv().await.unwrap()), 9);
+    // The newest notices are still there, in order. A wait can be answered
+    // just before the matching notice is broadcast, so the last notice may
+    // still be on its way when the loop above ends: read on until it arrives.
+    let mut last = event_marker(&slow.recv().await.unwrap());
+    assert!(last >= 7, "{last}");
+    while last < 9 {
+        let next = event_marker(&slow.recv().await.unwrap());
+        assert_eq!(next, last + 1);
+        last = next;
+    }
     assert!(runtime.status().connected);
     runtime.stop().await;
 }

@@ -105,13 +105,17 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [x86_64, aarch64]
+        include:
+          - { target: x86_64, manylinux: auto }
+          # The TLS library's assembly needs a newer cross compiler than the
+          # manylinux2014 image has for ARM.
+          - { target: aarch64, manylinux: "2_28" }
     steps:
       - uses: actions/checkout@v4
       - uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          manylinux: auto
+          manylinux: ${{ matrix.manylinux }}
           args: --release --out dist
       - name: Install the wheel in the image the backend runs on
         if: matrix.target == 'x86_64'

@@ -235,7 +235,7 @@ impl<E: ClientEnv> BydClient<E> {
                     _ => EnergyType::Ev,
                 };
                 let context = json!({"energy_type": {"EnergyType": energy_type as i64}});
-                let Ok(parsed) = VehicleRealtimeData::parse(&raw, &context) else {
+                let Ok(parsed) = VehicleRealtimeData::parse_owned(raw, &context) else {
                     log::debug!("Failed to parse MQTT vehicleInfo");
                     return;
                 };
@@ -247,7 +247,7 @@ impl<E: ClientEnv> BydClient<E> {
                 }
                 self.route_realtime(vin, &parsed);
             }
-            "smartCharge" => match ChargingStatus::parse(&raw, &Value::Null) {
+            "smartCharge" => match ChargingStatus::parse_owned(raw, &Value::Null) {
                 Ok(parsed) => {
                     if let Some(router) = &options.car_router {
                         router.handle_mqtt_charging(vin, &parsed);
@@ -256,7 +256,7 @@ impl<E: ClientEnv> BydClient<E> {
                 }
                 Err(_) => log::debug!("Failed to parse MQTT smartCharge"),
             },
-            "energyConsumption" => match EnergyConsumption::parse(&raw, &Value::Null) {
+            "energyConsumption" => match EnergyConsumption::parse_owned(raw, &Value::Null) {
                 Ok(parsed) => {
                     if let Some(router) = &options.car_router {
                         router.handle_mqtt_energy(vin, &parsed);

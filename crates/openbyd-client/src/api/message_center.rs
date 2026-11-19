@@ -16,7 +16,7 @@ use crate::api::Context;
 use crate::api::common::{
     ENDPOINT_NOT_SUPPORTED_CODES, ErrorCodes, build_inner_base, post_token_json,
 };
-use crate::api::vehicle::{parse_model, run_trace};
+use crate::api::vehicle::{parse_owned_model, run_trace};
 use crate::env::Env;
 use crate::scripted::Scenario;
 
@@ -41,7 +41,7 @@ pub async fn fetch_notifications<E: Env>(
         ..ErrorCodes::default()
     };
     let decoded = post_token_json(cx, UNREAD_ENDPOINT, &inner, None, None, codes, None).await?;
-    parse_model(&decoded)
+    parse_owned_model(decoded)
 }
 
 pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {

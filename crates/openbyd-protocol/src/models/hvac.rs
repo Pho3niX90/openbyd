@@ -254,6 +254,10 @@ impl HvacStatus {
 }
 
 impl BydModel for HvacStatus {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let values = unwrap_status_now(raw);
         let mut fields = Fields::cleaned(&values, KEY_ALIASES)?;

@@ -42,6 +42,20 @@ two files first; most models are the same shape with more fields.
    only adds or replaces keys and stashes its input as `raw`, like
    `VehicleRealtimeData`'s, returns just those keys and uses
    `Fields::cleaned_with_changes(raw, &changes, KEY_ALIASES)`.
+   Then give the struct its `raw` field back for the owned parse:
+   ```rust
+   fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+       Some(&mut self.raw)
+   }
+   ```
+   `BydModel::parse_owned` (used by the bindings and the client) calls
+   `parse`; when `raw` is the whole reply, `fields.raw()` returns an empty
+   map and `parse_owned` moves the reply into `raw_mut()` once `parse`
+   returns, instead of copying it. So **`parse` must not read `model.raw`**
+   (an after-validator that looks at `raw`, like `Vehicle`'s
+   `_fill_missing_pics`): such a model overrides `parse_owned` to call
+   `Self::parse(&raw, context)`. The parity call goes through `parse_owned`
+   and `into_dump`, so the recorded vectors catch a model that breaks this.
 4. **Properties:** one `pub fn` per `@property` with the same name, and list
    them all in `BydModel::properties` with `base::properties([...])`.
 5. **Parity:** add the arm `"models.<file>.<Class>" => base::model_call::<Class>(args)`

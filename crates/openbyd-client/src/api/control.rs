@@ -146,6 +146,11 @@ pub(crate) fn validate<M: BydModel>(raw: &Value) -> Result<M, Error> {
     M::parse(raw, &Value::Null).map_err(model_error)
 }
 
+/// [`validate`] of a value not needed afterwards ([`BydModel::parse_owned`]).
+pub(crate) fn validate_owned<M: BydModel>(raw: Value) -> Result<M, Error> {
+    M::parse_owned(raw, &Value::Null).map_err(model_error)
+}
+
 /// `{"vin": vin, **raw}`, optionally followed by `"raw": raw`.
 pub(crate) fn with_vin(vin: &str, raw: &Map<String, Value>, keep_raw: bool) -> Value {
     let mut merged = Map::new();
@@ -209,7 +214,7 @@ pub async fn verify_control_password<E: Env>(
     )
     .await?;
     let raw = data.as_object().cloned().unwrap_or_default();
-    validate(&with_vin(vin, &raw, true))
+    validate_owned(with_vin(vin, &raw, true))
 }
 
 // ---------------------------------------------------------------------------

@@ -12,7 +12,7 @@ use crate::api::Context;
 use crate::api::common::{
     ENDPOINT_NOT_SUPPORTED_CODES, ErrorCodes, build_inner_base, post_token_json,
 };
-use crate::api::vehicle::{parse_model, run_trace};
+use crate::api::vehicle::{parse_owned_model, run_trace};
 use crate::env::Env;
 use crate::scripted::Scenario;
 
@@ -30,7 +30,7 @@ pub(crate) fn ack_from_reply(vin: &str, decoded: Value) -> Result<CommandAck, Er
     merged.insert("vin".into(), json!(vin));
     merged.extend(raw.clone());
     merged.insert("raw".into(), Value::Object(raw));
-    parse_model(&Value::Object(merged))
+    parse_owned_model(Value::Object(merged))
 }
 
 /// Renames a vehicle (sets its alias).

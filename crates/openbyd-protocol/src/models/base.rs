@@ -13,7 +13,7 @@
 //! A Rust model does the same steps by hand in its [`BydModel::parse`]; see
 //! `gps.rs` and `charging.rs`, and `docs/porting-models.md`.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::hash::{BuildHasher, DefaultHasher, Hasher, RandomState};
 use std::sync::{Mutex, PoisonError};
@@ -960,6 +960,61 @@ pub struct Fields<'a> {
     keys: Keys<'a>,
     camel_case: bool,
     failures: Failures,
+    /// Whether this reads the reply [`BydModel::parse_owned`] was given, so
+    /// [`Fields::raw`] may leave `raw` for it to move in.
+    owns_reply: bool,
+}
+
+/// The reply [`BydModel::parse_owned`] is parsing, by address, while it parses.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Reply {
+    None,
+    /// Not yet read by a [`Fields`].
+    Offered(usize),
+    /// A [`Fields`] reads it, so its `raw` may be left empty.
+    Claimed(usize),
+    /// `raw` was left empty: `parse_owned` moves the reply in.
+    Taken,
+}
+
+thread_local! {
+    static REPLY: Cell<Reply> = const { Cell::new(Reply::None) };
+}
+
+/// Offers a reply for the length of one `parse_owned`, restoring what was
+/// offered before (so a parse inside a parse is unaffected) when dropped.
+struct Offer {
+    previous: Reply,
+}
+
+impl Offer {
+    fn new(reply: &Value) -> Self {
+        let address = std::ptr::from_ref(reply) as usize;
+        Self {
+            previous: REPLY.replace(Reply::Offered(address)),
+        }
+    }
+
+    fn taken(&self) -> bool {
+        REPLY.get() == Reply::Taken
+    }
+}
+
+impl Drop for Offer {
+    fn drop(&mut self) {
+        REPLY.set(self.previous);
+    }
+}
+
+/// Whether `values` is the offered reply, claiming it if so: the first
+/// [`Fields`] built on it is the model's own (nested models read parts of it).
+fn claim(values: &Value) -> bool {
+    let address = std::ptr::from_ref(values) as usize;
+    let claimed = REPLY.get() == Reply::Offered(address);
+    if claimed {
+        REPLY.set(Reply::Claimed(address));
+    }
+    claimed
 }
 
 /// Where [`Fields`] looks keys up.
@@ -1058,6 +1113,7 @@ impl<'a> Fields<'a> {
                 keys: Keys::Plain(values),
                 camel_case: true,
                 failures: Failures::default(),
+                owns_reply: false,
             }),
             _ => Err(ValidationError::new("model_type")),
         }
@@ -1079,9 +1135,10 @@ impl<'a> Fields<'a> {
         aliases: &[(&'a str, &'a str)],
     ) -> Result<Self, ValidationError> {
         match values {
-            Value::Object(entries) => {
-                Ok(Self::from_table(clean_table(entries, &[], values, aliases)))
-            }
+            Value::Object(entries) => Ok(Self::from_table(
+                clean_table(entries, &[], values, aliases),
+                claim(values),
+            )),
             _ => Err(ValidationError::new("model_type")),
         }
     }
@@ -1096,18 +1153,20 @@ impl<'a> Fields<'a> {
         aliases: &[(&'a str, &'a str)],
     ) -> Result<Self, ValidationError> {
         match values {
-            Value::Object(entries) => Ok(Self::from_table(clean_table(
-                entries, changes, values, aliases,
-            ))),
+            Value::Object(entries) => Ok(Self::from_table(
+                clean_table(entries, changes, values, aliases),
+                claim(values),
+            )),
             _ => Err(ValidationError::new("model_type")),
         }
     }
 
-    fn from_table(table: HashMap<&'a str, &'a Value, KeyHashing>) -> Self {
+    fn from_table(table: HashMap<&'a str, &'a Value, KeyHashing>, owns_reply: bool) -> Self {
         Self {
             keys: Keys::Cleaned(table),
             camel_case: true,
             failures: Failures::default(),
+            owns_reply,
         }
     }
 
@@ -1189,7 +1248,23 @@ impl<'a> Fields<'a> {
     }
 
     /// The `raw: dict[str, Any]` field every `BydBaseModel` has.
+    ///
+    /// Under [`BydModel::parse_owned`], when `raw` is the whole reply, this
+    /// returns an empty map instead of a copy, and `parse_owned` moves the
+    /// reply in once the model is built ([`BydModel::raw_mut`]).
     pub fn raw(&mut self) -> Map<String, Value> {
+        if self.owns_reply && !self.stopped() {
+            let whole = match REPLY.get() {
+                Reply::Claimed(address) => self
+                    .lookup("raw")
+                    .is_some_and(|raw| std::ptr::from_ref(raw) as usize == address),
+                _ => false,
+            };
+            if whole {
+                REPLY.set(Reply::Taken);
+                return Map::new();
+            }
+        }
         self.get("raw", Map::new(), coerce::any_dict)
     }
 
@@ -1209,6 +1284,46 @@ impl<'a> Fields<'a> {
 pub trait BydModel: Serialize + Sized {
     /// `Model.model_validate(raw, context=context)`. `context` is JSON null when there is none.
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError>;
+
+    /// [`BydModel::parse`] of a reply the caller does not need afterwards:
+    /// the same model, without copying the reply where the model keeps it.
+    ///
+    /// A model whose `raw` is the whole reply takes the reply itself; see
+    /// [`Fields::raw`] and [`BydModel::raw_mut`].
+    fn parse_owned(raw: Value, context: &Value) -> Result<Self, ValidationError> {
+        let offer = Offer::new(&raw);
+        let parsed = Self::parse(&raw, context);
+        let taken = offer.taken();
+        drop(offer);
+        let mut model = parsed?;
+        if taken {
+            match (model.raw_mut(), raw) {
+                (Some(slot), Value::Object(reply)) => *slot = reply,
+                // A model that cannot take it back is parsed again, copying.
+                (_, raw) => return Self::parse(&raw, context),
+            }
+        }
+        Ok(model)
+    }
+
+    /// The model's `raw` field, for [`BydModel::parse_owned`] and
+    /// [`BydModel::into_dump`]; `None` for a model without one.
+    fn raw_mut(&mut self) -> Option<&mut Map<String, Value>> {
+        None
+    }
+
+    /// [`BydModel::dump`] of a model not needed afterwards: moves `raw` into
+    /// the dump instead of copying it.
+    fn into_dump(mut self) -> Value {
+        let raw = self.raw_mut().map(std::mem::take);
+        let mut dump = self.dump();
+        if let (Some(raw), Value::Object(fields)) = (raw, &mut dump)
+            && let Some(slot) = fields.get_mut("raw")
+        {
+            *slot = Value::Object(raw);
+        }
+        dump
+    }
 
     /// Every `@property` of the Python class, by name, as JSON.
     fn properties(&self) -> Map<String, Value> {
@@ -1230,10 +1345,15 @@ pub fn properties<const N: usize>(entries: [(&str, Value); N]) -> Map<String, Va
 }
 
 /// Answers a model's parity call: `{"raw", "context"}` in, `{"dump", "properties"}` out.
+///
+/// Goes through [`BydModel::parse_owned`] and [`BydModel::into_dump`], so
+/// every recorded vector checks them; they call [`BydModel::parse`] and
+/// [`BydModel::dump`] for everything but `raw`.
 pub(crate) fn model_call<M: BydModel>(args: &Value) -> Outcome {
     let args = Args(args);
-    let model = M::parse(args.value("raw"), args.value("context"))?;
-    Ok(json!({"dump": model.dump(), "properties": model.properties()}))
+    let model = M::parse_owned(args.value("raw").clone(), args.value("context"))?;
+    let properties = model.properties();
+    Ok(json!({"dump": model.into_dump(), "properties": properties}))
 }
 
 /// `BydBaseModel` itself, which has only the `raw` field.
@@ -1244,6 +1364,10 @@ pub struct BydBaseModel {
 }
 
 impl BydModel for BydBaseModel {
+    fn raw_mut(&mut self) -> Option<&mut Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let values = clean_byd_values(raw, &[]);
         let mut fields = Fields::new(&values)?;
@@ -1544,6 +1668,73 @@ mod tests {
         assert_eq!(fields.get("b", 0, coerce::int), 3);
         assert_eq!(fields.opt("c", coerce::int), None);
         assert_eq!(Value::Object(fields.raw()), input);
+    }
+
+    /// A model that keeps `raw`; `SLOT`: whether it hands its `raw` field out.
+    #[derive(Debug, PartialEq, Serialize)]
+    struct Probe<const SLOT: bool> {
+        raw: Map<String, Value>,
+        a: i64,
+    }
+
+    impl<const SLOT: bool> BydModel for Probe<SLOT> {
+        fn raw_mut(&mut self) -> Option<&mut Map<String, Value>> {
+            SLOT.then_some(&mut self.raw)
+        }
+
+        fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
+            let mut fields = Fields::cleaned(raw, &[])?;
+            let model = Self {
+                raw: fields.raw(),
+                a: fields.get("a", 0, coerce::int),
+            };
+            fields.finish()?;
+            Ok(model)
+        }
+    }
+
+    fn same_both_ways<M: BydModel + std::fmt::Debug>(input: &Value) {
+        let by_reference = M::parse(input, &Value::Null);
+        let owned = M::parse_owned(input.clone(), &Value::Null);
+        assert_eq!(
+            owned.as_ref().err().map(|error| error.error_type),
+            by_reference.as_ref().err().map(|error| error.error_type),
+            "{input}"
+        );
+        if let (Ok(owned), Ok(by_reference)) = (owned, by_reference) {
+            assert_eq!(owned.into_dump(), by_reference.dump(), "{input}");
+        }
+    }
+
+    #[test]
+    fn parse_owned_and_into_dump_match_parse_and_dump() {
+        let inputs = [
+            json!({"a": 1, "b": "--"}),
+            json!({"raw": {"own": 1}, "a": 2}),
+            json!({"raw": "--", "a": 3}),
+            json!({"raw": [1]}),
+            json!({"a": "x"}),
+            json!({"a": 1e300, "raw": {}}),
+            json!([1]),
+            json!({}),
+        ];
+        for input in &inputs {
+            same_both_ways::<BydBaseModel>(input);
+            same_both_ways::<Probe<true>>(input);
+            same_both_ways::<Probe<false>>(input);
+        }
+    }
+
+    #[test]
+    fn a_parse_inside_a_parse_leaves_the_outer_offer_standing() {
+        let outer = json!({"a": 1});
+        let offer = Offer::new(&outer);
+        let inner = Probe::<true>::parse_owned(json!({"b": 2}), &Value::Null).unwrap();
+        assert_eq!(Value::Object(inner.raw), json!({"b": 2}));
+        assert!(!offer.taken());
+        // The outer reply is still offered: its own model leaves `raw` for the owner to fill.
+        let model = Probe::<true>::parse(&outer, &Value::Null).unwrap();
+        assert!(model.raw.is_empty() && offer.taken());
     }
 
     #[test]

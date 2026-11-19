@@ -7,7 +7,8 @@ each, plus every realtime payload), one call is
 ``openbyd.models.parse(name, raw)`` against pyBYD's
 ``Model.model_validate(raw).model_dump(mode="json")``. Each side runs
 ``--iterations`` calls per run, ``--runs`` times, interleaved; the table shows
-the median time per call and pyBYD's time divided by openbyd's.
+the median time per call with the spread of the runs ((max - min) / median),
+and pyBYD's median divided by openbyd's.
 
 Needs the extension built into the environment (``python parity/dev_install.py``)
 and pyBYD at ``parity/UPSTREAM_COMMIT`` installed.
@@ -64,6 +65,11 @@ def per_call(function, iterations: int) -> float:
     return (time.perf_counter() - start) / iterations
 
 
+def spread(times: list[float]) -> float:
+    """(max - min) / median of the runs."""
+    return (max(times) - min(times)) / statistics.median(times)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--iterations", type=int, default=20_000)
@@ -71,7 +77,7 @@ def main() -> None:
     parser.add_argument("models", nargs="*", help="limit to these model names")
     args = parser.parse_args()
 
-    print(f"{'payload':<62} {'openbyd':>10} {'pyBYD':>10} {'ratio':>7}")
+    print(f"{'payload':<62} {'openbyd':>10} {'+-':>5} {'pyBYD':>10} {'+-':>5} {'ratio':>7}")
     for label, name, payload in cases(args.models):
         cls = pybyd_class(name)
         # Same answer first: the timing is only meaningful if both agree.
@@ -93,7 +99,8 @@ def main() -> None:
         ours_median = statistics.median(ours_times)
         theirs_median = statistics.median(theirs_times)
         print(
-            f"{label:<62} {ours_median * 1e6:>8.2f}µs {theirs_median * 1e6:>8.2f}µs"
+            f"{label:<62} {ours_median * 1e6:>8.2f}us {spread(ours_times):>4.0%}"
+            f" {theirs_median * 1e6:>8.2f}us {spread(theirs_times):>4.0%}"
             f" {theirs_median / ours_median:>6.2f}x"
         )
 

@@ -68,6 +68,10 @@ impl ChargingStatus {
 }
 
 impl BydModel for ChargingStatus {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, KEY_ALIASES)?;
         let mut model = Self {

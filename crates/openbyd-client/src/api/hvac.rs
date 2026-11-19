@@ -12,7 +12,7 @@ use crate::api::Context;
 use crate::api::common::{
     ENDPOINT_NOT_SUPPORTED_CODES, ErrorCodes, build_inner_base, post_vehicle_json,
 };
-use crate::api::vehicle::{parse_model, run_trace};
+use crate::api::vehicle::{parse_owned_model, run_trace};
 use crate::env::Env;
 use crate::scripted::Scenario;
 
@@ -34,7 +34,7 @@ pub async fn fetch_hvac_status<E: Env>(cx: Context<'_, E>, vin: &str) -> Result<
         ..ErrorCodes::default()
     };
     let decoded = post_vehicle_json(cx, ENDPOINT, &inner, vin, None, codes).await?;
-    parse_model(&decoded)
+    parse_owned_model(decoded)
 }
 
 pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {

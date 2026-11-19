@@ -13,9 +13,13 @@ name = "openbyd"
 path = "src/main.rs"
 
 [features]
+default = ["mimalloc"]
 # Test hooks that must never ship: lets the tests' child processes trust the
 # test MQTT broker's throw-away certificate (`OPENBYD_TEST_MQTT_TRUST_ANY=1`).
 test-support = ["openbyd-client/testing"]
+# mimalloc as the global allocator (faster for the many small allocations of
+# parsing replies). On by default; `--no-default-features` uses the system one.
+mimalloc = ["dep:mimalloc"]
 
 [dependencies]
 openbyd-protocol.workspace = true
@@ -30,6 +34,7 @@ rpassword = "7.5.5"
 log = "0.4.35"
 serde_json.workspace = true
 serde = { workspace = true, default-features = false }
+mimalloc = { version = "0.1.52", default-features = false, optional = true }
 
 [dev-dependencies]
 openbyd-client = { workspace = true, features = ["testing"] }

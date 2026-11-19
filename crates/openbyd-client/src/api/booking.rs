@@ -12,7 +12,7 @@ use crate::api::Context;
 use crate::api::common::{
     ENDPOINT_NOT_SUPPORTED_CODES, ErrorCodes, build_inner_base, post_token_json,
 };
-use crate::api::vehicle::{parse_model, run_trace};
+use crate::api::vehicle::{parse_owned_model, run_trace};
 use crate::env::Env;
 use crate::scripted::Scenario;
 
@@ -43,7 +43,7 @@ pub async fn fetch_booking_list<E: Env>(
     if let Value::Object(raw) = decoded {
         merged.extend(raw);
     }
-    parse_model(&Value::Object(merged))
+    parse_owned_model(Value::Object(merged))
 }
 
 pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {

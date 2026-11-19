@@ -32,9 +32,17 @@ def compare(model: Any, context: Any = None) -> list[str]:
     model, ``model.raw`` is parsed with ``context`` (pass the one pyBYD was
     given) and the result is compared with ``model.model_dump(mode="json")``.
 
-    An empty list means openbyd gives the same dump. ``raw`` itself is not
-    compared: it only echoes the input, and ``model.raw`` is not always the
-    input pyBYD was given (a list reply is kept as ``{"list": [...]}``).
+    A field is reported when pyBYD's dump has it and openbyd's does not, or
+    when both have it with different values (compared as JSON, so ``1`` and
+    ``1.0`` differ). A field only openbyd's dump has is *not* reported: it
+    means the installed pyBYD is older than the commit openbyd follows,
+    which added the field (``charge_power`` and ``charge_power_unit`` against
+    pyBYD 0.0.85, for example), not that the two parse differently.
+
+    An empty list means openbyd agrees on every field pyBYD has. ``raw``
+    itself is not compared: it only echoes the input, and ``model.raw`` is
+    not always the input pyBYD was given (a list reply is kept as
+    ``{"list": [...]}``).
 
     :data:`UNKNOWN_MODEL` is returned for a class openbyd does not know, and
     :data:`ERROR` when openbyd fails, or when ``model`` is not a model with

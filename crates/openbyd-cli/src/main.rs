@@ -22,6 +22,12 @@ use clap::Parser;
 use app::{Failure, Holder, Printer};
 use cli::{Cli, Command};
 
+/// mimalloc for the many small allocations of parsing replies (cargo feature
+/// `mimalloc`, on by default).
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 fn main() -> ExitCode {
     let cli = Cli::parse();
     app::prepare(&cli.global);

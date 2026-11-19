@@ -1155,7 +1155,8 @@ impl<E: ClientEnv> BydClient<E> {
                         signal_retries: settings.signal_retries,
                     })
                     .await?;
-                VehicleRealtimeData::parse(&raw, &context).map_err(crate::api::vehicle::model_error)
+                VehicleRealtimeData::parse_owned(raw, &context)
+                    .map_err(crate::api::vehicle::model_error)
             }
             .await
         )

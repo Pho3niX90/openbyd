@@ -13,18 +13,29 @@ crate-type = ["cdylib"]
 doc = false
 
 [features]
+default = ["mimalloc"]
 # `openbyd.testing.FakeServer`: the fake BYD server, for tests and benchmarks.
 # `parity/dev_install.py` builds with it; released wheels leave it out.
 testing = ["openbyd-client/testing"]
+# mimalloc as the global allocator: a model parse is mostly small allocations,
+# which it serves about twice as fast as the system heaps. On by default; build
+# with `--no-default-features` to fall back to the system allocator.
+mimalloc = ["dep:mimalloc"]
 
 [dependencies]
 openbyd-crypto.workspace = true
 openbyd-protocol.workspace = true
 openbyd-client.workspace = true
 serde_json.workspace = true
+# Models are serialised straight into Python objects (`dump.rs`).
+serde.workspace = true
 pyo3 = { version = "0.30", features = ["abi3-py311"] }
 # The shared runtime the asyncio bridge runs Rust futures on.
 tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "time", "sync", "net"] }
+# `local_dynamic_tls`: the extension is loaded with dlopen, where initial-exec
+# TLS (mimalloc's default on Unix) can fail to load ("cannot allocate memory
+# in static TLS block").
+mimalloc = { version = "0.1.52", default-features = false, features = ["local_dynamic_tls"], optional = true }
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }

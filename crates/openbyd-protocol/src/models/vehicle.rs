@@ -76,6 +76,10 @@ pub struct EmpowerRange {
 const EMPOWER_RANGE_KEY_ALIASES: &[(&str, &str)] = &[("childList", "children")];
 
 impl BydModel for EmpowerRange {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, EMPOWER_RANGE_KEY_ALIASES)?;
         let model = Self {
@@ -185,6 +189,16 @@ impl Vehicle {
 }
 
 impl BydModel for Vehicle {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
+    /// By reference: `_fill_missing_pics` reads `raw` while the model is
+    /// built, so `raw` cannot be left for later.
+    fn parse_owned(raw: Value, context: &Value) -> Result<Self, ValidationError> {
+        Self::parse(&raw, context)
+    }
+
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, &[])?;
         let mut model = Self {

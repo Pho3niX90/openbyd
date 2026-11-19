@@ -183,6 +183,10 @@ fn repeat_days(charge_way: Option<&str>) -> Option<Vec<i64>> {
 }
 
 impl BydModel for SmartChargeDto {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let values = capture_charge_until_full(raw);
         let mut fields = Fields::cleaned(&values, CHARGE_KEY_ALIASES)?;
@@ -253,6 +257,10 @@ impl SmartJourneyDto {
 }
 
 impl BydModel for SmartJourneyDto {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, JOURNEY_KEY_ALIASES)?;
         let model = Self {
@@ -317,6 +325,10 @@ impl SmartChargingSchedule {
 }
 
 impl BydModel for SmartChargingSchedule {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, SCHEDULE_KEY_ALIASES)?;
         let model = Self {
@@ -360,6 +372,10 @@ pub struct AcCurrentLimit {
 }
 
 impl BydModel for AcCurrentLimit {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {

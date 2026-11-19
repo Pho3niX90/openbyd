@@ -43,6 +43,10 @@ pub struct CommandGateRule {
 }
 
 impl BydModel for CommandGateRule {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, &[])?;
         let strings = |value: &Value| coerce::list(value, coerce::string);
@@ -88,6 +92,10 @@ pub struct CommandGateVerdict {
 }
 
 impl BydModel for CommandGateVerdict {
+    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
+        Some(&mut self.raw)
+    }
+
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let mut fields = Fields::cleaned(raw, &[])?;
         let strings = |value: &Value| coerce::list(value, coerce::string);

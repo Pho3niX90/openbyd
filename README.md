@@ -8,14 +8,51 @@ This project is not affiliated with, endorsed by or supported by BYD.
 
 ## Status
 
-Early. What exists today:
+All of pyBYD is ported and compared with pyBYD in the tests. **It has not yet been run against BYD's live service**, so treat it as pre-release, above all for commands that act on a car.
 
-| Part | State |
-|---|---|
-| Envelope cipher (`openbyd-crypto`) | Done, matches pyBYD byte for byte |
-| Python package (`openbyd`) | Cipher only |
-| Drop-in speed-up for pyBYD | Done, see below |
-| Signing, models, HTTP client, MQTT, commands | Not started |
+| Part | Crate or module | State |
+|---|---|---|
+| Envelope cipher | `openbyd-crypto` | Matches pyBYD byte for byte |
+| Signing, envelopes, reply models, error codes, command gating, state engine | `openbyd-protocol` | Ported; compared with pyBYD on recorded and random inputs |
+| Async client: sessions, reads, commands, MQTT, the car layer | `openbyd-client` | Ported; every request sequence compared with pyBYD's against a script, plus tests over real sockets with a fake server and broker |
+| Python package | `openbyd` | `openbyd.Client` and `openbyd.Car` with pyBYD's method names, returning plain dicts |
+| Command-line tool | `openbyd-cli` | `openbyd login`, `vehicles`, `dump`, `get`, `watch`, `command` ([usage](crates/openbyd-cli/README.md)) |
+| Drop-in speed-up for pyBYD | `openbyd.pybyd_accel` | See below |
+
+An audit in the test suite fails if pyBYD has a public model, function, client method or car method that openbyd does not compare against. How openbyd and pyBYD compare on speed and memory is measured in [bench](bench/README.md).
+
+## Use it from Python
+
+```python
+import asyncio
+import openbyd
+
+async def main():
+    async with openbyd.Client(username="you@example.com", password="...") as client:
+        await client.login()
+        for vehicle in await client.get_vehicles():
+            realtime = await client.get_vehicle_realtime(vehicle["vin"])
+            print(vehicle["vin"], realtime["elec_percent"])
+
+asyncio.run(main())
+```
+
+Methods and arguments are pyBYD's. Results are plain dicts shaped like pyBYD's `model_dump(mode="json")`, and errors are raised as pyBYD's exception classes (`openbyd.BydApiError` and its subclasses, with `code` and `endpoint`).
+
+## Use it from Rust
+
+```rust
+use openbyd_client::{client::BydClient, http::HttpPool};
+use openbyd_protocol::config::BydConfig;
+
+let pool = HttpPool::new(); // one per process, shared by every client
+let client = BydClient::connect(BydConfig::new("you@example.com", "..."), &pool);
+client.login().await?;
+for vehicle in client.get_vehicles().await? {
+    let realtime = client.get_vehicle_realtime(&vehicle.vin, Default::default()).await?;
+    println!("{} {:?}", vehicle.vin, realtime.elec_percent);
+}
+```
 
 ## Speed up pyBYD today
 

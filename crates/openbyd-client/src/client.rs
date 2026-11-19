@@ -1442,6 +1442,7 @@ impl<E: ClientEnv> MqttSink for Inner<E> {
 }
 
 #[cfg(test)]
+#[allow(clippy::field_reassign_with_default)]
 mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 

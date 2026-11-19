@@ -9,7 +9,7 @@ use openbyd_crypto::{Tables, decode_envelope, decrypt_cbc, encode_envelope, encr
 // Benchmark the private block and base64 routines without adding a public API.
 use openbyd_crypto::Error;
 // Cargo enables cfg(test) for benches, but the custom harness runs no unit tests.
-#[allow(unused_imports)]
+#[allow(unused_imports, dead_code)]
 #[path = "../src/base64.rs"]
 mod base64;
 #[allow(unused_imports, dead_code)]

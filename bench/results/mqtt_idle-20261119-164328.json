@@ -1,0 +1,142 @@
+{
+ "benchmark": "mqtt_idle",
+ "quick": false,
+ "date": "2026-11-19T16:43:28+02:00",
+ "machine": {
+  "cpu": "AMD Ryzen 9 5900X 12-Core Processor",
+  "cores_logical": 24,
+  "cores_physical": 12,
+  "memory_gib": 63.9,
+  "os": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.13",
+  "python_implementation": "CPython",
+  "rust": "rustc 1.100.0 (0ef1bc386 2026-11-09)"
+ },
+ "versions": {
+  "openbyd_commit": "587100f40a460e78b81e9633f40b8db77a8d983f",
+  "openbyd_branch": "wave5/bench",
+  "openbyd_dirty": false,
+  "openbyd_package_version": "0.0.1",
+  "pybyd_commit_pinned": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
+  "pybyd_commit_installed": "2c3d80648e8eeec50cd4f68f603abd3a01010fef"
+ },
+ "settings": {
+  "settle_s": 3.0,
+  "idle_window_s": 5.0,
+  "keepalive_s": 120,
+  "tls_verification": "off on both sides (see the module documentation)"
+ },
+ "rows": [
+  {
+   "implementation": "pybyd",
+   "label": "pyBYD (paho, one thread per client)",
+   "count": 200,
+   "tcp_time_wait_before": 618,
+   "reported": {
+    "implementation": "pybyd",
+    "count": 200,
+    "started": 200,
+    "failed": 0,
+    "connect_s": 5.811320000007981
+   },
+   "broker": {
+    "open": 200,
+    "subscribed": 200
+   },
+   "all_connected": true,
+   "connected": 200,
+   "measured": {
+    "all_up_s": 5.820720499992603,
+    "rss_before_mib": 53.0078125,
+    "rss_idle_mib": 195.01171875,
+    "rss_peak_mib": 195.01171875,
+    "threads_before": 8,
+    "threads_idle": 209,
+    "threads_peak": 209,
+    "idle_cpu_s": 0.0,
+    "idle_window_s": 5.0,
+    "idle_cpu_percent_of_one_core": 0.0,
+    "total_cpu_s_since_ready": 3.578125
+   },
+   "derived": {
+    "memory_per_connection_kib": 727.06,
+    "peak_memory_per_connection_kib": 727.06,
+    "threads_per_connection": 1.005
+   }
+  },
+  {
+   "implementation": "openbyd",
+   "label": "openbyd MqttRuntime (tokio)",
+   "count": 200,
+   "tcp_time_wait_before": 940,
+   "reported": {
+    "implementation": "openbyd",
+    "count": 200,
+    "started": 200,
+    "connected": 200,
+    "connect_s": 0.5183255
+   },
+   "broker": {
+    "open": 200,
+    "subscribed": 200
+   },
+   "all_connected": true,
+   "connected": 200,
+   "measured": {
+    "all_up_s": 0.5253432000172324,
+    "rss_before_mib": 5.9921875,
+    "rss_idle_mib": 21.46484375,
+    "rss_peak_mib": 21.46484375,
+    "threads_before": 28,
+    "threads_idle": 29,
+    "threads_peak": 29,
+    "idle_cpu_s": 0.0,
+    "idle_window_s": 5.0,
+    "idle_cpu_percent_of_one_core": 0.0,
+    "total_cpu_s_since_ready": 0.15625
+   },
+   "derived": {
+    "memory_per_connection_kib": 79.22,
+    "peak_memory_per_connection_kib": 79.22,
+    "threads_per_connection": 0.005
+   }
+  },
+  {
+   "implementation": "openbyd",
+   "label": "openbyd MqttRuntime (tokio)",
+   "count": 1000,
+   "tcp_time_wait_before": 922,
+   "reported": {
+    "implementation": "openbyd",
+    "count": 1000,
+    "started": 1000,
+    "connected": 1000,
+    "connect_s": 1.5664116
+   },
+   "broker": {
+    "open": 1000,
+    "subscribed": 1000
+   },
+   "all_connected": true,
+   "connected": 1000,
+   "measured": {
+    "all_up_s": 1.567016799992416,
+    "rss_before_mib": 6.00390625,
+    "rss_idle_mib": 59.03125,
+    "rss_peak_mib": 59.03125,
+    "threads_before": 28,
+    "threads_idle": 29.0,
+    "threads_peak": 29,
+    "idle_cpu_s": 0.0,
+    "idle_window_s": 5.0,
+    "idle_cpu_percent_of_one_core": 0.0,
+    "total_cpu_s_since_ready": 0.75
+   },
+   "derived": {
+    "memory_per_connection_kib": 54.3,
+    "peak_memory_per_connection_kib": 54.3,
+    "threads_per_connection": 0.001
+   }
+  }
+ ]
+}

@@ -620,27 +620,24 @@ async fn two_hundred_environments_share_one_pool() {
     assert_eq!(users.len(), 200);
     assert_eq!(server.requests().len(), 400);
 
-    // One after another, the environments reuse the pool's connections.
-    // hyper finishes connects it started while waiting for a busy pool in
-    // the background; let them land before counting.
-    let mut before = server.connections();
-    loop {
-        tokio::time::sleep(Duration::from_millis(300)).await;
-        let now = server.connections();
-        if now == before {
-            break;
-        }
-        before = now;
-    }
-    for n in 0..50 {
-        let config = config(&server, &format!("user{n}@example.com"), "p");
-        let env = HttpEnv::for_config(&pool, &config);
+    // One after another, different environments reuse one pool's connections.
+    // This is measured on a second server and pool: after a burst of 200
+    // connects, a slow machine can still be delivering retried connection
+    // attempts to the first server, which would be counted as new ones.
+    let quiet = FakeBydServer::start([Account::new("quiet@example.com", "p")])
+        .await
+        .unwrap();
+    let quiet_pool = HttpPool::new();
+    for _ in 0..50 {
+        let config = config(&quiet, "quiet@example.com", "p");
+        let env = HttpEnv::for_config(&quiet_pool, &config);
         login(&env, &config).await.unwrap();
     }
-    assert!(
-        server.connections() - before < 5,
-        "{} new connections",
-        server.connections() - before
+    assert_eq!(quiet.requests().len(), 50);
+    assert_eq!(
+        quiet.connections(),
+        1,
+        "fifty logins should share one connection"
     );
 }
 

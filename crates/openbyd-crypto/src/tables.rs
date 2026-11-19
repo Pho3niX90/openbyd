@@ -71,6 +71,9 @@ impl Tables<'static> {
 
 impl<'a> Tables<'a> {
     /// Reads a table file.
+    ///
+    /// For the file shipped with this crate use [`Tables::embedded`], which
+    /// the cipher runs about ten times faster.
     pub fn from_bytes(data: &'a [u8]) -> Result<Self, Error> {
         let bad = |why: String| Error::BadTables(why);
 

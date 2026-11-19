@@ -182,13 +182,14 @@ fn coordinates(page: &XorPage) -> Option<Nibbles> {
     let left = invert(array::from_fn(|i| output(page, i, 0)))?;
     let right = invert(array::from_fn(|i| output(page, 0, i)))?;
     // The encoded output at (0, 0) is the origin. Pick the first value
-    // outside the current span and translate the span by that generator.
+    // outside the current span (`fresh`, reached with `right_input`) and
+    // translate the span by it.
     let origin = output(page, 0, 0);
     let mut values = [origin; 16];
     let mut seen = 1u16 << origin;
     let mut len = 1;
-    for (generator, &right_input) in right.iter().enumerate() {
-        if seen & (1 << generator) != 0 {
+    for (fresh, &right_input) in right.iter().enumerate() {
+        if seen & (1 << fresh) != 0 {
             continue;
         }
         for i in 0..len {

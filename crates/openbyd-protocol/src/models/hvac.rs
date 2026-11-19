@@ -3,12 +3,12 @@
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields, byd_enum, enum_call};
+use super::base::{self, BydModel, Fields, byd_enum, enum_call, enum_field};
 use super::realtime::{
     AirCirculationMode, SeatHeatVentState, StearingWheelHeat, is_steering_wheel_heating,
     steering_wheel_heat,
 };
-use crate::coerce::{self, IntEnum, ValidationError};
+use crate::coerce::{self, ValidationError};
 use crate::constants;
 use crate::parity::Outcome;
 
@@ -249,11 +249,6 @@ impl HvacStatus {
     pub fn is_steering_wheel_heating(&self) -> Option<bool> {
         is_steering_wheel_heating(self.steering_wheel_heat_state)
     }
-}
-
-/// An optional `BydEnum` field.
-fn enum_field<E: IntEnum>(value: &Value) -> Result<E, ValidationError> {
-    coerce::int_enum(value)
 }
 
 impl BydModel for HvacStatus {

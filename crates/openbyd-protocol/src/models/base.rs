@@ -72,6 +72,11 @@ pub(crate) fn py_equals_int(value: &Value, number: i64) -> bool {
     }
 }
 
+/// A `BydEnum` (or `IntEnum`) field: the reader to pass to `Fields::get` or `Fields::opt`.
+pub fn enum_field<E: IntEnum>(value: &Value) -> Result<E, ValidationError> {
+    coerce::int_enum(value)
+}
+
 /// Answers an enum's parity call: `{"value": ...}` in, `{"name", "value", ...}` out.
 pub(crate) fn enum_call<E: PyEnum>(args: &Value) -> Outcome {
     let member = E::call(Args(args).value("value"));

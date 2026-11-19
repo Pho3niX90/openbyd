@@ -6,7 +6,7 @@ use serde::Serialize;
 use serde_json::{Map, Value, json};
 
 use super::base::{
-    self, BydModel, Fields, PyDateTime, PyEnum, enum_call, py_equals_int, py_truthy,
+    self, BydModel, Fields, PyDateTime, PyEnum, enum_call, enum_field, py_equals_int, py_truthy,
 };
 use super::vehicle::EnergyType;
 
@@ -1219,11 +1219,6 @@ pub struct VehicleRealtimeData {
     /// Data timestamp (parsed to UTC datetime).
     #[serde(serialize_with = "base::ser_opt_datetime")]
     pub timestamp: Option<PyDateTime>,
-}
-
-/// An optional `BydEnum` field.
-fn enum_field<E: IntEnum>(value: &Value) -> Result<E, ValidationError> {
-    coerce::int_enum(value)
 }
 
 /// `ect_value`'s sentinel rule: the temperature sentinel `-129` or any negative.

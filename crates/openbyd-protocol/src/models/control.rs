@@ -23,7 +23,7 @@ use indexmap::IndexMap;
 use serde::{Serialize, Serializer};
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields, aliased, to_camel};
+use super::base::{self, BydModel, Fields, aliased, py_truthy, to_camel};
 use super::hvac::HvacStatus;
 use super::realtime::{SeatHeatVentState, StearingWheelHeat, VehicleRealtimeData};
 use crate::coerce::{self, Failures, IntEnum, StrEnum, ValidationError, py_decimal};
@@ -324,22 +324,10 @@ fn python_int_text(text: &str) -> PyIntOf {
     i64::try_from(value).map_or(PyIntOf::Big, PyIntOf::Int)
 }
 
-/// Python's `bool(value)` for JSON.
-fn truthy(value: &Value) -> bool {
-    match value {
-        Value::Null => false,
-        Value::Bool(flag) => *flag,
-        Value::Number(number) => number.as_f64().is_some_and(|float| float != 0.0),
-        Value::String(text) => !text.is_empty(),
-        Value::Array(items) => !items.is_empty(),
-        Value::Object(entries) => !entries.is_empty(),
-    }
-}
-
 /// `merged.get("requestSerial") or merged.get("request_serial")`, kept only when it is a string.
 fn request_serial_of(merged: &Map<String, Value>) -> Value {
     let first = merged.get("requestSerial").unwrap_or(&Value::Null);
-    let serial = if truthy(first) {
+    let serial = if py_truthy(first) {
         first
     } else {
         merged.get("request_serial").unwrap_or(&Value::Null)

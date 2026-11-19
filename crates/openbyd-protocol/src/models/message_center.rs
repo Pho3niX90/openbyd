@@ -119,10 +119,9 @@ impl BydModel for VehicleMsgItemInfo {
             raw: fields.raw(),
             // `required` needs a `Default`; an error is reported by `finish`, so the 0 never escapes.
             message_id: fields
-                .required(
-                    aliased("message_id", &["pushId", "messageId"]),
-                    |value| coerce::int_or_str(&normalise_id(value)?).map(Some),
-                )
+                .required(aliased("message_id", &["pushId", "messageId"]), |value| {
+                    coerce::int_or_str(&normalise_id(value)?).map(Some)
+                })
                 .unwrap_or(IntOrStr::Int(0)),
             title: fields.opt(aliased("title", &["title", "messageTitle"]), coerce::string),
             title_id: fields.opt("title_id", coerce::int),

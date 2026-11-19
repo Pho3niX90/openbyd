@@ -4325,6 +4325,105 @@
      "evUnit": "kW\u00b7h/100km",
      "avgOilConsumption": "--",
      "oilUnit": "L/100km",
+     "totalMileage": 9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "mileageUnit": "km",
+      "avgEVConsumption": 15.4,
+      "evUnit": "kW\u00b7h/100km",
+      "avgOilConsumption": "--",
+      "oilUnit": "L/100km",
+      "totalMileage": 9223372036854775808
+     },
+     "total_mileage": 9.223372036854776e+18,
+     "mileage_unit": "km",
+     "avg_ev_consumption": null,
+     "ev_unit": "kWh/100km",
+     "avg_oil_consumption": null,
+     "oil_unit": "L/100km"
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.CumulativeEnergyConsumption",
+   "args": {
+    "raw": {
+     "mileageUnit": "km",
+     "avgEVConsumption": 15.4,
+     "evUnit": "kW\u00b7h/100km",
+     "avgOilConsumption": "--",
+     "oilUnit": "L/100km",
+     "totalMileage": 18446744073709551615
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "mileageUnit": "km",
+      "avgEVConsumption": 15.4,
+      "evUnit": "kW\u00b7h/100km",
+      "avgOilConsumption": "--",
+      "oilUnit": "L/100km",
+      "totalMileage": 18446744073709551615
+     },
+     "total_mileage": 1.8446744073709552e+19,
+     "mileage_unit": "km",
+     "avg_ev_consumption": null,
+     "ev_unit": "kWh/100km",
+     "avg_oil_consumption": null,
+     "oil_unit": "L/100km"
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.CumulativeEnergyConsumption",
+   "args": {
+    "raw": {
+     "mileageUnit": "km",
+     "avgEVConsumption": 15.4,
+     "evUnit": "kW\u00b7h/100km",
+     "avgOilConsumption": "--",
+     "oilUnit": "L/100km",
+     "totalMileage": -9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "mileageUnit": "km",
+      "avgEVConsumption": 15.4,
+      "evUnit": "kW\u00b7h/100km",
+      "avgOilConsumption": "--",
+      "oilUnit": "L/100km",
+      "totalMileage": -9223372036854775808
+     },
+     "total_mileage": -9.223372036854776e+18,
+     "mileage_unit": "km",
+     "avg_ev_consumption": null,
+     "ev_unit": "kWh/100km",
+     "avg_oil_consumption": null,
+     "oil_unit": "L/100km"
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.CumulativeEnergyConsumption",
+   "args": {
+    "raw": {
+     "mileageUnit": "km",
+     "avgEVConsumption": 15.4,
+     "evUnit": "kW\u00b7h/100km",
+     "avgOilConsumption": "--",
+     "oilUnit": "L/100km",
      "totalMileage": ""
     },
     "context": null
@@ -6926,6 +7025,111 @@
      "evUnit": "kW\u00b7h/100km",
      "avgOilConsumption": "--",
      "oilUnit": "L/100km",
+     "avgEvConsumption": 9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "totalMileage": "12345.6",
+      "mileageUnit": "km",
+      "avgEVConsumption": 15.4,
+      "evUnit": "kW\u00b7h/100km",
+      "avgOilConsumption": "--",
+      "oilUnit": "L/100km",
+      "avgEvConsumption": 9223372036854775808
+     },
+     "total_mileage": 12345.6,
+     "mileage_unit": "km",
+     "avg_ev_consumption": 9.223372036854776e+18,
+     "ev_unit": "kWh/100km",
+     "avg_oil_consumption": null,
+     "oil_unit": "L/100km"
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.CumulativeEnergyConsumption",
+   "args": {
+    "raw": {
+     "totalMileage": "12345.6",
+     "mileageUnit": "km",
+     "avgEVConsumption": 15.4,
+     "evUnit": "kW\u00b7h/100km",
+     "avgOilConsumption": "--",
+     "oilUnit": "L/100km",
+     "avgEvConsumption": 18446744073709551615
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "totalMileage": "12345.6",
+      "mileageUnit": "km",
+      "avgEVConsumption": 15.4,
+      "evUnit": "kW\u00b7h/100km",
+      "avgOilConsumption": "--",
+      "oilUnit": "L/100km",
+      "avgEvConsumption": 18446744073709551615
+     },
+     "total_mileage": 12345.6,
+     "mileage_unit": "km",
+     "avg_ev_consumption": 1.8446744073709552e+19,
+     "ev_unit": "kWh/100km",
+     "avg_oil_consumption": null,
+     "oil_unit": "L/100km"
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.CumulativeEnergyConsumption",
+   "args": {
+    "raw": {
+     "totalMileage": "12345.6",
+     "mileageUnit": "km",
+     "avgEVConsumption": 15.4,
+     "evUnit": "kW\u00b7h/100km",
+     "avgOilConsumption": "--",
+     "oilUnit": "L/100km",
+     "avgEvConsumption": -9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "totalMileage": "12345.6",
+      "mileageUnit": "km",
+      "avgEVConsumption": 15.4,
+      "evUnit": "kW\u00b7h/100km",
+      "avgOilConsumption": "--",
+      "oilUnit": "L/100km",
+      "avgEvConsumption": -9223372036854775808
+     },
+     "total_mileage": 12345.6,
+     "mileage_unit": "km",
+     "avg_ev_consumption": -9.223372036854776e+18,
+     "ev_unit": "kWh/100km",
+     "avg_oil_consumption": null,
+     "oil_unit": "L/100km"
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.CumulativeEnergyConsumption",
+   "args": {
+    "raw": {
+     "totalMileage": "12345.6",
+     "mileageUnit": "km",
+     "avgEVConsumption": 15.4,
+     "evUnit": "kW\u00b7h/100km",
+     "avgOilConsumption": "--",
+     "oilUnit": "L/100km",
      "avgEvConsumption": ""
     },
     "context": null
@@ -9473,6 +9677,105 @@
      "avg_ev_consumption": null,
      "ev_unit": "kWh/100km",
      "avg_oil_consumption": 0.0,
+     "oil_unit": "L/100km"
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.CumulativeEnergyConsumption",
+   "args": {
+    "raw": {
+     "totalMileage": "12345.6",
+     "mileageUnit": "km",
+     "avgEVConsumption": 15.4,
+     "evUnit": "kW\u00b7h/100km",
+     "oilUnit": "L/100km",
+     "avgOilConsumption": 9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "totalMileage": "12345.6",
+      "mileageUnit": "km",
+      "avgEVConsumption": 15.4,
+      "evUnit": "kW\u00b7h/100km",
+      "oilUnit": "L/100km",
+      "avgOilConsumption": 9223372036854775808
+     },
+     "total_mileage": 12345.6,
+     "mileage_unit": "km",
+     "avg_ev_consumption": null,
+     "ev_unit": "kWh/100km",
+     "avg_oil_consumption": 9.223372036854776e+18,
+     "oil_unit": "L/100km"
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.CumulativeEnergyConsumption",
+   "args": {
+    "raw": {
+     "totalMileage": "12345.6",
+     "mileageUnit": "km",
+     "avgEVConsumption": 15.4,
+     "evUnit": "kW\u00b7h/100km",
+     "oilUnit": "L/100km",
+     "avgOilConsumption": 18446744073709551615
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "totalMileage": "12345.6",
+      "mileageUnit": "km",
+      "avgEVConsumption": 15.4,
+      "evUnit": "kW\u00b7h/100km",
+      "oilUnit": "L/100km",
+      "avgOilConsumption": 18446744073709551615
+     },
+     "total_mileage": 12345.6,
+     "mileage_unit": "km",
+     "avg_ev_consumption": null,
+     "ev_unit": "kWh/100km",
+     "avg_oil_consumption": 1.8446744073709552e+19,
+     "oil_unit": "L/100km"
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.CumulativeEnergyConsumption",
+   "args": {
+    "raw": {
+     "totalMileage": "12345.6",
+     "mileageUnit": "km",
+     "avgEVConsumption": 15.4,
+     "evUnit": "kW\u00b7h/100km",
+     "oilUnit": "L/100km",
+     "avgOilConsumption": -9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "totalMileage": "12345.6",
+      "mileageUnit": "km",
+      "avgEVConsumption": 15.4,
+      "evUnit": "kW\u00b7h/100km",
+      "oilUnit": "L/100km",
+      "avgOilConsumption": -9223372036854775808
+     },
+     "total_mileage": 12345.6,
+     "mileage_unit": "km",
+     "avg_ev_consumption": null,
+     "ev_unit": "kWh/100km",
+     "avg_oil_consumption": -9.223372036854776e+18,
      "oil_unit": "L/100km"
     },
     "properties": {}
@@ -14108,6 +14411,168 @@
      "electDistribution": "30",
      "airDistribution": "10.0",
      "otherDistribution": "--",
+     "avgEvConsumption": 9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "evConsumption": 7.4,
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "avgOilConsumption": 6.1,
+      "oilConsumption": "3.05",
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "avgEqOilConsumption": 1.7,
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "avgEvConsumption": 9223372036854775808
+     },
+     "avg_ev_consumption": 9.223372036854776e+18,
+     "ev_consumption": 7.4,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 6.1,
+     "oil_consumption": 3.05,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 1.7,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "evConsumption": 7.4,
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "avgOilConsumption": 6.1,
+     "oilConsumption": "3.05",
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "avgEqOilConsumption": 1.7,
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
+     "avgEvConsumption": 18446744073709551615
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "evConsumption": 7.4,
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "avgOilConsumption": 6.1,
+      "oilConsumption": "3.05",
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "avgEqOilConsumption": 1.7,
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "avgEvConsumption": 18446744073709551615
+     },
+     "avg_ev_consumption": 1.8446744073709552e+19,
+     "ev_consumption": 7.4,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 6.1,
+     "oil_consumption": 3.05,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 1.7,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "evConsumption": 7.4,
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "avgOilConsumption": 6.1,
+     "oilConsumption": "3.05",
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "avgEqOilConsumption": 1.7,
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
+     "avgEvConsumption": -9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "evConsumption": 7.4,
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "avgOilConsumption": 6.1,
+      "oilConsumption": "3.05",
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "avgEqOilConsumption": 1.7,
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "avgEvConsumption": -9223372036854775808
+     },
+     "avg_ev_consumption": -9.223372036854776e+18,
+     "ev_consumption": 7.4,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 6.1,
+     "oil_consumption": 3.05,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 1.7,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "evConsumption": 7.4,
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "avgOilConsumption": 6.1,
+     "oilConsumption": "3.05",
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "avgEqOilConsumption": 1.7,
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
      "avgEvConsumption": ""
     },
     "context": null
@@ -16833,6 +17298,168 @@
      },
      "avg_ev_consumption": 14.8,
      "ev_consumption": 0.0,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 6.1,
+     "oil_consumption": 3.05,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 1.7,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "avgEvConsumption": "14.8",
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "avgOilConsumption": 6.1,
+     "oilConsumption": "3.05",
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "avgEqOilConsumption": 1.7,
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
+     "evConsumption": 9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "avgEvConsumption": "14.8",
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "avgOilConsumption": 6.1,
+      "oilConsumption": "3.05",
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "avgEqOilConsumption": 1.7,
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "evConsumption": 9223372036854775808
+     },
+     "avg_ev_consumption": 14.8,
+     "ev_consumption": 9.223372036854776e+18,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 6.1,
+     "oil_consumption": 3.05,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 1.7,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "avgEvConsumption": "14.8",
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "avgOilConsumption": 6.1,
+     "oilConsumption": "3.05",
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "avgEqOilConsumption": 1.7,
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
+     "evConsumption": 18446744073709551615
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "avgEvConsumption": "14.8",
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "avgOilConsumption": 6.1,
+      "oilConsumption": "3.05",
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "avgEqOilConsumption": 1.7,
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "evConsumption": 18446744073709551615
+     },
+     "avg_ev_consumption": 14.8,
+     "ev_consumption": 1.8446744073709552e+19,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 6.1,
+     "oil_consumption": 3.05,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 1.7,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "avgEvConsumption": "14.8",
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "avgOilConsumption": 6.1,
+     "oilConsumption": "3.05",
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "avgEqOilConsumption": 1.7,
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
+     "evConsumption": -9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "avgEvConsumption": "14.8",
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "avgOilConsumption": 6.1,
+      "oilConsumption": "3.05",
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "avgEqOilConsumption": 1.7,
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "evConsumption": -9223372036854775808
+     },
+     "avg_ev_consumption": 14.8,
+     "ev_consumption": -9.223372036854776e+18,
      "ev_unit": "kWh/100km",
      "ev_value_unit": "kWh",
      "avg_oil_consumption": 6.1,
@@ -22332,6 +22959,168 @@
      "electDistribution": "30",
      "airDistribution": "10.0",
      "otherDistribution": "--",
+     "avgOilConsumption": 9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "avgEvConsumption": "14.8",
+      "evConsumption": 7.4,
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "oilConsumption": "3.05",
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "avgEqOilConsumption": 1.7,
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "avgOilConsumption": 9223372036854775808
+     },
+     "avg_ev_consumption": 14.8,
+     "ev_consumption": 7.4,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 9.223372036854776e+18,
+     "oil_consumption": 3.05,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 1.7,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "avgEvConsumption": "14.8",
+     "evConsumption": 7.4,
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "oilConsumption": "3.05",
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "avgEqOilConsumption": 1.7,
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
+     "avgOilConsumption": 18446744073709551615
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "avgEvConsumption": "14.8",
+      "evConsumption": 7.4,
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "oilConsumption": "3.05",
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "avgEqOilConsumption": 1.7,
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "avgOilConsumption": 18446744073709551615
+     },
+     "avg_ev_consumption": 14.8,
+     "ev_consumption": 7.4,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 1.8446744073709552e+19,
+     "oil_consumption": 3.05,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 1.7,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "avgEvConsumption": "14.8",
+     "evConsumption": 7.4,
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "oilConsumption": "3.05",
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "avgEqOilConsumption": 1.7,
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
+     "avgOilConsumption": -9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "avgEvConsumption": "14.8",
+      "evConsumption": 7.4,
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "oilConsumption": "3.05",
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "avgEqOilConsumption": 1.7,
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "avgOilConsumption": -9223372036854775808
+     },
+     "avg_ev_consumption": 14.8,
+     "ev_consumption": 7.4,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": -9.223372036854776e+18,
+     "oil_consumption": 3.05,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 1.7,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "avgEvConsumption": "14.8",
+     "evConsumption": 7.4,
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "oilConsumption": "3.05",
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "avgEqOilConsumption": 1.7,
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
      "avgOilConsumption": ""
     },
     "context": null
@@ -25061,6 +25850,168 @@
      "ev_value_unit": "kWh",
      "avg_oil_consumption": 6.1,
      "oil_consumption": 0.0,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 1.7,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "avgEvConsumption": "14.8",
+     "evConsumption": 7.4,
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "avgOilConsumption": 6.1,
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "avgEqOilConsumption": 1.7,
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
+     "oilConsumption": 9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "avgEvConsumption": "14.8",
+      "evConsumption": 7.4,
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "avgOilConsumption": 6.1,
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "avgEqOilConsumption": 1.7,
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "oilConsumption": 9223372036854775808
+     },
+     "avg_ev_consumption": 14.8,
+     "ev_consumption": 7.4,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 6.1,
+     "oil_consumption": 9.223372036854776e+18,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 1.7,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "avgEvConsumption": "14.8",
+     "evConsumption": 7.4,
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "avgOilConsumption": 6.1,
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "avgEqOilConsumption": 1.7,
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
+     "oilConsumption": 18446744073709551615
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "avgEvConsumption": "14.8",
+      "evConsumption": 7.4,
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "avgOilConsumption": 6.1,
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "avgEqOilConsumption": 1.7,
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "oilConsumption": 18446744073709551615
+     },
+     "avg_ev_consumption": 14.8,
+     "ev_consumption": 7.4,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 6.1,
+     "oil_consumption": 1.8446744073709552e+19,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 1.7,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "avgEvConsumption": "14.8",
+     "evConsumption": 7.4,
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "avgOilConsumption": 6.1,
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "avgEqOilConsumption": 1.7,
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
+     "oilConsumption": -9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "avgEvConsumption": "14.8",
+      "evConsumption": 7.4,
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "avgOilConsumption": 6.1,
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "avgEqOilConsumption": 1.7,
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "oilConsumption": -9223372036854775808
+     },
+     "avg_ev_consumption": 14.8,
+     "ev_consumption": 7.4,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 6.1,
+     "oil_consumption": -9.223372036854776e+18,
      "oil_unit": "L/100km",
      "oil_value_unit": "L",
      "avg_eq_oil_consumption": 1.7,
@@ -30532,6 +31483,168 @@
      "oil_unit": "L/100km",
      "oil_value_unit": "L",
      "avg_eq_oil_consumption": 0.0,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "avgEvConsumption": "14.8",
+     "evConsumption": 7.4,
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "avgOilConsumption": 6.1,
+     "oilConsumption": "3.05",
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
+     "avgEqOilConsumption": 9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "avgEvConsumption": "14.8",
+      "evConsumption": 7.4,
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "avgOilConsumption": 6.1,
+      "oilConsumption": "3.05",
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "avgEqOilConsumption": 9223372036854775808
+     },
+     "avg_ev_consumption": 14.8,
+     "ev_consumption": 7.4,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 6.1,
+     "oil_consumption": 3.05,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 9.223372036854776e+18,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "avgEvConsumption": "14.8",
+     "evConsumption": 7.4,
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "avgOilConsumption": 6.1,
+     "oilConsumption": "3.05",
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
+     "avgEqOilConsumption": 18446744073709551615
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "avgEvConsumption": "14.8",
+      "evConsumption": 7.4,
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "avgOilConsumption": 6.1,
+      "oilConsumption": "3.05",
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "avgEqOilConsumption": 18446744073709551615
+     },
+     "avg_ev_consumption": 14.8,
+     "ev_consumption": 7.4,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 6.1,
+     "oil_consumption": 3.05,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": 1.8446744073709552e+19,
+     "drive_distribution": 60,
+     "elect_distribution": 30,
+     "air_distribution": 10,
+     "other_distribution": null
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.energy.NearestEnergyConsumption",
+   "args": {
+    "raw": {
+     "avgEvConsumption": "14.8",
+     "evConsumption": 7.4,
+     "evUnit": "kWh/100km",
+     "evValueUnit": "kW\u00b7h",
+     "avgOilConsumption": 6.1,
+     "oilConsumption": "3.05",
+     "oilUnit": "\u5347/\u767e\u516c\u91cc",
+     "oilValueUnit": "\u5347",
+     "driveDistribution": 60,
+     "electDistribution": "30",
+     "airDistribution": "10.0",
+     "otherDistribution": "--",
+     "avgEqOilConsumption": -9223372036854775808
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "avgEvConsumption": "14.8",
+      "evConsumption": 7.4,
+      "evUnit": "kWh/100km",
+      "evValueUnit": "kW\u00b7h",
+      "avgOilConsumption": 6.1,
+      "oilConsumption": "3.05",
+      "oilUnit": "\u5347/\u767e\u516c\u91cc",
+      "oilValueUnit": "\u5347",
+      "driveDistribution": 60,
+      "electDistribution": "30",
+      "airDistribution": "10.0",
+      "otherDistribution": "--",
+      "avgEqOilConsumption": -9223372036854775808
+     },
+     "avg_ev_consumption": 14.8,
+     "ev_consumption": 7.4,
+     "ev_unit": "kWh/100km",
+     "ev_value_unit": "kWh",
+     "avg_oil_consumption": 6.1,
+     "oil_consumption": 3.05,
+     "oil_unit": "L/100km",
+     "oil_value_unit": "L",
+     "avg_eq_oil_consumption": -9.223372036854776e+18,
      "drive_distribution": 60,
      "elect_distribution": 30,
      "air_distribution": 10,

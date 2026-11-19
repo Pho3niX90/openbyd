@@ -12,37 +12,7 @@ use serde_json::{Map, Value};
 use super::base::{self, BydModel, Fields, PyDateTime};
 use crate::coerce::{self, ValidationError};
 use crate::parity::Outcome;
-
-/// Python's `float(text)` for text already stripped of whitespace.
-///
-/// Differs from pydantic's string-to-float: any Unicode decimal digit counts
-/// as its ASCII digit, and a single underscore is allowed between digits.
-fn python_float(text: &str) -> Option<f64> {
-    let mut ascii = String::with_capacity(text.len());
-    let mut previous = '\0';
-    for c in text.chars() {
-        let c = match coerce::py_decimal(c) {
-            Some(digit) => char::from_digit(digit, 10)?,
-            None if c.is_ascii() => c,
-            None => return None,
-        };
-        if c == '_' {
-            if !previous.is_ascii_digit() {
-                return None;
-            }
-        } else {
-            if previous == '_' && !c.is_ascii_digit() {
-                return None;
-            }
-            ascii.push(c);
-        }
-        previous = c;
-    }
-    if previous == '_' {
-        return None;
-    }
-    ascii.parse().ok()
-}
+use crate::pyjson::py_float_from_str;
 
 /// `_to_float`: coerce BYD numeric strings to `float`; sentinels and junk give `None`.
 fn to_float(value: &Value) -> Option<f64> {
@@ -55,7 +25,7 @@ fn to_float(value: &Value) -> Option<f64> {
             if matches!(text, "" | "--" | "nan" | "NaN") {
                 return None;
             }
-            python_float(text)
+            py_float_from_str(text)
         }
         // `str()` of a list or dict never reads as a number.
         Value::Array(_) | Value::Object(_) => None,
@@ -176,8 +146,7 @@ impl BydModel for CumulativeEnergyConsumption {
             raw: fields.raw(),
             total_mileage: fields.get("total_mileage", None, |value| Ok(to_float(value))),
             mileage_unit: fields.get("mileage_unit", String::new(), canonical_unit),
-            avg_ev_consumption: fields
-                .get("avg_ev_consumption", None, |value| Ok(to_float(value))),
+            avg_ev_consumption: fields.get("avg_ev_consumption", None, |value| Ok(to_float(value))),
             ev_unit: fields.get("ev_unit", String::new(), canonical_unit),
             avg_oil_consumption: fields
                 .get("avg_oil_consumption", None, |value| Ok(to_float(value))),
@@ -232,8 +201,7 @@ impl BydModel for NearestEnergyConsumption {
         let mut fields = Fields::new(&values)?;
         let model = Self {
             raw: fields.raw(),
-            avg_ev_consumption: fields
-                .get("avg_ev_consumption", None, |value| Ok(to_float(value))),
+            avg_ev_consumption: fields.get("avg_ev_consumption", None, |value| Ok(to_float(value))),
             ev_consumption: fields.get("ev_consumption", None, |value| Ok(to_float(value))),
             ev_unit: fields.get("ev_unit", String::new(), canonical_unit),
             ev_value_unit: fields.get("ev_value_unit", String::new(), canonical_unit),
@@ -323,16 +291,12 @@ mod tests {
 
     #[test]
     fn python_floats_read_unicode_digits_and_underscores() {
-        assert_eq!(python_float("١٢.٥"), Some(12.5));
-        assert_eq!(python_float("1_000"), Some(1000.0));
-        assert_eq!(python_float("1__0"), None);
-        assert_eq!(python_float("_1"), None);
-        assert_eq!(python_float("1_"), None);
-        assert_eq!(python_float("1_.5"), None);
-        assert_eq!(python_float("1e_5"), None);
-        assert_eq!(python_float("é"), None);
-        assert!(python_float("-INF").is_some_and(f64::is_infinite));
-        assert!(python_float("NAN").is_some_and(f64::is_nan));
+        assert_eq!(to_float(&json!("١٢.٥")), Some(12.5));
+        assert_eq!(to_float(&json!("1_000")), Some(1000.0));
+        assert_eq!(to_float(&json!("1__0")), None);
+        assert_eq!(to_float(&json!("é")), None);
+        assert!(to_float(&json!("-INF")).is_some_and(f64::is_infinite));
+        assert!(to_float(&json!("NAN")).is_some_and(f64::is_nan));
     }
 
     #[test]
@@ -353,7 +317,10 @@ mod tests {
         assert_eq!(to_int(&json!("-12.9")).unwrap(), Some(-12));
         assert_eq!(to_int(&json!("x")).unwrap(), None);
         assert!(to_int(&json!("NAN")).unwrap_err().is_validation());
-        assert_eq!(to_int(&json!("inf")).unwrap_err().exception, "OverflowError");
+        assert_eq!(
+            to_int(&json!("inf")).unwrap_err().exception,
+            "OverflowError"
+        );
         assert_eq!(to_int(&json!(1e300)).unwrap_err().exception, "Unsupported");
         assert_eq!(to_int(&json!(-1e300)).unwrap_err().exception, "Unsupported");
     }

@@ -99,8 +99,9 @@ def _ints(value: Any) -> Iterator[int]:
     if isinstance(value, int):
         yield value
     elif isinstance(value, dict):
-        for item in value.values():
-            yield from _ints(item)
+        for key, item in value.items():
+            if key != "raw":  # the input echoed back; openbyd keeps it as JSON
+                yield from _ints(item)
     elif isinstance(value, list):
         for item in value:
             yield from _ints(item)

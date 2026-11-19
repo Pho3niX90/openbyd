@@ -3,12 +3,11 @@
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields};
+use super::base::{self, BydModel, Fields, byd_enum, enum_call};
 use super::realtime::{
-    AirCirculationMode, SeatHeatVentState, StearingWheelHeat, byd_enum, is_steering_wheel_heating,
+    AirCirculationMode, SeatHeatVentState, StearingWheelHeat, is_steering_wheel_heating,
     steering_wheel_heat,
 };
-use super::vehicle::{PyEnum, enum_call};
 use crate::coerce::{self, IntEnum, ValidationError};
 use crate::constants;
 use crate::parity::Outcome;

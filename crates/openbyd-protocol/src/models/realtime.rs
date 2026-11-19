@@ -5,8 +5,14 @@
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields, PyDateTime};
-use super::vehicle::{EnergyType, PyEnum, enum_call, py_equals_int, py_truthy};
+use super::base::{
+    self, BydModel, Fields, PyDateTime, PyEnum, enum_call, py_equals_int, py_truthy,
+};
+use super::vehicle::EnergyType;
+
+// The macro moved to `base`; this is its old path.
+#[allow(unused_imports)]
+pub(crate) use super::base::byd_enum;
 use crate::coerce::{self, IntEnum, ValidationError, py_decimal, py_strip};
 use crate::parity::{Args, Outcome, ParityError};
 use crate::pyjson;
@@ -14,39 +20,6 @@ use crate::pyjson;
 // ------------------------------------------------------------------
 // Enums
 // ------------------------------------------------------------------
-
-/// Declares a `BydEnum`: an `IntEnum` with `UNKNOWN = -1` that `_missing_` falls back to.
-macro_rules! byd_enum {
-    (
-        $(#[$meta:meta])*
-        $name:ident {
-            $( $(#[$variant_meta:meta])* $variant:ident = $value:expr => $python:literal, )+
-        }
-    ) => {
-        $(#[$meta])*
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-        pub enum $name {
-            $( $(#[$variant_meta])* $variant = $value, )+
-        }
-
-        impl IntEnum for $name {
-            const MEMBERS: &'static [Self] = &[$(Self::$variant),+];
-            const MISSING: Option<Self> = Some(Self::Unknown);
-            fn value(self) -> i64 {
-                self as i64
-            }
-        }
-
-        impl PyEnum for $name {
-            fn name(self) -> &'static str {
-                match self {
-                    $(Self::$variant => $python,)+
-                }
-            }
-        }
-    };
-}
-pub(crate) use byd_enum;
 
 byd_enum! {
     /// Vehicle online/offline state.

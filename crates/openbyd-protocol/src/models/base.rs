@@ -30,6 +30,104 @@ pub const COMMON_KEY_ALIASES: &[(&str, &str)] =
     &[("stearingWheelHeatState", "steeringWheelHeatState")];
 
 // ---------------------------------------------------------------------------
+// Enums as Python sees them
+// ---------------------------------------------------------------------------
+
+/// A pyBYD `BydEnum` as Python sees it: member names and `EnumClass(value)`.
+pub trait PyEnum: IntEnum {
+    /// The Python member name, such as `"HYBRID"`.
+    fn name(self) -> &'static str;
+
+    /// What `_missing_` returns for a value no member equals. `BydEnum`'s
+    /// gives `UNKNOWN` (or the first member when there is none).
+    fn missing(_value: &Value) -> Self {
+        Self::MISSING.unwrap_or(Self::MEMBERS[0])
+    }
+
+    /// The results of the member's public methods, by name, for the parity call.
+    fn methods(self) -> Map<String, Value> {
+        Map::new()
+    }
+
+    /// `EnumClass(value)`: the member whose value equals `value` (Python
+    /// equality, so `1.0` and `true` find member `1`), else [`PyEnum::missing`].
+    fn call(value: &Value) -> Self {
+        Self::MEMBERS
+            .iter()
+            .copied()
+            .find(|member| py_equals_int(value, member.value()))
+            .unwrap_or_else(|| Self::missing(value))
+    }
+}
+
+/// Python's `value == number` for a JSON value and a small integer.
+pub(crate) fn py_equals_int(value: &Value, number: i64) -> bool {
+    match value {
+        Value::Bool(flag) => i64::from(*flag) == number,
+        Value::Number(json_number) => match json_number.as_i64() {
+            Some(int) => int == number,
+            None => json_number.is_f64() && json_number.as_f64() == Some(number as f64),
+        },
+        _ => false,
+    }
+}
+
+/// Answers an enum's parity call: `{"value": ...}` in, `{"name", "value", ...}` out.
+pub(crate) fn enum_call<E: PyEnum>(args: &Value) -> Outcome {
+    let member = E::call(Args(args).value("value"));
+    let mut answer = Map::new();
+    answer.insert("name".to_owned(), json!(member.name()));
+    answer.insert("value".to_owned(), json!(member.value()));
+    answer.extend(member.methods());
+    Ok(Value::Object(answer))
+}
+
+/// Python's `bool(value)` for a JSON value.
+pub(crate) fn py_truthy(value: &Value) -> bool {
+    match value {
+        Value::Null => false,
+        Value::Bool(flag) => *flag,
+        Value::Number(number) => number.as_f64().is_some_and(|float| float != 0.0),
+        Value::String(text) => !text.is_empty(),
+        Value::Array(items) => !items.is_empty(),
+        Value::Object(entries) => !entries.is_empty(),
+    }
+}
+
+/// Declares a `BydEnum`: an `IntEnum` with `UNKNOWN = -1` that `_missing_` falls back to.
+macro_rules! byd_enum {
+    (
+        $(#[$meta:meta])*
+        $name:ident {
+            $( $(#[$variant_meta:meta])* $variant:ident = $value:expr => $python:literal, )+
+        }
+    ) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        pub enum $name {
+            $( $(#[$variant_meta])* $variant = $value, )+
+        }
+
+        impl $crate::coerce::IntEnum for $name {
+            const MEMBERS: &'static [Self] = &[$(Self::$variant),+];
+            const MISSING: Option<Self> = Some(Self::Unknown);
+            fn value(self) -> i64 {
+                self as i64
+            }
+        }
+
+        impl $crate::models::base::PyEnum for $name {
+            fn name(self) -> &'static str {
+                match self {
+                    $(Self::$variant => $python,)+
+                }
+            }
+        }
+    };
+}
+pub(crate) use byd_enum;
+
+// ---------------------------------------------------------------------------
 // Sentinel predicates
 // ---------------------------------------------------------------------------
 

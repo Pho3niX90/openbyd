@@ -1,8 +1,4 @@
 //! Vehicle model (`pybyd/models/vehicle.py`).
-//!
-//! Also home of [`PyEnum`], the shared shape of every `BydEnum` parity call:
-//! `{"value": <any JSON>}` in, `{"name", "value", ...methods}` out, which is
-//! what `EnumClass(value)` gives in Python (including `_missing_`).
 
 use indexmap::IndexMap;
 use serde::Serialize;
@@ -10,64 +6,13 @@ use serde_json::{Map, Value, json};
 
 use super::base::{self, BydModel, Fields, PyDateTime};
 use crate::coerce::{self, IntEnum, ValidationError};
-use crate::parity::{Args, Outcome};
+use crate::parity::Outcome;
 use crate::pyjson;
 
-// ---------------------------------------------------------------------------
-// Enum calls
-// ---------------------------------------------------------------------------
-
-/// A pyBYD `BydEnum` as Python sees it: member names and `EnumClass(value)`.
-///
-/// This belongs next to [`IntEnum`] in the shared framework; it lives here
-/// until the coordinator moves it.
-pub trait PyEnum: IntEnum {
-    /// The Python member name, such as `"HYBRID"`.
-    fn name(self) -> &'static str;
-
-    /// What `_missing_` returns for a value no member equals. `BydEnum`'s
-    /// gives `UNKNOWN` (or the first member when there is none).
-    fn missing(_value: &Value) -> Self {
-        Self::MISSING.unwrap_or(Self::MEMBERS[0])
-    }
-
-    /// The results of the member's public methods, by name, for the parity call.
-    fn methods(self) -> Map<String, Value> {
-        Map::new()
-    }
-
-    /// `EnumClass(value)`: the member whose value equals `value` (Python
-    /// equality, so `1.0` and `true` find member `1`), else [`PyEnum::missing`].
-    fn call(value: &Value) -> Self {
-        Self::MEMBERS
-            .iter()
-            .copied()
-            .find(|member| py_equals_int(value, member.value()))
-            .unwrap_or_else(|| Self::missing(value))
-    }
-}
-
-/// Python's `value == number` for a JSON value and a small integer.
-pub(crate) fn py_equals_int(value: &Value, number: i64) -> bool {
-    match value {
-        Value::Bool(flag) => i64::from(*flag) == number,
-        Value::Number(json_number) => match json_number.as_i64() {
-            Some(int) => int == number,
-            None => json_number.is_f64() && json_number.as_f64() == Some(number as f64),
-        },
-        _ => false,
-    }
-}
-
-/// Answers an enum's parity call: `{"value": ...}` in, `{"name", "value", ...}` out.
-pub(crate) fn enum_call<E: PyEnum>(args: &Value) -> Outcome {
-    let member = E::call(Args(args).value("value"));
-    let mut answer = Map::new();
-    answer.insert("name".to_owned(), json!(member.name()));
-    answer.insert("value".to_owned(), json!(member.value()));
-    answer.extend(member.methods());
-    Ok(Value::Object(answer))
-}
+// The enum helpers moved to `base`; these are their old paths.
+pub use super::base::PyEnum;
+#[allow(unused_imports)]
+pub(crate) use super::base::{enum_call, py_equals_int, py_truthy};
 
 // ---------------------------------------------------------------------------
 // EnergyType
@@ -237,18 +182,6 @@ impl Vehicle {
         if self.pic_set_url.is_empty() {
             self.pic_set_url = pick("picSetUrl", "pic_set_url");
         }
-    }
-}
-
-/// Python's `bool(value)` for a JSON value.
-pub(crate) fn py_truthy(value: &Value) -> bool {
-    match value {
-        Value::Null => false,
-        Value::Bool(flag) => *flag,
-        Value::Number(number) => number.as_f64().is_some_and(|float| float != 0.0),
-        Value::String(text) => !text.is_empty(),
-        Value::Array(items) => !items.is_empty(),
-        Value::Object(entries) => !entries.is_empty(),
     }
 }
 

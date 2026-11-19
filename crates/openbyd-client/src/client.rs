@@ -44,10 +44,12 @@
 //! and [imported](BydClient::import_session), and vehicle metadata
 //! [seeded](BydClient::seed_vehicle_metadata) without a vehicle list.
 //!
-//! # Not here
+//! # Cars
 //!
-//! pyBYD's `get_car` and the per-car `BydCar` aggregates belong to the car
-//! layer (`crate::car`); the client routes MQTT pushes to it through a
+//! [`BydClient::get_car`] builds and keeps one [`crate::car::BydCar`] per
+//! VIN, as pyBYD's `get_car` does, and merges the MQTT pushes for that VIN
+//! into it. An application with cars of its own (built with
+//! `BydCar::new(client.clone(), ...)`) routes the pushes to them through a
 //! [`CarRouter`].
 
 /// pyBYD's `_call_with_reauth`: evaluates `$call` (an expression with
@@ -94,6 +96,7 @@ macro_rules! authed {
     };
 }
 
+mod cars;
 mod commands;
 pub(crate) mod parity;
 mod production;
@@ -144,6 +147,7 @@ use crate::env::{BoxFuture, ClientEnv, Env, MqttSink};
 use crate::http::{HttpEnv, HttpPool};
 use crate::mqtt::fetch_mqtt_bootstrap;
 
+pub use cars::{ClientCar, ClientHandle, GetCarOptions};
 pub use commands::{ControlParamsArg, resolve_command_pwd};
 pub use production::ProductionEnv;
 
@@ -605,12 +609,14 @@ impl State {
 }
 
 /// What a client handle shares.
-pub(crate) struct Inner<E> {
+pub(crate) struct Inner<E: ClientEnv> {
     env: Observed<E>,
     config: BydConfig,
     options: ClientOptions,
     me: Weak<Inner<E>>,
     state: Mutex<State>,
+    /// pyBYD's `_cars`: the cars [`BydClient::get_car`] built.
+    cars: Mutex<HashMap<String, ClientCar<E>>>,
 }
 
 /// The async client for the BYD API: pyBYD's `BydClient`. See the
@@ -650,6 +656,14 @@ impl BydClient<ProductionEnv> {
     }
 }
 
+/// What a call on a closed client fails with (pyBYD's `_require_transport`).
+fn not_initialized() -> Error {
+    Error::new(
+        ErrorKind::BydError,
+        "Client not initialized. Use 'async with BydClient(...) as client:'",
+    )
+}
+
 /// Seconds as pyBYD stores a TTL: `session_ttl` when above 0, else no expiry.
 fn session_ttl(config: &BydConfig) -> f64 {
     if config.session_ttl > 0.0 {
@@ -670,6 +684,7 @@ impl<E: ClientEnv> BydClient<E> {
             options,
             me: me.clone(),
             state: Mutex::new(State::default()),
+            cars: Mutex::new(HashMap::new()),
         });
         Self { inner }
     }
@@ -677,6 +692,13 @@ impl<E: ClientEnv> BydClient<E> {
     fn state(&self) -> MutexGuard<'_, State> {
         self.inner
             .state
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn cars(&self) -> MutexGuard<'_, HashMap<String, ClientCar<E>>> {
+        self.inner
+            .cars
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
     }
@@ -710,9 +732,11 @@ impl<E: ClientEnv> BydClient<E> {
         self.state().closed = false;
     }
 
-    /// Stops MQTT, drops the capability cache and makes every call fail
-    /// until [`async_start`](Self::async_start) (pyBYD's `async_close`).
+    /// Closes and forgets the cars, stops MQTT, drops the capability cache
+    /// and makes every call fail until [`async_start`](Self::async_start)
+    /// (pyBYD's `async_close`).
     pub fn async_close(&self) {
+        self.close_cars();
         self.state().capabilities.clear();
         self.stop_mqtt();
         self.state().closed = true;
@@ -721,10 +745,7 @@ impl<E: ClientEnv> BydClient<E> {
     /// pyBYD's `_require_transport`.
     fn require_transport(&self) -> Result<(), Error> {
         if self.state().closed {
-            return Err(Error::new(
-                ErrorKind::BydError,
-                "Client not initialized. Use 'async with BydClient(...) as client:'",
-            ));
+            return Err(not_initialized());
         }
         Ok(())
     }
@@ -1671,6 +1692,7 @@ mod tests {
             options: ClientOptions::default(),
             me: Weak::new(),
             state: Mutex::new(State::default()),
+            cars: Mutex::new(HashMap::new()),
         };
         let event = MqttEvent {
             event: "vehicleInfo".into(),

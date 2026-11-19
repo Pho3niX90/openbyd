@@ -17,7 +17,7 @@ env:
   # Whether the surface audit fails (test_surface.py) when a pyBYD symbol has
   # no parity call. "0" while the port is in progress: the gap is reported and
   # the test skips. Switch to "1" once the port is complete.
-  OPENBYD_SURFACE_STRICT: "0"
+  OPENBYD_SURFACE_STRICT: "1"
 
 jobs:
   rust:

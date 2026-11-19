@@ -9,6 +9,13 @@ public symbol that needs a parity call, mapped to where it lives::
 ``openbyd-client`` and need a parity call too: one that runs the flow against
 a script and compares its trace (``parity/api_support.py``).
 
+``pybyd.client`` and ``pybyd.car`` are audited member by member, as
+``Session`` is: every public method and property of ``BydClient`` needs a
+``client.<name>`` call and every one of ``BydCar`` a ``car.<name>`` call.
+Anything else public that those two modules define (a type variable, a
+helper class) needs a ``client.<name>`` or ``car.<name>`` call too, or an
+entry in ``parity/surface_exceptions.py``.
+
 The rules that decide which module maps to which prefix are in ``_EXACT``,
 ``_SKIP`` and ``prefix_for``. A module that matches no rule raises
 ``RuntimeError``, so a new upstream module cannot be missed silently.
@@ -46,7 +53,21 @@ _EXACT: dict[str, str] = {
     "pybyd.models._base": "models.base",
     "pybyd._state_engine": "state",
     "pybyd._validators": "state",
+    "pybyd.client": "client",
+    "pybyd.car": "car",
 }
+
+# Classes audited member by member: every public method and property needs
+# ``<prefix>.<member>``, and the class itself needs no call of its own.
+_EXPANDED: dict[str, str] = {
+    "pybyd.session": "Session",
+    "pybyd.client": "BydClient",
+    "pybyd.car": "BydCar",
+}
+
+# Modules where every public name they define is surface, not only
+# functions, models and enums.
+_EVERYTHING: frozenset[str] = frozenset({"pybyd.client", "pybyd.car"})
 
 # Modules with nothing to port here. ``pybyd._crypto`` is listed by prefix
 # below: the cipher is tested separately, so everything under it is skipped.
@@ -58,15 +79,15 @@ _SKIP: frozenset[str] = frozenset(
         "pybyd._capabilities",
         "pybyd._version",
         "pybyd.exceptions",
-        "pybyd.client",
-        "pybyd.car",
     }
 )
 
 # Public members of ``Session`` that are not part of openbyd's surface.
 # ``guest_vins`` and ``user_type_settled`` are skipped as the spec asks.
 # ``model_post_init`` is pydantic's construction hook, not an API method.
-_SESSION_SKIP: frozenset[str] = frozenset({"guest_vins", "user_type_settled", "model_post_init"})
+_MEMBER_SKIP: dict[str, frozenset[str]] = {
+    "Session": frozenset({"guest_vins", "user_type_settled", "model_post_init"}),
+}
 
 
 def prefix_for(module_name: str) -> str | None:
@@ -122,13 +143,19 @@ def _collect() -> tuple[dict[str, str], dict[str, str]]:
             symbol = f"{module.__name__}:{name}"
             call = f"{prefix}.{name}"
 
-            if inspect.isclass(obj) and module.__name__ == "pybyd.session" and name == "Session":
-                # Session is expanded to its members rather than listed as one class.
+            if inspect.isclass(obj) and _EXPANDED.get(module.__name__) == name:
+                # Expanded to its members rather than listed as one class.
+                skip = _MEMBER_SKIP.get(name, frozenset())
                 for member, value in vars(obj).items():
-                    if member.startswith("_") or member in _SESSION_SKIP:
+                    if member.startswith("_") or member in skip:
                         continue
-                    if isinstance(value, property) or inspect.isfunction(value):
+                    if inspect.iscoroutinefunction(value):
+                        _add(io, f"{prefix}.{member}", f"{symbol}.{member}")
+                    elif isinstance(value, property) or inspect.isfunction(value):
                         _add(calls, f"{prefix}.{member}", f"{symbol}.{member}")
+                continue
+            if module.__name__ in _EVERYTHING:
+                _add(calls, call, symbol)
                 continue
             if inspect.iscoroutinefunction(obj):
                 _add(io, call, symbol)

@@ -9,4 +9,9 @@ entries get noticed.
 Keep this empty unless a symbol is out of scope on purpose, and say why.
 """
 
-NOT_PORTED: dict[str, str] = {}
+NOT_PORTED: dict[str, str] = {
+    "client.T": (
+        "A typing.TypeVar pyBYD's client uses to annotate its private _call_with_reauth "
+        "helper; it has no behaviour to compare. Rust's generics take its place."
+    ),
+}

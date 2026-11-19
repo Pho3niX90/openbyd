@@ -130,6 +130,7 @@ def worker_command(impl: Implementation, port: int, count: int) -> list[str | Pa
 
 
 def run_one(impl: Implementation, count: int, settle: float, idle_window: float) -> dict[str, Any]:
+    time_wait = common.wait_for_quiet_ports()
     broker = common.Child([common.example("mqtt_idle"), "broker"], "mqtt_broker")
     child = None
     try:
@@ -173,6 +174,7 @@ def run_one(impl: Implementation, count: int, settle: float, idle_window: float)
             "implementation": impl.key,
             "label": impl.label,
             "count": count,
+            "tcp_time_wait_before": time_wait,
             "reported": reported,
             "broker": {"open": stats_after["open"], "subscribed": stats_after["subscribed"]},
             "all_connected": stats_after["open"] >= count and stats_after["subscribed"] >= count,

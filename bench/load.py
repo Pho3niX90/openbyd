@@ -293,17 +293,29 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def check(results: dict[str, Any]) -> list[str]:
-    """Problems that make a result untrustworthy: a request count that differs from the plan, or failures."""
-    problems = []
+def check(results: dict[str, Any], strict: bool = True) -> tuple[list[str], list[str]]:
+    """``(problems, warnings)``.
+
+    A request count that differs from the plan, or a failed call, is a problem in a smoke test
+    (``strict``): at those sizes nothing should fail. In a full run an implementation that is
+    overloaded may legitimately fail calls (that is a result, shown in the table); then the missing
+    requests are explained by the failed calls and only a warning is given. A count that differs
+    without any failed call is always a problem.
+    """
+    problems, warnings = [], []
     for row in results["rows"]:
         where = f"{row['label']} at {row['accounts']} accounts"
-        if not row["request_count_ok"]:
-            server = row["server"]
+        failed = sum(row["repeats"]["all_calls_failed"])
+        server = row["server"]
+        if not row["request_count_ok"] and not failed:
             problems.append(f"{where}: server saw {server['requests']} requests ({server['by_code']}), expected {server['expected_requests']}")
-        if any(row["repeats"]["all_calls_failed"]):
-            problems.append(f"{where}: calls failed in some run ({row['repeats']['all_calls_failed']}): {row['reported']['errors']}")
-    return problems
+        if failed:
+            message = (
+                f"{where}: {failed} calls failed, server saw {server['requests']} of {server['expected_requests']} "
+                f"requests: {row['reported']['errors']}"
+            )
+            (problems if strict else warnings).append(message)
+    return problems, warnings
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -345,7 +357,9 @@ def main(argv: list[str] | None = None) -> int:
     results = run(args)
     path = common.write_results("load", args.quick, results)
     print(f"wrote {path}")
-    problems = check(results)
+    problems, warnings = check(results, strict=args.quick)
+    for warning in warnings:
+        print("WARNING (a result, not a benchmark failure):", warning)
     for problem in problems:
         print("PROBLEM:", problem)
     return 1 if problems else 0

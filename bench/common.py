@@ -338,6 +338,23 @@ def background_cpu(seconds: float = 2.0) -> float:
     return psutil.cpu_percent(interval=seconds)
 
 
+def wait_for_quiet_ports(max_time_wait: int = 1000, timeout: float = 300.0) -> int:
+    """Wait until few TCP sockets are in TIME_WAIT; returns how many there were when it stopped waiting.
+
+    After a load run thousands of loopback sockets linger for a couple of minutes, and a benchmark that
+    opens connections right after (paho opens a socket pair per client on Windows) can fail with
+    "address already in use" for reasons that have nothing to do with the library.
+    """
+    import psutil
+
+    deadline = time.monotonic() + timeout
+    while True:
+        waiting = sum(1 for conn in psutil.net_connections("tcp") if conn.status == "TIME_WAIT")
+        if waiting <= max_time_wait or time.monotonic() > deadline:
+            return waiting
+        time.sleep(5)
+
+
 def mib(value: float) -> float:
     return value / 2**20
 

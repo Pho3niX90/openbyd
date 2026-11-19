@@ -284,9 +284,10 @@ def model_cases() -> tuple[list[Case], list[str]]:
         def openbyd_unit(name: str = name, payloads: list[Any] = payloads) -> Callable[[], Any]:
             return lambda: [models.parse(name, raw) for raw in payloads]
 
-        note = f"mean over the {len(payloads)} corpus payload(s); pyBYD also validates and builds Python objects"
+        note = "per payload, averaged over the model's corpus payloads; pyBYD also validates and builds Python objects"
+        count = f"{len(payloads)} payload{'s' if len(payloads) != 1 else ''}"
         cases.append(
-            Case("Reply models", name, [Impl(PYBYD, fixed(pybyd_unit())), Impl(OPENBYD, fixed(openbyd_unit()))],
+            Case("Reply models", f"{name} ({count})", [Impl(PYBYD, fixed(pybyd_unit())), Impl(OPENBYD, fixed(openbyd_unit()))],
                  ops_per_unit=len(payloads), note=note)
         )  # fmt: skip
         if name == "VehicleRealtimeData":

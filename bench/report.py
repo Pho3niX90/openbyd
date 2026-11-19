@@ -75,6 +75,9 @@ def render_micro(result: dict[str, Any]) -> list[str]:
     labels = result["settings"]["labels"]
     settings = result["settings"]
     lines = ["## Micro-benchmarks", ""] + preamble(result)
+    background = result.get("background_cpu_percent_before")
+    if background is not None:
+        lines += [f"Other activity on the machine before the run: {background:.0f}% of all cores.", ""]
     lines += [
         f"Each cell is the median time per operation of {settings['repeats']} measurements of at least "
         f"{settings['min_time_s']} s, with half the spread (max - min) / median as +-. "
@@ -151,7 +154,7 @@ def render_load(result: dict[str, Any]) -> list[str]:
                     lag_text,
                     str(sum(repeats.get("all_calls_failed", [reported["calls_failed"]]))),
                     f"{row['server']['requests']} / {row['server']['expected_requests']}"
-                    + ("" if row["request_count_ok"] else " **MISMATCH**"),
+                    + ("" if row["request_count_ok"] else (" (calls failed)" if sum(repeats.get("all_calls_failed", [0])) else " **MISMATCH**")),
                 ]
             )
         lines += table(header, body) + [""]

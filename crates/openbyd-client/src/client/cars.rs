@@ -420,3 +420,139 @@ impl<E: ClientEnv> CarBackend for ClientHandle<E> {
         .await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use openbyd_protocol::config::BydConfig;
+    use openbyd_protocol::models::control::{
+        BatteryHeatParams, ClimateScheduleParams, ClimateStartParams, SeatClimateParams,
+    };
+    use serde_json::{Map, json};
+
+    use super::*;
+    use crate::client::ClientOptions;
+    use crate::scripted::{ScriptedEnv, block_on};
+
+    /// Every backend method once; returns each call's error kind.
+    fn every_call<B: CarBackend>(backend: &B) -> Vec<ErrorKind> {
+        let vin = "TESTVIN0000000001";
+        let empty = Map::new();
+        let start = ClimateStartParams::from_kwargs(&empty).unwrap();
+        let schedule = ClimateScheduleParams::from_kwargs(&empty).unwrap();
+        let seat = SeatClimateParams::from_kwargs(&empty).unwrap();
+        let mut on = Map::new();
+        on.insert("on".into(), json!(true));
+        let battery = BatteryHeatParams::from_kwargs(&on).unwrap();
+        let kind = |result: Result<(), Error>| result.unwrap_err().kind();
+        block_on(async {
+            vec![
+                kind(backend.lock(vin).await.map(drop)),
+                kind(backend.unlock(vin).await.map(drop)),
+                kind(backend.start_climate(vin, &start).await.map(drop)),
+                kind(backend.stop_climate(vin).await.map(drop)),
+                kind(backend.schedule_climate(vin, &schedule).await.map(drop)),
+                kind(backend.set_seat_climate(vin, &seat).await.map(drop)),
+                kind(backend.set_battery_heat(vin, &battery).await.map(drop)),
+                kind(backend.find_car(vin).await.map(drop)),
+                kind(backend.flash_lights(vin).await.map(drop)),
+                kind(backend.close_windows(vin).await.map(drop)),
+                kind(backend.open_windows(vin).await.map(drop)),
+                kind(backend.open_trunk(vin).await.map(drop)),
+                kind(backend.close_trunk(vin).await.map(drop)),
+                kind(backend.get_vehicle_realtime(vin).await.map(drop)),
+                kind(backend.get_hvac_status(vin).await.map(drop)),
+                kind(backend.get_gps_info(vin).await.map(drop)),
+                kind(backend.get_charging_homepage(vin).await.map(drop)),
+                kind(backend.start_charging(vin).await.map(drop)),
+                kind(backend.stop_charging(vin).await.map(drop)),
+                kind(backend.get_energy_consumption(vin).await.map(drop)),
+                kind(backend.get_ac_current_limit(vin).await.map(drop)),
+                kind(
+                    backend
+                        .save_charging_schedule(vin, "22:00", "06:00", "e", true)
+                        .await
+                        .map(drop),
+                ),
+            ]
+        })
+        .expect("nothing waits")
+    }
+
+    fn closed_client() -> BydClient<Arc<ScriptedEnv>> {
+        let mut config = BydConfig::new("user@example.com", "p");
+        config.mqtt_enabled = false;
+        let client = BydClient::new(
+            config,
+            Arc::new(ScriptedEnv::new(0, "s", vec![])),
+            ClientOptions::default(),
+        );
+        client.async_close();
+        client
+    }
+
+    #[test]
+    fn the_client_and_its_handle_serve_every_backend_call() {
+        let client = closed_client();
+        let direct = every_call(&client);
+        let handle = ClientHandle(Arc::downgrade(&client.inner));
+        assert!(handle.clone().client().is_some());
+        assert_eq!(every_call(&handle), direct);
+        // Commands are refused before the transport (no verified PIN), the
+        // charging stop always; everything else finds the client closed.
+        assert!(direct.iter().all(|kind| kind.is_a(ErrorKind::BydError)));
+        assert_eq!(direct[0], ErrorKind::BydControlPasswordError);
+        assert_eq!(direct[14], ErrorKind::BydError);
+        assert_eq!(direct[18], ErrorKind::BydEndpointNotSupportedError);
+    }
+
+    #[test]
+    fn a_handle_whose_client_is_gone_fails_every_call() {
+        let gone: ClientHandle<Arc<ScriptedEnv>> = ClientHandle(Weak::new());
+        assert!(gone.client().is_none());
+        assert!(
+            every_call(&gone)
+                .iter()
+                .all(|kind| *kind == ErrorKind::BydError)
+        );
+        assert_eq!(
+            ClientClock::<Arc<ScriptedEnv>>(Weak::new()).monotonic(),
+            f64::INFINITY
+        );
+    }
+
+    #[test]
+    fn get_car_keeps_one_car_per_vin_until_close() {
+        let client = closed_client();
+        client.async_start();
+        let vehicle = crate::api::vehicle::parse_model::<Vehicle>(
+            &json!({"vin": "TESTVIN0000000001", "energyType": "0"}),
+        )
+        .unwrap();
+        let options = || GetCarOptions {
+            vehicle: Some(vehicle.clone()),
+            ..GetCarOptions::default()
+        };
+        // The capabilities fetch fails (no script): unknown capabilities, a car anyway.
+        let car = block_on(client.get_car("TESTVIN0000000001", options()))
+            .unwrap()
+            .unwrap();
+        assert_eq!(car.capabilities().source, "unknown:fetch_error");
+        let again = block_on(client.get_car("TESTVIN0000000001", GetCarOptions::default()))
+            .unwrap()
+            .unwrap();
+        assert!(Arc::ptr_eq(&car, &again));
+        // A push for the car outside a runtime is dropped, as pyBYD drops one without a loop.
+        let data: VehicleRealtimeData =
+            crate::api::vehicle::parse_model(&json!({"elecPercent": 5})).unwrap();
+        client.route_realtime("TESTVIN0000000001", &data);
+        client.route_realtime("OTHER", &data);
+        client.async_close();
+        assert!(client.car("TESTVIN0000000001").is_none());
+        let outcome =
+            block_on(client.get_car("TESTVIN0000000002", GetCarOptions::default())).unwrap();
+        assert_eq!(
+            outcome.err().map(|error| error.kind()),
+            Some(ErrorKind::BydError)
+        );
+    }
+}

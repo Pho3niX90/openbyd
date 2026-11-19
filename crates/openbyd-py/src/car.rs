@@ -140,7 +140,12 @@ enum Command {
 }
 
 impl Command {
-    fn parse(py: Python<'_>, feature: &str, action: &str, args: &Bound<'_, PyAny>) -> PyResult<Self> {
+    fn parse(
+        py: Python<'_>,
+        feature: &str,
+        action: &str,
+        args: &Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
         let get = |key: &str| -> PyResult<Bound<'_, PyAny>> {
             args.get_item(key)
                 .map_err(|_| PyTypeError::new_err(format!("{feature}.{action} needs {key}")))
@@ -154,9 +159,10 @@ impl Command {
                 ClimateScheduleParams::from_kwargs(&object("params", &get("params")?)?)
                     .map_err(|error| errors::validation_to_py_err(py, &error))?,
             ),
-            ("seat", "heat") => {
-                Self::SeatHeat(seat_position(&get("position")?)?, seat_level(&get("level")?)?)
-            }
+            ("seat", "heat") => Self::SeatHeat(
+                seat_position(&get("position")?)?,
+                seat_level(&get("level")?)?,
+            ),
             ("seat", "ventilation") => Self::SeatVentilation(
                 seat_position(&get("position")?)?,
                 seat_level(&get("level")?)?,
@@ -253,7 +259,9 @@ impl PyCar {
     fn get_ac_current_limit<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let car = self.car.clone();
         bridge::spawn(py, async move {
-            car.get_ac_current_limit().await.map(|result| Dump(result.dump()))
+            car.get_ac_current_limit()
+                .await
+                .map(|result| Dump(result.dump()))
         })
     }
 

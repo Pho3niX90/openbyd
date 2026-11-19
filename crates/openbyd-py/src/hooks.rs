@@ -73,7 +73,9 @@ impl LoopHooks {
     }
 
     fn event_loop(&self, py: Python<'_>) -> Option<Py<PyAny>> {
-        self.slot().as_ref().map(|event_loop| event_loop.clone_ref(py))
+        self.slot()
+            .as_ref()
+            .map(|event_loop| event_loop.clone_ref(py))
     }
 
     /// Posts `callback(*args)` to the loop, with `args` built under the GIL.
@@ -86,7 +88,11 @@ impl LoopHooks {
     ) {
         let _ = Python::try_attach(|py| {
             let Some(event_loop) = self.event_loop(py) else {
-                log(py, DEBUG, &format!("{name} dropped: the client has no event loop yet"));
+                log(
+                    py,
+                    DEBUG,
+                    &format!("{name} dropped: the client has no event loop yet"),
+                );
                 return;
             };
             let posted = args(py).and_then(|args| {
@@ -141,16 +147,18 @@ impl LoopHooks {
                 Ok(value) => value,
                 Err(error) => {
                     let _ = Python::try_attach(|py| {
-                        log(py, WARNING, &format!("{name} gave no answer, using the default: {error}"));
+                        log(
+                            py,
+                            WARNING,
+                            &format!("{name} gave no answer, using the default: {error}"),
+                        );
                     });
                     None
                 }
             })
         };
         match tokio::runtime::Handle::try_current() {
-            Ok(handle)
-                if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread =>
-            {
+            Ok(handle) if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
                 tokio::task::block_in_place(wait)
             }
             _ => wait(),
@@ -171,16 +179,18 @@ impl LoopHooks {
                 .import("asyncio")?
                 .getattr("run_coroutine_threadsafe")?
                 .call1((coroutine, event_loop))?;
-            future.call_method1(
-                "add_done_callback",
-                (Delivery(Mutex::new(Some(sender))),),
-            )?;
+            future.call_method1("add_done_callback", (Delivery(Mutex::new(Some(sender))),))?;
             Ok(())
         });
         match scheduled {
             Some(Ok(())) => {}
             Some(Err(error)) => return Err(Error::new(ErrorKind::BydError, error.to_string())),
-            None => return Err(Error::new(ErrorKind::BydError, "the interpreter is exiting")),
+            None => {
+                return Err(Error::new(
+                    ErrorKind::BydError,
+                    "the interpreter is exiting",
+                ));
+            }
         }
         receiver
             .await

@@ -240,9 +240,7 @@ impl Options<'_> {
         if let Some(callback) = callable("on_mqtt_connect", self.on_mqtt_connect)? {
             let hooks = Arc::clone(hooks);
             options.on_mqtt_connect = Some(Arc::new(move || {
-                hooks.post("on_mqtt_connect", &callback, |py| {
-                    Ok(PyTuple::empty(py))
-                });
+                hooks.post("on_mqtt_connect", &callback, |py| Ok(PyTuple::empty(py)));
             }));
         }
         if let Some(callback) = callable("request_observer", self.request_observer)? {
@@ -580,7 +578,10 @@ impl PyClient {
     fn get_vehicles<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let client = self.handle();
         bridge::spawn(py, async move {
-            client.get_vehicles().await.map(|vehicles| dump_all(&vehicles))
+            client
+                .get_vehicles()
+                .await
+                .map(|vehicles| dump_all(&vehicles))
         })
     }
 
@@ -603,12 +604,17 @@ impl PyClient {
         let on_state_changed: Option<StateChangedCallback> =
             callable("on_state_changed", on_state_changed)?.map(|callback| {
                 let hooks = Arc::clone(&self.hooks);
-                Box::new(move |vin: &str, snapshot: &openbyd_protocol::state::VehicleSnapshot| {
-                    let state = snapshot.dump();
-                    hooks.post("on_state_changed", &callback, |py| {
-                        PyTuple::new(py, [vin.into_pyobject(py)?.into_any(), to_py(py, &state)?])
-                    });
-                }) as StateChangedCallback
+                Box::new(
+                    move |vin: &str, snapshot: &openbyd_protocol::state::VehicleSnapshot| {
+                        let state = snapshot.dump();
+                        hooks.post("on_state_changed", &callback, |py| {
+                            PyTuple::new(
+                                py,
+                                [vin.into_pyobject(py)?.into_any(), to_py(py, &state)?],
+                            )
+                        });
+                    },
+                ) as StateChangedCallback
             });
         let client = self.handle();
         bridge::spawn(py, async move {
@@ -670,7 +676,8 @@ impl PyClient {
         signal_retries: i64,
     ) -> PyResult<Bound<'py, PyAny>> {
         let settings = poll_settings(poll_attempts, poll_interval, mqtt_timeout, signal_retries);
-        read!(self, py, |client| client.get_vehicle_realtime(&vin, settings))
+        read!(self, py, |client| client
+            .get_vehicle_realtime(&vin, settings))
     }
 
     #[pyo3(signature = (vin, *, poll_attempts = 10, poll_interval = 1.5, mqtt_timeout = None, signal_retries = 2))]
@@ -717,9 +724,11 @@ impl PyClient {
             let (status, schedule) = client.get_charging_homepage(&vin).await?;
             let (status, schedule) = (status.dump(), schedule.dump());
             Ok::<_, Error>(bridge::WithPython(move |py: Python<'_>| {
-                Ok(PyTuple::new(py, [to_py(py, &status)?, to_py(py, &schedule)?])?
-                    .into_any()
-                    .unbind())
+                Ok(
+                    PyTuple::new(py, [to_py(py, &status)?, to_py(py, &schedule)?])?
+                        .into_any()
+                        .unbind(),
+                )
             }))
         })
     }
@@ -741,7 +750,8 @@ impl PyClient {
                 })?),
             }),
         };
-        read!(self, py, |client| client.get_ac_current_limit(&vin, energy_type))
+        read!(self, py, |client| client
+            .get_ac_current_limit(&vin, energy_type))
     }
 
     fn get_energy_consumption<'py>(
@@ -764,11 +774,16 @@ impl PyClient {
         enable: bool,
         push_type: i64,
     ) -> PyResult<Bound<'py, PyAny>> {
-        read!(self, py, |client| client.set_push_state(&vin, enable, push_type))
+        read!(self, py, |client| client
+            .set_push_state(&vin, enable, push_type))
     }
 
     #[pyo3(signature = (category = 1))]
-    fn get_notifications<'py>(&self, py: Python<'py>, category: i64) -> PyResult<Bound<'py, PyAny>> {
+    fn get_notifications<'py>(
+        &self,
+        py: Python<'py>,
+        category: i64,
+    ) -> PyResult<Bound<'py, PyAny>> {
         let category = NotificationCategory::from_json(&json!(category)).ok_or_else(|| {
             PyValueError::new_err(format!("{category} is not a valid NotificationCategory"))
         })?;
@@ -827,47 +842,92 @@ impl PyClient {
     }
 
     #[pyo3(signature = (vin, *, command_pwd = None))]
-    fn lock<'py>(&self, py: Python<'py>, vin: String, command_pwd: Option<String>) -> PyResult<Bound<'py, PyAny>> {
+    fn lock<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        command_pwd: Option<String>,
+    ) -> PyResult<Bound<'py, PyAny>> {
         command!(self, py, vin, command_pwd, lock)
     }
 
     #[pyo3(signature = (vin, *, command_pwd = None))]
-    fn unlock<'py>(&self, py: Python<'py>, vin: String, command_pwd: Option<String>) -> PyResult<Bound<'py, PyAny>> {
+    fn unlock<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        command_pwd: Option<String>,
+    ) -> PyResult<Bound<'py, PyAny>> {
         command!(self, py, vin, command_pwd, unlock)
     }
 
     #[pyo3(signature = (vin, *, command_pwd = None))]
-    fn stop_climate<'py>(&self, py: Python<'py>, vin: String, command_pwd: Option<String>) -> PyResult<Bound<'py, PyAny>> {
+    fn stop_climate<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        command_pwd: Option<String>,
+    ) -> PyResult<Bound<'py, PyAny>> {
         command!(self, py, vin, command_pwd, stop_climate)
     }
 
     #[pyo3(signature = (vin, *, command_pwd = None))]
-    fn flash_lights<'py>(&self, py: Python<'py>, vin: String, command_pwd: Option<String>) -> PyResult<Bound<'py, PyAny>> {
+    fn flash_lights<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        command_pwd: Option<String>,
+    ) -> PyResult<Bound<'py, PyAny>> {
         command!(self, py, vin, command_pwd, flash_lights)
     }
 
     #[pyo3(signature = (vin, *, command_pwd = None))]
-    fn close_windows<'py>(&self, py: Python<'py>, vin: String, command_pwd: Option<String>) -> PyResult<Bound<'py, PyAny>> {
+    fn close_windows<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        command_pwd: Option<String>,
+    ) -> PyResult<Bound<'py, PyAny>> {
         command!(self, py, vin, command_pwd, close_windows)
     }
 
     #[pyo3(signature = (vin, *, command_pwd = None))]
-    fn open_windows<'py>(&self, py: Python<'py>, vin: String, command_pwd: Option<String>) -> PyResult<Bound<'py, PyAny>> {
+    fn open_windows<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        command_pwd: Option<String>,
+    ) -> PyResult<Bound<'py, PyAny>> {
         command!(self, py, vin, command_pwd, open_windows)
     }
 
     #[pyo3(signature = (vin, *, command_pwd = None))]
-    fn find_car<'py>(&self, py: Python<'py>, vin: String, command_pwd: Option<String>) -> PyResult<Bound<'py, PyAny>> {
+    fn find_car<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        command_pwd: Option<String>,
+    ) -> PyResult<Bound<'py, PyAny>> {
         command!(self, py, vin, command_pwd, find_car)
     }
 
     #[pyo3(signature = (vin, *, command_pwd = None))]
-    fn open_trunk<'py>(&self, py: Python<'py>, vin: String, command_pwd: Option<String>) -> PyResult<Bound<'py, PyAny>> {
+    fn open_trunk<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        command_pwd: Option<String>,
+    ) -> PyResult<Bound<'py, PyAny>> {
         command!(self, py, vin, command_pwd, open_trunk)
     }
 
     #[pyo3(signature = (vin, *, command_pwd = None))]
-    fn close_trunk<'py>(&self, py: Python<'py>, vin: String, command_pwd: Option<String>) -> PyResult<Bound<'py, PyAny>> {
+    fn close_trunk<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        command_pwd: Option<String>,
+    ) -> PyResult<Bound<'py, PyAny>> {
         command!(self, py, vin, command_pwd, close_trunk)
     }
 
@@ -879,7 +939,15 @@ impl PyClient {
         params: Bound<'py, PyAny>,
         command_pwd: Option<String>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        with_params!(self, py, vin, params, command_pwd, ClimateStartParams, start_climate)
+        with_params!(
+            self,
+            py,
+            vin,
+            params,
+            command_pwd,
+            ClimateStartParams,
+            start_climate
+        )
     }
 
     #[pyo3(signature = (vin, *, params, command_pwd = None))]
@@ -890,7 +958,15 @@ impl PyClient {
         params: Bound<'py, PyAny>,
         command_pwd: Option<String>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        with_params!(self, py, vin, params, command_pwd, ClimateScheduleParams, schedule_climate)
+        with_params!(
+            self,
+            py,
+            vin,
+            params,
+            command_pwd,
+            ClimateScheduleParams,
+            schedule_climate
+        )
     }
 
     #[pyo3(signature = (vin, *, params, command_pwd = None))]
@@ -901,7 +977,15 @@ impl PyClient {
         params: Bound<'py, PyAny>,
         command_pwd: Option<String>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        with_params!(self, py, vin, params, command_pwd, SeatClimateParams, set_seat_climate)
+        with_params!(
+            self,
+            py,
+            vin,
+            params,
+            command_pwd,
+            SeatClimateParams,
+            set_seat_climate
+        )
     }
 
     #[pyo3(signature = (vin, *, params, command_pwd = None))]
@@ -912,7 +996,15 @@ impl PyClient {
         params: Bound<'py, PyAny>,
         command_pwd: Option<String>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        with_params!(self, py, vin, params, command_pwd, BatteryHeatParams, set_battery_heat)
+        with_params!(
+            self,
+            py,
+            vin,
+            params,
+            command_pwd,
+            BatteryHeatParams,
+            set_battery_heat
+        )
     }
 
     #[pyo3(signature = (vin, *, start_charge_time, end_charge_time, charge_way, enabled = true, mqtt_timeout = None, poll_attempts = 6, poll_interval = 2.0))]
@@ -951,7 +1043,8 @@ impl PyClient {
         vin: String,
         enable: bool,
     ) -> PyResult<Bound<'py, PyAny>> {
-        read!(self, py, |client| client.toggle_smart_charging(&vin, enable))
+        read!(self, py, |client| client
+            .toggle_smart_charging(&vin, enable))
     }
 
     #[pyo3(signature = (vin, *, mqtt_timeout = None, poll_attempts = 6, poll_interval = 2.0))]

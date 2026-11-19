@@ -263,18 +263,27 @@ pub fn decode_mqtt_payload(
     decrypt_key_hex: &str,
 ) -> Result<(Map<String, Value>, String), Error> {
     // `bytes.decode("ascii", errors="replace")`, then drop all whitespace.
-    let text: String = payload
-        .iter()
-        .map(|&byte| {
-            if byte.is_ascii() {
-                char::from(byte)
-            } else {
-                '\u{fffd}'
-            }
-        })
-        .filter(|&ch| !is_python_space(ch))
-        .collect();
-    let plain = aes_decrypt_utf8(&text, decrypt_key_hex)?;
+    let is_kept = |byte: &u8| byte.is_ascii() && !is_python_space(char::from(*byte));
+    let filtered: String;
+    let text = match std::str::from_utf8(payload) {
+        // The usual payload: hex digits only, nothing to replace or drop.
+        Ok(text) if payload.iter().all(is_kept) => text,
+        _ => {
+            filtered = payload
+                .iter()
+                .map(|&byte| {
+                    if byte.is_ascii() {
+                        char::from(byte)
+                    } else {
+                        '\u{fffd}'
+                    }
+                })
+                .filter(|&ch| !is_python_space(ch))
+                .collect();
+            &filtered
+        }
+    };
+    let plain = aes_decrypt_utf8(text, decrypt_key_hex)?;
     match loads(&plain)? {
         Value::Object(parsed) => Ok((parsed, plain)),
         _ => Err(Error::new(

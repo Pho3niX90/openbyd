@@ -31,7 +31,7 @@ pub fn aes_encrypt_hex(plaintext: &str, key_hex: &str) -> Result<String, Error> 
         cipher.encrypt(chunk);
         previous.copy_from_slice(chunk);
     }
-    Ok(data.iter().map(|byte| format!("{byte:02X}")).collect())
+    Ok(crate::hashing::hex(&data, true))
 }
 
 /// Decrypts uppercase or lowercase hex `cipher_hex` with the hex key
@@ -137,6 +137,9 @@ fn parse_hex_bytes(value: &str, name: &str) -> Result<Vec<u8>, Error> {
     if text.is_empty() {
         return Err(crypto_error(format!("{name} is empty")));
     }
+    if text.is_ascii() {
+        return parse_ascii_hex(text, name);
+    }
     let length = text.chars().count();
     if !length.is_multiple_of(2) {
         return Err(crypto_error(format!(
@@ -158,6 +161,53 @@ fn parse_hex_bytes(value: &str, name: &str) -> Result<Vec<u8>, Error> {
             .and_then(|ch| ch.to_digit(16))
             .ok_or_else(not_hex)?;
         bytes.push((high * 16 + low) as u8);
+    }
+    Ok(bytes)
+}
+
+/// [`parse_hex_bytes`] for ASCII text (the usual case), byte by byte.
+fn parse_ascii_hex(text: &str, name: &str) -> Result<Vec<u8>, Error> {
+    let length = text.len();
+    if !length.is_multiple_of(2) {
+        return Err(crypto_error(format!(
+            "{name} hex length must be even (got {length})"
+        )));
+    }
+    /// Each byte's value as a hex digit, or 0xFF.
+    const DIGITS: [u8; 256] = {
+        let mut table = [0xFF; 256];
+        let mut index = 0;
+        while index < 10 {
+            table[b'0' as usize + index] = index as u8;
+            index += 1;
+        }
+        let mut index = 0;
+        while index < 6 {
+            table[b'a' as usize + index] = 10 + index as u8;
+            table[b'A' as usize + index] = 10 + index as u8;
+            index += 1;
+        }
+        table
+    };
+    let not_hex = || crypto_error(format!("{name} must be hex-encoded"));
+    let digit = |byte: u8| match DIGITS[usize::from(byte)] {
+        0xFF => Err(not_hex()),
+        value => Ok(value),
+    };
+    let mut bytes = Vec::with_capacity(length / 2);
+    let mut rest = text.as_bytes();
+    loop {
+        while let [b' ' | b'\t' | b'\n' | b'\r' | b'\x0b' | b'\x0c', tail @ ..] = rest {
+            rest = tail;
+        }
+        match rest {
+            [] => break,
+            [high, low, tail @ ..] => {
+                bytes.push(digit(*high)? * 16 + digit(*low)?);
+                rest = tail;
+            }
+            [_] => return Err(not_hex()),
+        }
     }
     Ok(bytes)
 }

@@ -28,7 +28,7 @@ pub const NOT_A_GUEST_CODE: &str = "8003";
 
 /// Uppercase hex of a request's 16 random bytes (pyBYD's `secrets.token_hex(16).upper()`).
 pub fn random_hex(random: &[u8; 16]) -> String {
-    random.iter().map(|byte| format!("{byte:02X}")).collect()
+    crate::hashing::hex(random, true)
 }
 
 /// The inner payload fields most endpoints share, for a request made at

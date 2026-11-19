@@ -577,27 +577,34 @@ fn float_value(value: f64) -> Value {
 /// replaces kept apart, so the input is never copied.
 struct Layered<'a> {
     input: &'a Map<String, Value>,
-    changes: Map<String, Value>,
+    changes: Vec<(&'static str, Value)>,
 }
 
 impl Layered<'_> {
     fn get(&self, key: &str) -> Option<&Value> {
-        self.changes.get(key).or_else(|| self.input.get(key))
+        self.changes
+            .iter()
+            .find(|(changed, _)| *changed == key)
+            .map(|(_, value)| value)
+            .or_else(|| self.input.get(key))
     }
 
     fn contains_key(&self, key: &str) -> bool {
         self.get(key).is_some()
     }
 
-    fn insert(&mut self, key: String, value: Value) {
-        self.changes.insert(key, value);
+    fn insert(&mut self, key: &'static str, value: Value) {
+        match self.changes.iter_mut().find(|(changed, _)| *changed == key) {
+            Some((_, slot)) => *slot = value,
+            None => self.changes.push((key, value)),
+        }
     }
 }
 
 /// `dict.setdefault(key, value)`.
-fn set_default(values: &mut Layered<'_>, key: &str, value: Value) {
+fn set_default(values: &mut Layered<'_>, key: &'static str, value: Value) {
     if !values.contains_key(key) {
-        values.insert(key.to_owned(), value);
+        values.insert(key, value);
     }
 }
 
@@ -680,10 +687,10 @@ pub fn context_energy_type(context: &Value) -> Result<EnergyType, ValidationErro
 fn split_hybrid_legs(
     original: &Map<String, Value>,
     context: &Value,
-) -> Result<Map<String, Value>, ValidationError> {
+) -> Result<Vec<(&'static str, Value)>, ValidationError> {
     let mut values = Layered {
         input: original,
-        changes: Map::new(),
+        changes: Vec::new(),
     };
     let energy_type = context_energy_type(context)?;
 
@@ -715,7 +722,7 @@ fn split_hybrid_legs(
         } else {
             None
         };
-        values.insert(raw_key.to_owned(), json!(legacy));
+        values.insert(raw_key, json!(legacy));
     }
 
     if values.contains_key("nearestEnergyConsumption") {
@@ -786,11 +793,11 @@ fn split_hybrid_legs(
             }
         }
         values.insert(
-            "nearestEnergyConsumption".to_owned(),
+            "nearestEnergyConsumption",
             json!(legacy_leg_alias(ev, fuel, energy_type)),
         );
         values.insert(
-            "nearestEnergyConsumptionUnit".to_owned(),
+            "nearestEnergyConsumptionUnit",
             legacy_leg_alias(ev_unit, fuel_unit, energy_type).unwrap_or(Value::Null),
         );
     }
@@ -1452,7 +1459,7 @@ impl BydModel for VehicleRealtimeData {
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
         let changes = match raw {
             Value::Object(input) => split_hybrid_legs(input, context)?,
-            _ => Map::new(),
+            _ => Vec::new(),
         };
         let mut fields = Fields::cleaned_with_changes(raw, &changes, KEY_ALIASES)?;
         let float = coerce::float;

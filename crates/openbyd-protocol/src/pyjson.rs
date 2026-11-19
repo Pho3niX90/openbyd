@@ -95,24 +95,34 @@ fn write_value(out: &mut String, value: &Value, options: DumpOptions) {
         }
         Value::Object(map) => {
             out.push('{');
-            let mut entries: Vec<(&String, &Value)> = map.iter().collect();
             if options.sort_keys {
+                let mut sorted: Vec<(&String, &Value)> = map.iter().collect();
                 // Rust orders strings by UTF-8 bytes, which is code point order, as Python does.
-                entries.sort_by(|a, b| a.0.cmp(b.0));
-            }
-            for (index, (key, item)) in entries.into_iter().enumerate() {
-                if index > 0 {
-                    out.push_str(item_separator(options));
-                }
-                write_string(out, key, options.ensure_ascii);
-                out.push_str(match options.separators {
-                    Separators::Compact => ":",
-                    Separators::Default => ": ",
-                });
-                write_value(out, item, options);
+                sorted.sort_by(|a, b| a.0.cmp(b.0));
+                write_entries(out, sorted, options);
+            } else {
+                write_entries(out, map, options);
             }
             out.push('}');
         }
+    }
+}
+
+fn write_entries<'a>(
+    out: &mut String,
+    entries: impl IntoIterator<Item = (&'a String, &'a Value)>,
+    options: DumpOptions,
+) {
+    for (index, (key, item)) in entries.into_iter().enumerate() {
+        if index > 0 {
+            out.push_str(item_separator(options));
+        }
+        write_string(out, key, options.ensure_ascii);
+        out.push_str(match options.separators {
+            Separators::Compact => ":",
+            Separators::Default => ": ",
+        });
+        write_value(out, item, options);
     }
 }
 
@@ -124,12 +134,11 @@ fn item_separator(options: DumpOptions) -> &'static str {
 }
 
 fn write_number(out: &mut String, number: &Number) {
-    if let Some(integer) = number.as_i64() {
-        let _ = write!(out, "{integer}");
-    } else if let Some(integer) = number.as_u64() {
-        let _ = write!(out, "{integer}");
+    if number.is_i64() || number.is_u64() {
+        // serde_json writes integers exactly as Python does.
+        let _ = write!(out, "{number}");
     } else {
-        out.push_str(&float_repr(number.as_f64().unwrap_or(f64::NAN)));
+        push_float_repr(out, number.as_f64().unwrap_or(f64::NAN));
     }
 }
 
@@ -138,14 +147,24 @@ fn write_number(out: &mut String, number: &Number) {
 /// `1`, scientific notation from `1e+16` up and from `1e-05` down. Infinities
 /// and NaN are written as `json.dumps` writes them.
 pub fn float_repr(value: f64) -> String {
+    let mut out = String::new();
+    push_float_repr(&mut out, value);
+    out
+}
+
+/// [`float_repr`], appended to `out`.
+fn push_float_repr(out: &mut String, value: f64) {
     if value.is_nan() {
-        return "NaN".to_owned();
+        out.push_str("NaN");
+        return;
     }
     if value.is_infinite() {
-        return if value > 0.0 { "Infinity" } else { "-Infinity" }.to_owned();
+        out.push_str(if value > 0.0 { "Infinity" } else { "-Infinity" });
+        return;
     }
     // `{:e}` gives the shortest digits that round-trip, as Python's repr does.
-    let scientific = shortest_scientific(value);
+    let mut buffer = [0u8; 40];
+    let scientific = shortest_scientific(value, &mut buffer);
     let (mantissa, exponent) = scientific
         .split_once('e')
         .expect("LowerExp output has an exponent");
@@ -154,16 +173,26 @@ pub fn float_repr(value: f64) -> String {
         Some(rest) => ("-", rest),
         None => ("", mantissa),
     };
-    let digits: String = mantissa.chars().filter(|ch| *ch != '.').collect();
+    // The significant digits are the mantissa without its point: `d` or `d.ddd`.
+    let (first, rest) = mantissa.split_at(1);
+    let rest = rest.strip_prefix('.').unwrap_or(rest);
+    let count = 1 + rest.len();
+    // `digits[from..to]` of the significant digits, without building them.
+    let push_digits = |out: &mut String, from: usize, to: usize| {
+        if from == 0 && to > 0 {
+            out.push_str(first);
+        }
+        out.push_str(&rest[from.max(1) - 1..to.max(1) - 1]);
+    };
     // Position of the decimal point relative to the digits, as in Python's
     // `float_repr_style == 'short'`: value = 0.DIGITS * 10**decimal_point.
     let decimal_point = exponent + 1;
-    let mut out = String::from(sign);
+    out.push_str(sign);
     if !(-4 < decimal_point && decimal_point <= 16) {
-        out.push_str(&digits[..1]);
-        if digits.len() > 1 {
+        out.push_str(first);
+        if count > 1 {
             out.push('.');
-            out.push_str(&digits[1..]);
+            out.push_str(rest);
         }
         let _ = write!(
             out,
@@ -177,47 +206,66 @@ pub fn float_repr(value: f64) -> String {
             '0',
             decimal_point.unsigned_abs() as usize,
         ));
-        out.push_str(&digits);
+        push_digits(out, 0, count);
     } else {
         let point = decimal_point as usize;
-        if point >= digits.len() {
-            out.push_str(&digits);
-            out.extend(std::iter::repeat_n('0', point - digits.len()));
+        if point >= count {
+            push_digits(out, 0, count);
+            out.extend(std::iter::repeat_n('0', point - count));
             out.push_str(".0");
         } else {
-            out.push_str(&digits[..point]);
+            push_digits(out, 0, point);
             out.push('.');
-            out.push_str(&digits[point..]);
+            push_digits(out, point, count);
         }
     }
-    out
+}
+
+/// Formats into a fixed buffer; `{:e}` of an `f64` needs at most 25 bytes.
+fn format_into<'b>(buffer: &'b mut [u8; 40], arguments: std::fmt::Arguments<'_>) -> &'b str {
+    let mut cursor = std::io::Cursor::new(&mut buffer[..]);
+    std::io::Write::write_fmt(&mut cursor, arguments).expect("a float fits 40 bytes");
+    let length = cursor.position() as usize;
+    std::str::from_utf8(&buffer[..length]).expect("formatting writes UTF-8")
 }
 
 /// The fewest significant digits that read back as `value` and, among
 /// those, the ones closest to it, as Python's `repr` picks them. Rust's
 /// `{:e}` finds the fewest digits but not always the closest last digit
 /// (`153818817446116.12` comes out as `...13`), so the digits are redone
-/// with exact rounding at that length.
-fn shortest_scientific(value: f64) -> String {
-    let shortest = format!("{value:e}");
-    let digits = shortest
-        .split('e')
-        .next()
-        .unwrap_or_default()
-        .bytes()
-        .filter(u8::is_ascii_digit)
+/// with exact rounding at that length. With 15 digits or fewer there is
+/// nothing to redo: two such decimals are further apart than two doubles,
+/// so only one of that length reads back as `value`, and it is the closest.
+fn shortest_scientific(value: f64, buffer: &mut [u8; 40]) -> &str {
+    let length = format_into(buffer, format_args!("{value:e}")).len();
+    let digits = buffer[..length]
+        .iter()
+        .take_while(|&&byte| byte != b'e')
+        .filter(|byte| byte.is_ascii_digit())
         .count();
-    let closest = format!("{value:.*e}", digits.saturating_sub(1));
-    if closest.parse::<f64>() == Ok(value) {
-        closest
-    } else {
-        shortest
+    if digits <= 15 {
+        return std::str::from_utf8(&buffer[..length]).expect("formatting writes UTF-8");
     }
+    let mut closest = [0u8; 40];
+    let closest = format_into(&mut closest, format_args!("{value:.*e}", digits - 1));
+    if closest.parse::<f64>() != Ok(value) {
+        return std::str::from_utf8(&buffer[..length]).expect("formatting writes UTF-8");
+    }
+    buffer[..closest.len()].copy_from_slice(closest.as_bytes());
+    std::str::from_utf8(&buffer[..closest.len()]).expect("copied from a str")
 }
 
 fn write_string(out: &mut String, text: &str, ensure_ascii: bool) {
     out.push('"');
-    for ch in text.chars() {
+    // Copy runs that need no escaping in one go; escape from the first byte that does.
+    let plain =
+        |byte: u8| byte >= 0x20 && byte != b'"' && byte != b'\\' && !(ensure_ascii && byte >= 0x7f);
+    let run = text
+        .bytes()
+        .position(|byte| !plain(byte))
+        .unwrap_or(text.len());
+    out.push_str(&text[..run]);
+    for ch in text[run..].chars() {
         match ch {
             '"' => out.push_str("\\\""),
             '\\' => out.push_str("\\\\"),
@@ -323,7 +371,7 @@ fn write_repr(out: &mut String, value: &Value) {
                 } else if float.is_infinite() {
                     out.push_str(if float > 0.0 { "inf" } else { "-inf" });
                 } else {
-                    out.push_str(&float_repr(float));
+                    push_float_repr(out, float);
                 }
             } else {
                 write_number(out, number);

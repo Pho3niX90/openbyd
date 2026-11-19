@@ -6,12 +6,29 @@ use sha1::Sha1;
 
 use crate::parity::{Args, Outcome};
 
+/// Bytes as hex, two digits per byte, upper or lower case.
+pub(crate) fn hex(bytes: &[u8], upper: bool) -> String {
+    let mut text = String::with_capacity(bytes.len() * 2);
+    push_hex(&mut text, bytes, upper);
+    text
+}
+
+/// Appends `bytes` as hex to `text`.
+fn push_hex(text: &mut String, bytes: &[u8], upper: bool) {
+    let digits: &[u8; 16] = if upper {
+        b"0123456789ABCDEF"
+    } else {
+        b"0123456789abcdef"
+    };
+    for byte in bytes {
+        text.push(char::from(digits[usize::from(byte >> 4)]));
+        text.push(char::from(digits[usize::from(byte & 0x0f)]));
+    }
+}
+
 /// MD5 of a UTF-8 string, as uppercase hex.
 pub fn md5_hex(value: &str) -> String {
-    Md5::digest(value.as_bytes())
-        .iter()
-        .map(|byte| format!("{byte:02X}"))
-        .collect()
+    hex(&Md5::digest(value.as_bytes()), true)
 }
 
 /// The AES key that encrypts the login request: MD5 applied twice to the password.
@@ -24,11 +41,7 @@ pub fn pwd_login_key(password: &str) -> String {
 pub fn sha1_mixed(value: &str) -> String {
     let mut mixed = String::with_capacity(40);
     for (index, byte) in Sha1::digest(value.as_bytes()).iter().enumerate() {
-        if index % 2 == 0 {
-            mixed.push_str(&format!("{byte:02X}"));
-        } else {
-            mixed.push_str(&format!("{byte:02x}"));
-        }
+        push_hex(&mut mixed, std::slice::from_ref(byte), index % 2 == 0);
     }
     mixed
         .chars()
@@ -43,17 +56,8 @@ pub fn sha1_mixed(value: &str) -> String {
 /// with its four 8-character chunks reordered 4, 2, 3, 1.
 pub fn compute_checkcode(payload: &Value) -> String {
     let text = crate::pyjson::dumps(payload, crate::pyjson::DumpOptions::COMPACT_UNICODE);
-    let md5: String = Md5::digest(text.as_bytes())
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect();
-    format!(
-        "{}{}{}{}",
-        &md5[24..32],
-        &md5[8..16],
-        &md5[16..24],
-        &md5[0..8]
-    )
+    let md5 = hex(&Md5::digest(text.as_bytes()), false);
+    [&md5[24..32], &md5[8..16], &md5[16..24], &md5[0..8]].concat()
 }
 
 pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {

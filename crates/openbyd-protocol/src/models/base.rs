@@ -894,14 +894,19 @@ pub fn clean_byd_values(values: &Value, aliases: &[(&str, &str)]) -> Value {
 /// absent *before* sentinels are dropped; [`Fields`] reads them as absent.
 fn clean_table<'a>(
     entries: &'a Map<String, Value>,
-    changes: Option<&'a Map<String, Value>>,
+    changes: &'a [(&'a str, Value)],
     whole: &'a Value,
     aliases: &[(&'a str, &'a str)],
 ) -> HashMap<&'a str, &'a Value, KeyHashing> {
-    let len = entries.len() + changes.map_or(0, Map::len) + 1;
+    let len = entries.len() + changes.len() + 1;
     let mut table = HashMap::with_capacity_and_hasher(len, KeyHashing::for_len(len));
-    for (key, value) in entries.iter().chain(changes.into_iter().flatten()) {
-        table.insert(key.as_str(), value);
+    let changes = changes.iter().map(|(key, value)| (*key, value));
+    for (key, value) in entries
+        .iter()
+        .map(|(key, value)| (key.as_str(), value))
+        .chain(changes)
+    {
+        table.insert(key, value);
     }
     let has_own_raw = table.contains_key("raw");
     for &(old, new) in aliases {
@@ -1075,9 +1080,9 @@ impl<'a> Fields<'a> {
         aliases: &[(&'a str, &'a str)],
     ) -> Result<Self, ValidationError> {
         match values {
-            Value::Object(entries) => Ok(Self::from_table(clean_table(
-                entries, None, values, aliases,
-            ))),
+            Value::Object(entries) => {
+                Ok(Self::from_table(clean_table(entries, &[], values, aliases)))
+            }
             _ => Err(ValidationError::new("model_type")),
         }
     }
@@ -1088,15 +1093,12 @@ impl<'a> Fields<'a> {
     /// has its own) is `values` without the changes.
     pub fn cleaned_with_changes(
         values: &'a Value,
-        changes: &'a Map<String, Value>,
+        changes: &'a [(&'a str, Value)],
         aliases: &[(&'a str, &'a str)],
     ) -> Result<Self, ValidationError> {
         match values {
             Value::Object(entries) => Ok(Self::from_table(clean_table(
-                entries,
-                Some(changes),
-                values,
-                aliases,
+                entries, changes, values, aliases,
             ))),
             _ => Err(ValidationError::new("model_type")),
         }

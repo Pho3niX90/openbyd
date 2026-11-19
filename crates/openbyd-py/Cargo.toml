@@ -28,7 +28,7 @@ openbyd-protocol.workspace = true
 openbyd-client.workspace = true
 serde_json.workspace = true
 # Models are serialised straight into Python objects (`dump.rs`).
-serde = { workspace = true, default-features = false, features = ["std"] }
+serde.workspace = true
 pyo3 = { version = "0.30", features = ["abi3-py311"] }
 # The shared runtime the asyncio bridge runs Rust futures on.
 tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "time", "sync", "net"] }

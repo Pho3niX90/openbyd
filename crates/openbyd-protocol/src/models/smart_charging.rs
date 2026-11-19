@@ -182,8 +182,8 @@ fn repeat_days(charge_way: Option<&str>) -> Option<Vec<i64>> {
 
 impl BydModel for SmartChargeDto {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(&capture_charge_until_full(raw), CHARGE_KEY_ALIASES);
-        let mut fields = Fields::new(&values)?;
+        let values = capture_charge_until_full(raw);
+        let mut fields = Fields::cleaned(&values, CHARGE_KEY_ALIASES)?;
         let model = Self {
             raw: fields.raw(),
             start_time: fields.get("start_time", None, |v| Ok(parse_hhmm(v))),
@@ -252,8 +252,7 @@ impl SmartJourneyDto {
 
 impl BydModel for SmartJourneyDto {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, JOURNEY_KEY_ALIASES);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, JOURNEY_KEY_ALIASES)?;
         let model = Self {
             raw: fields.raw(),
             use_vehicle_time: fields.get("use_vehicle_time", None, |v| Ok(parse_hhmm(v))),
@@ -317,8 +316,7 @@ impl SmartChargingSchedule {
 
 impl BydModel for SmartChargingSchedule {
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, SCHEDULE_KEY_ALIASES);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, SCHEDULE_KEY_ALIASES)?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),
@@ -361,8 +359,7 @@ pub struct AcCurrentLimit {
 
 impl BydModel for AcCurrentLimit {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),

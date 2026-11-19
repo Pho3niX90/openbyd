@@ -392,8 +392,7 @@ impl LatestConfigFunction {
 impl BydModel for LatestConfigFunction {
     // No validator reads the context, so nested nodes get none.
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             code: fields.get("code", String::new(), coerce::string),
@@ -446,8 +445,7 @@ impl VehicleLatestConfig {
 
 impl BydModel for VehicleLatestConfig {
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             widget_config_id: fields.get("widget_config_id", String::new(), coerce::string),
@@ -707,8 +705,7 @@ impl VehicleCapabilities {
 
 impl BydModel for VehicleCapabilities {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let strings = |value: &Value| coerce::list(value, coerce::string);
         let model = Self {
             raw: fields.raw(),

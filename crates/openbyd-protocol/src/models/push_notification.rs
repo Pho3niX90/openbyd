@@ -29,8 +29,7 @@ pub struct PushSwitch {
 
 impl BydModel for PushSwitch {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             r#type: fields.opt("type", coerce::int),
@@ -74,8 +73,7 @@ impl PushNotificationState {
 
 impl BydModel for PushNotificationState {
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),

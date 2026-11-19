@@ -174,6 +174,9 @@ pub fn py_strip(text: &str) -> &str {
 
 /// The value of a Unicode decimal digit (category Nd), as Python's `int()` reads it.
 pub fn py_decimal(c: char) -> Option<u32> {
+    if c.is_ascii() {
+        return c.to_digit(10);
+    }
     let code = u32::from(c);
     DECIMAL_ZEROS
         .iter()
@@ -609,13 +612,15 @@ pub trait IntEnum: Sized + Copy + 'static {
 
 /// A field whose type is an `IntEnum`.
 pub fn int_enum<E: IntEnum>(value: &Value) -> Result<E, ValidationError> {
-    let values: Vec<i64> = E::MEMBERS.iter().map(|member| member.value()).collect();
-    let missing = E::MISSING.map(IntEnum::value);
-    let found = int_enum_value(value, &values, missing)?;
-    Ok(*E::MEMBERS
-        .iter()
-        .find(|member| member.value() == found)
-        .expect("int_enum_value returns a member value"))
+    let found = int_candidate(value)?.and_then(|found| {
+        E::MEMBERS
+            .iter()
+            .copied()
+            .find(|member| member.value() == found)
+    });
+    found
+        .or(E::MISSING)
+        .ok_or_else(|| ValidationError::new("enum"))
 }
 
 /// The value pydantic picks for an `IntEnum` with the given member values.
@@ -628,7 +633,16 @@ pub fn int_enum_value(
     members: &[i64],
     missing: Option<i64>,
 ) -> Result<i64, ValidationError> {
-    let candidate = match value {
+    match int_candidate(value)? {
+        Some(found) if members.contains(&found) => Ok(found),
+        _ => missing.ok_or_else(|| ValidationError::new("enum")),
+    }
+}
+
+/// An `IntEnum` input read as an integer: `None` when it is not one (so
+/// `_missing_` decides), an error when it is an integer outside `i64`.
+fn int_candidate(value: &Value) -> Result<Option<i64>, ValidationError> {
+    Ok(match value {
         Value::Bool(flag) => Some(i64::from(*flag)),
         Value::Number(number) => match py_number(number) {
             PyNumber::Int(int) => Some(int),
@@ -641,11 +655,7 @@ pub fn int_enum_value(
             IntText::Invalid => None,
         },
         _ => None,
-    };
-    match candidate {
-        Some(found) if members.contains(&found) => Ok(found),
-        _ => missing.ok_or_else(|| ValidationError::new("enum")),
-    }
+    })
 }
 
 /// A Python `StrEnum`.

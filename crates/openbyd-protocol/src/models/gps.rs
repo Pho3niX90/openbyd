@@ -50,8 +50,8 @@ fn flatten_nested_data(values: &Value) -> Value {
 
 impl BydModel for GpsInfo {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(&flatten_nested_data(raw), &[]);
-        let mut fields = Fields::new(&values)?;
+        let values = flatten_nested_data(raw);
+        let mut fields = Fields::cleaned(&values, &[])?;
         let model = Self {
             raw: fields.raw(),
             latitude: fields.opt("latitude", coerce::float),

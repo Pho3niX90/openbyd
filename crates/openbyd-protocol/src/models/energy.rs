@@ -91,8 +91,7 @@ pub struct EnergyConsumptionGraph {
 
 impl BydModel for EnergyConsumptionGraph {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             energy_consumption: fields.get("energy_consumption", Vec::new(), |value| {
@@ -140,8 +139,7 @@ pub struct CumulativeEnergyConsumption {
 
 impl BydModel for CumulativeEnergyConsumption {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             total_mileage: fields.get("total_mileage", None, |value| Ok(to_float(value))),
@@ -197,8 +195,7 @@ pub struct NearestEnergyConsumption {
 
 impl BydModel for NearestEnergyConsumption {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             avg_ev_consumption: fields.get("avg_ev_consumption", None, |value| Ok(to_float(value))),
@@ -248,8 +245,7 @@ const KEY_ALIASES: &[(&str, &str)] = &[("time", "timestamp")];
 
 impl BydModel for EnergyConsumption {
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, KEY_ALIASES);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, KEY_ALIASES)?;
         let model = Self {
             raw: fields.raw(),
             self_graph: fields.opt("self_graph", |v| EnergyConsumptionGraph::parse(v, context)),

@@ -419,8 +419,7 @@ fn normalize_result_shapes(values: &Value) -> Result<Value, ValidationError> {
 impl BydModel for RemoteControlResult {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let values = normalize_result_shapes(raw)?;
-        let values = base::clean_byd_values(&values, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(&values, &[])?;
         let model = Self {
             raw: fields.raw(),
             control_state: fields.get(
@@ -471,8 +470,7 @@ impl BydModel for CommandAck {
             }
             other => other.clone(),
         };
-        let values = base::clean_byd_values(&values, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(&values, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),
@@ -507,8 +505,7 @@ impl BydModel for ChargeChangeResult {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         // `_capture_raw` stores a copy of the input as `raw` unless it has one,
         // which is what the base validator does anyway.
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),
@@ -599,8 +596,7 @@ fn normalize_ack_event(values: &Value) -> Result<Value, ValidationError> {
 impl BydModel for CommandAckEvent {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let values = normalize_ack_event(raw)?;
-        let values = base::clean_byd_values(&values, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(&values, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),
@@ -671,8 +667,7 @@ fn normalize_lifecycle_event(values: &Value) -> Result<Value, ValidationError> {
 impl BydModel for CommandLifecycleEvent {
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
         let values = normalize_lifecycle_event(raw)?;
-        let values = base::clean_byd_values(&values, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(&values, &[])?;
         let model = Self {
             raw: fields.raw(),
             status: fields.required("status", coerce::str_enum),
@@ -710,8 +705,7 @@ pub struct CommandAckDiagnostics {
 
 impl BydModel for CommandAckDiagnostics {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             pending: fields.get("pending", 0, coerce::int),
@@ -753,8 +747,7 @@ impl BydModel for VerifyControlPasswordResponse {
             }
             other => other.clone(),
         };
-        let values = base::clean_byd_values(&values, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(&values, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),

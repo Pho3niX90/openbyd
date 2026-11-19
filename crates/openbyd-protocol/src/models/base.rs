@@ -13,6 +13,11 @@
 //! A Rust model does the same steps by hand in its [`BydModel::parse`]; see
 //! `gps.rs` and `charging.rs`, and `docs/porting-models.md`.
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::hash::{BuildHasher, DefaultHasher, Hasher, RandomState};
+use std::sync::{Mutex, PoisonError};
+
 use chrono::{Datelike, Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use serde::{Serialize, Serializer};
 use serde_json::{Map, Value, json};
@@ -185,29 +190,57 @@ const UNIT_DISTANCES: &[(&str, &str)] = &[
     ("百英里", "100miles"),
 ];
 
-/// Python's `str.casefold()`, as far as it can turn text into one of the unit keys.
-fn casefold(text: &str) -> String {
-    let mut folded = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            'ſ' => folded.push('s'),
-            'ß' | 'ẞ' => folded.push_str("ss"),
-            'ﬀ' => folded.push_str("ff"),
-            'ﬁ' => folded.push_str("fi"),
-            'ﬂ' => folded.push_str("fl"),
-            'ﬃ' => folded.push_str("ffi"),
-            'ﬄ' => folded.push_str("ffl"),
-            'ﬅ' | 'ﬆ' => folded.push_str("st"),
-            other => folded.extend(other.to_lowercase()),
-        }
+/// Python's `str.casefold()` of one character, as far as it can turn text
+/// into one of the unit keys, passed to `push` character by character.
+fn casefold(c: char, mut push: impl FnMut(char)) {
+    match c {
+        'ſ' => push('s'),
+        'ß' | 'ẞ' => "ss".chars().for_each(push),
+        'ﬀ' => "ff".chars().for_each(push),
+        'ﬁ' => "fi".chars().for_each(push),
+        'ﬂ' => "fl".chars().for_each(push),
+        'ﬃ' => "ffi".chars().for_each(push),
+        'ﬄ' => "ffl".chars().for_each(push),
+        'ﬅ' | 'ﬆ' => "st".chars().for_each(push),
+        other => other.to_lowercase().for_each(push),
     }
-    folded
 }
 
-fn lookup<'a>(table: &[(&str, &'a str)], key: &str) -> Option<&'a str> {
+/// The longest unit key in bytes (`百公里`); a longer folded key matches nothing.
+const UNIT_KEY_MAX: usize = 9;
+
+/// The canonical spelling for one part of a unit: the part with whitespace,
+/// `·` (and `.` when `drop_dots`) removed and case folded, looked up in
+/// `table`. Folds into a fixed buffer, giving up once the key is too long.
+fn lookup_unit(
+    table: &[(&str, &'static str)],
+    part: &str,
+    drop_dots: bool,
+) -> Option<&'static str> {
+    let mut key = [0u8; UNIT_KEY_MAX];
+    let mut len = 0;
+    let mut too_long = false;
+    for c in part.chars() {
+        if c == '·' || py_is_space(c) || (drop_dots && c == '.') {
+            continue;
+        }
+        casefold(c, |folded| {
+            let width = folded.len_utf8();
+            if len + width > UNIT_KEY_MAX {
+                too_long = true;
+            } else {
+                folded.encode_utf8(&mut key[len..len + width]);
+                len += width;
+            }
+        });
+        if too_long {
+            return None;
+        }
+    }
+    let key = &key[..len];
     table
         .iter()
-        .find(|(name, _)| *name == key)
+        .find(|(name, _)| name.as_bytes() == key)
         .map(|(_, canonical)| *canonical)
 }
 
@@ -219,20 +252,30 @@ fn lookup<'a>(table: &[(&str, &'a str)], key: &str) -> Option<&'a str> {
 /// `升/百公里` becomes `L/100km`, and a per-100-miles distance becomes
 /// `100miles`. A part it doesn't recognise is kept as sent, minus the `·`.
 pub fn normalize_unit(text: Option<&str>) -> Option<String> {
-    let text = text?.replace('·', "");
+    let text = text?;
+    // `·` is never `/`, so splitting first and dropping `·` per part is the same.
     let (quantity, separator, distance) = match text.split_once('/') {
         Some((quantity, distance)) => (quantity, "/", distance),
-        None => (text.as_str(), "", ""),
+        None => (text, "", ""),
     };
-    let squeeze = |part: &str| {
-        part.chars()
-            .filter(|c| !py_is_space(*c))
-            .collect::<String>()
+    // A part it doesn't recognise is kept as sent, minus the `·`.
+    let push_part = |unit: &mut String, canonical: Option<&str>, part: &str| match canonical {
+        Some(canonical) => unit.push_str(canonical),
+        None => unit.extend(part.chars().filter(|&c| c != '·')),
     };
-    let quantity_key = casefold(&squeeze(quantity).replace('.', ""));
-    let quantity = lookup(UNIT_QUANTITIES, &quantity_key).unwrap_or(quantity);
-    let distance = lookup(UNIT_DISTANCES, &casefold(&squeeze(distance))).unwrap_or(distance);
-    Some(format!("{quantity}{separator}{distance}"))
+    let mut unit = String::with_capacity(text.len());
+    push_part(
+        &mut unit,
+        lookup_unit(UNIT_QUANTITIES, quantity, true),
+        quantity,
+    );
+    unit.push_str(separator);
+    push_part(
+        &mut unit,
+        lookup_unit(UNIT_DISTANCES, distance, false),
+        distance,
+    );
+    Some(unit)
 }
 
 // ---------------------------------------------------------------------------
@@ -717,6 +760,49 @@ pub fn ser_opt_int_enum<E: IntEnum, S: Serializer>(
 
 /// pydantic's `to_camel` alias generator, for ASCII field names.
 pub fn to_camel(snake: &str) -> String {
+    let mut buffer = vec![0; snake.len()];
+    camel_into(snake, &mut buffer).to_owned()
+}
+
+/// `to_camel(name)` for a field name, computed once per name and process.
+///
+/// pydantic builds a class's aliases when the class is defined; this is the
+/// same, done on first use. Each distinct name is converted once and kept
+/// for the life of the process (a few hundred short strings); a thread-local
+/// table keyed by the name's address answers repeat calls without locking.
+fn camel_alias(name: &'static str) -> &'static str {
+    type ByAddress = HashMap<(usize, usize), &'static str, KeyHashing>;
+    thread_local! {
+        static SEEN: RefCell<ByAddress> = RefCell::new(HashMap::with_hasher(KeyHashing::Fast));
+    }
+    static INTERNED: Mutex<Option<HashMap<&'static str, &'static str>>> = Mutex::new(None);
+
+    let address = (name.as_ptr() as usize, name.len());
+    if let Some(camel) = SEEN.with(|seen| seen.borrow().get(&address).copied()) {
+        return camel;
+    }
+    let camel = {
+        let mut interned = INTERNED.lock().unwrap_or_else(PoisonError::into_inner);
+        *interned
+            .get_or_insert_with(HashMap::new)
+            .entry(name)
+            .or_insert_with(|| {
+                let camel = to_camel(name);
+                if camel == name {
+                    name
+                } else {
+                    Box::leak(camel.into_boxed_str())
+                }
+            })
+    };
+    SEEN.with(|seen| seen.borrow_mut().insert(address, camel));
+    camel
+}
+
+/// [`to_camel`] without allocating: the result is `snake` itself or written
+/// into `buffer`, which must hold at least `snake.len()` bytes (the camelCase
+/// form is never longer).
+fn camel_into<'b>(snake: &'b str, buffer: &'b mut [u8]) -> &'b str {
     let bytes = snake.as_bytes();
     let already_camel = bytes.first().is_some_and(u8::is_ascii_lowercase)
         && bytes.iter().all(u8::is_ascii_alphanumeric)
@@ -724,45 +810,47 @@ pub fn to_camel(snake: &str) -> String {
             .windows(2)
             .any(|pair| pair[0].is_ascii_digit() && pair[1].is_ascii_lowercase());
     if already_camel {
-        return snake.to_owned();
+        return snake;
     }
+    let out = &mut buffer[..bytes.len()];
     // str.title(): a letter is upper case after a non-letter, lower case otherwise.
-    let mut titled = Vec::with_capacity(bytes.len());
     let mut after_letter = false;
-    for &byte in bytes {
-        titled.push(if !byte.is_ascii_alphabetic() {
+    for (slot, &byte) in out.iter_mut().zip(bytes) {
+        *slot = if !byte.is_ascii_alphabetic() {
             byte
         } else if after_letter {
             byte.to_ascii_lowercase()
         } else {
             byte.to_ascii_uppercase()
-        });
+        };
         after_letter = byte.is_ascii_alphabetic();
     }
-    // re.sub('([0-9A-Za-z])_(?=[0-9A-Z])', r'\1', ...)
-    let mut pascal = Vec::with_capacity(titled.len());
-    let mut index = 0;
-    while index < titled.len() {
-        let byte = titled[index];
-        pascal.push(byte);
-        let next = titled.get(index + 1).copied();
-        let after = titled.get(index + 2).copied();
+    // re.sub('([0-9A-Za-z])_(?=[0-9A-Z])', r'\1', ...), compacting in place:
+    // the write position never passes the read position.
+    let (mut read, mut write) = (0, 0);
+    while read < out.len() {
+        let byte = out[read];
+        out[write] = byte;
+        write += 1;
+        let next = out.get(read + 1).copied();
+        let after = out.get(read + 2).copied();
         if byte.is_ascii_alphanumeric()
             && next == Some(b'_')
             && after.is_some_and(|c| c.is_ascii_digit() || c.is_ascii_uppercase())
         {
-            index += 2;
+            read += 2;
         } else {
-            index += 1;
+            read += 1;
         }
     }
+    let pascal = &mut out[..write];
     // re.sub('(^_*[A-Z])', lowercase, ...)
     if let Some(first) = pascal.iter().position(|&byte| byte != b'_')
         && pascal[first].is_ascii_uppercase()
     {
         pascal[first] = pascal[first].to_ascii_lowercase();
     }
-    String::from_utf8(pascal).expect("ASCII stays ASCII")
+    std::str::from_utf8(pascal).expect("only ASCII bytes were changed or removed")
 }
 
 /// `BydBaseModel._clean_dict`: applies key aliases (old → new, only when the
@@ -799,6 +887,36 @@ pub fn clean_byd_values(values: &Value, aliases: &[(&str, &str)]) -> Value {
     Value::Object(cleaned)
 }
 
+/// [`clean_byd_values`] as a table of borrowed entries for [`Fields`]:
+/// `entries` (with `changes` laid over it) after the key aliases, and `raw`
+/// pointing at `whole` unless the dict has its own. Sentinel values stay in
+/// the table, because a key alias moves a key only when the new key is
+/// absent *before* sentinels are dropped; [`Fields`] reads them as absent.
+fn clean_table<'a>(
+    entries: &'a Map<String, Value>,
+    changes: Option<&'a Map<String, Value>>,
+    whole: &'a Value,
+    aliases: &[(&'a str, &'a str)],
+) -> HashMap<&'a str, &'a Value, KeyHashing> {
+    let len = entries.len() + changes.map_or(0, Map::len) + 1;
+    let mut table = HashMap::with_capacity_and_hasher(len, KeyHashing::for_len(len));
+    for (key, value) in entries.iter().chain(changes.into_iter().flatten()) {
+        table.insert(key.as_str(), value);
+    }
+    let has_own_raw = table.contains_key("raw");
+    for &(old, new) in aliases {
+        if !table.contains_key(new)
+            && let Some(value) = table.remove(old)
+        {
+            table.insert(new, value);
+        }
+    }
+    if !has_own_raw {
+        table.insert("raw", whole);
+    }
+    table
+}
+
 // ---------------------------------------------------------------------------
 // Reading fields
 // ---------------------------------------------------------------------------
@@ -833,9 +951,98 @@ pub const fn aliased(name: &'static str, aliases: &'static [&'static str]) -> Fi
 /// `ValidationError` (which pydantic does not catch) stops the remaining
 /// conversions and wins; see [`Failures`].
 pub struct Fields<'a> {
-    values: &'a Map<String, Value>,
+    keys: Keys<'a>,
     camel_case: bool,
     failures: Failures,
+}
+
+/// Where [`Fields`] looks keys up.
+enum Keys<'a> {
+    /// A dict read as it is.
+    Plain(&'a Map<String, Value>),
+    /// A dict with `_clean_byd_values` applied, as a table of borrowed
+    /// entries; sentinels are still in it and read as absent.
+    Cleaned(HashMap<&'a str, &'a Value, KeyHashing>),
+}
+
+/// Whether `_clean_dict` drops the value: null, or a string that is a sentinel after `str.strip()`.
+fn is_sentinel(value: &Value) -> bool {
+    match value {
+        Value::Null => true,
+        Value::String(text) => SENTINELS.contains(&py_strip(text)),
+        _ => false,
+    }
+}
+
+/// Dicts up to this many keys are hashed with [`KeyHashing::Fast`]; larger
+/// ones with the standard library's seeded hash, so a reply with many
+/// crafted keys cannot make the table quadratic.
+const FAST_HASH_LIMIT: usize = 512;
+
+/// The hash of a [`Fields`] key table: a fast unseeded multiply-rotate hash
+/// for the small dicts BYD sends, the standard seeded one for anything bigger.
+#[derive(Clone)]
+enum KeyHashing {
+    Fast,
+    Seeded(RandomState),
+}
+
+impl KeyHashing {
+    fn for_len(len: usize) -> Self {
+        if len <= FAST_HASH_LIMIT {
+            Self::Fast
+        } else {
+            Self::Seeded(RandomState::new())
+        }
+    }
+}
+
+impl BuildHasher for KeyHashing {
+    type Hasher = KeyHasher;
+
+    fn build_hasher(&self) -> KeyHasher {
+        match self {
+            Self::Fast => KeyHasher::Fast(0),
+            Self::Seeded(state) => KeyHasher::Seeded(state.build_hasher()),
+        }
+    }
+}
+
+enum KeyHasher {
+    Fast(u64),
+    Seeded(DefaultHasher),
+}
+
+impl Hasher for KeyHasher {
+    fn write(&mut self, bytes: &[u8]) {
+        const SEED: u64 = 0xf135_7aea_2e62_a9c5;
+        let mix = |hash: u64, word: u64| hash.wrapping_add(word).wrapping_mul(SEED);
+        match self {
+            Self::Fast(hash) => {
+                let mut chunks = bytes.chunks_exact(8);
+                for chunk in &mut chunks {
+                    let word = u64::from_le_bytes(chunk.try_into().expect("eight bytes"));
+                    *hash = mix(*hash, word);
+                }
+                let rest = chunks.remainder();
+                let mut word = [0u8; 8];
+                word[..rest.len()].copy_from_slice(rest);
+                *hash = mix(
+                    *hash,
+                    u64::from_le_bytes(word) ^ ((bytes.len() as u64) << 59),
+                );
+            }
+            Self::Seeded(hasher) => hasher.write(bytes),
+        }
+    }
+
+    fn finish(&self) -> u64 {
+        match self {
+            // The multiply leaves the entropy in the high bits; the table indexes by the low ones.
+            Self::Fast(hash) => hash.rotate_left(26),
+            Self::Seeded(hasher) => hasher.finish(),
+        }
+    }
 }
 
 impl<'a> Fields<'a> {
@@ -844,7 +1051,7 @@ impl<'a> Fields<'a> {
     pub fn new(values: &'a Value) -> Result<Self, ValidationError> {
         match values {
             Value::Object(values) => Ok(Self {
-                values,
+                keys: Keys::Plain(values),
                 camel_case: true,
                 failures: Failures::default(),
             }),
@@ -859,20 +1066,71 @@ impl<'a> Fields<'a> {
         Ok(fields)
     }
 
+    /// For a `BydBaseModel`: `BydBaseModel._clean_byd_values` (key aliases,
+    /// sentinel stripping, the `raw` copy) and then [`Fields::new`], the same
+    /// as `Fields::new(&clean_byd_values(values, aliases))` but without
+    /// copying the input.
+    pub fn cleaned(
+        values: &'a Value,
+        aliases: &[(&'a str, &'a str)],
+    ) -> Result<Self, ValidationError> {
+        match values {
+            Value::Object(entries) => Ok(Self::from_table(clean_table(
+                entries, None, values, aliases,
+            ))),
+            _ => Err(ValidationError::new("model_type")),
+        }
+    }
+
+    /// [`Fields::cleaned`] for a model whose before-validator adds or replaces
+    /// keys and stashes its input as `raw` (`VehicleRealtimeData`): the dict
+    /// is `values` with `changes` laid over it, and `raw` (unless the input
+    /// has its own) is `values` without the changes.
+    pub fn cleaned_with_changes(
+        values: &'a Value,
+        changes: &'a Map<String, Value>,
+        aliases: &[(&'a str, &'a str)],
+    ) -> Result<Self, ValidationError> {
+        match values {
+            Value::Object(entries) => Ok(Self::from_table(clean_table(
+                entries,
+                Some(changes),
+                values,
+                aliases,
+            ))),
+            _ => Err(ValidationError::new("model_type")),
+        }
+    }
+
+    fn from_table(table: HashMap<&'a str, &'a Value, KeyHashing>) -> Self {
+        Self {
+            keys: Keys::Cleaned(table),
+            camel_case: true,
+            failures: Failures::default(),
+        }
+    }
+
+    fn lookup(&self, key: &str) -> Option<&'a Value> {
+        match &self.keys {
+            Keys::Plain(values) => values.get(key),
+            Keys::Cleaned(table) => table.get(key).copied().filter(|value| !is_sentinel(value)),
+        }
+    }
+
     fn find(&self, field: Field) -> Option<&'a Value> {
-        let from_alias = if field.aliases.is_empty() {
+        if field.aliases.is_empty() {
             if self.camel_case {
-                self.values.get(&to_camel(field.name))
-            } else {
-                None
+                let camel = camel_alias(field.name);
+                if camel != field.name
+                    && let Some(value) = self.lookup(camel)
+                {
+                    return Some(value);
+                }
             }
-        } else {
-            field
-                .aliases
-                .iter()
-                .find_map(|alias| self.values.get(*alias))
-        };
-        from_alias.or_else(|| self.values.get(field.name))
+        } else if let Some(value) = field.aliases.iter().find_map(|alias| self.lookup(alias)) {
+            return Some(value);
+        }
+        self.lookup(field.name)
     }
 
     fn record(&mut self, error: ValidationError) {

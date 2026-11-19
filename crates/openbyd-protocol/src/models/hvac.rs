@@ -253,8 +253,8 @@ impl HvacStatus {
 
 impl BydModel for HvacStatus {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(&unwrap_status_now(raw), KEY_ALIASES);
-        let mut fields = Fields::new(&values)?;
+        let values = unwrap_status_now(raw);
+        let mut fields = Fields::cleaned(&values, KEY_ALIASES)?;
         let float = coerce::float;
         let int = coerce::int;
         let mut model = Self {

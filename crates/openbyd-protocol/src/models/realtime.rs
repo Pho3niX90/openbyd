@@ -338,42 +338,47 @@ fn is_leg_sentinel(text: &str) -> bool {
 /// decimal digit): the byte length of the match and its value as `float()`
 /// reads it. Overflowing digit runs give infinity, as in Python.
 fn match_number(text: &str) -> Option<(usize, f64)> {
-    let mut ascii = String::new();
-    let mut end = 0;
     let mut chars = text.char_indices().peekable();
+    let mut end = 0;
     if let Some(&(_, '-')) = chars.peek() {
-        ascii.push('-');
         chars.next();
         end = 1;
     }
-    let digits = |chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
-                  ascii: &mut String,
-                  end: &mut usize| {
+    let digits = |chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>, end: &mut usize| {
         let mut count = 0;
         while let Some(&(index, c)) = chars.peek() {
-            let Some(digit) = py_decimal(c) else { break };
-            ascii.push(char::from_digit(digit, 10).expect("a decimal digit"));
+            if py_decimal(c).is_none() {
+                break;
+            }
             *end = index + c.len_utf8();
             chars.next();
             count += 1;
         }
         count
     };
-    if digits(&mut chars, &mut ascii, &mut end) == 0 {
+    if digits(&mut chars, &mut end) == 0 {
         return None;
     }
-    let rest = &text[end..];
-    let mut after_point = rest.chars();
+    let mut after_point = text[end..].chars();
     if after_point.next() == Some('.')
         && after_point.next().is_some_and(|c| py_decimal(c).is_some())
     {
-        ascii.push('.');
         chars.next();
         end += 1;
-        digits(&mut chars, &mut ascii, &mut end);
+        digits(&mut chars, &mut end);
     }
-    let value = ascii.parse().expect("digits with an optional point parse");
-    Some((end, value))
+    let matched = &text[..end];
+    let value = if matched.is_ascii() {
+        matched.parse()
+    } else {
+        // Other Unicode digits read as their ASCII values.
+        matched
+            .chars()
+            .map(|c| py_decimal(c).map_or(c, |digit| char::from(b'0' + digit as u8)))
+            .collect::<String>()
+            .parse()
+    };
+    Some((end, value.expect("digits with an optional point parse")))
 }
 
 /// `_first_num`: the signed decimal `text` starts with, as a float.
@@ -568,8 +573,29 @@ fn float_value(value: f64) -> Value {
     )
 }
 
+/// The before-validator's working dict: the input with the keys it adds or
+/// replaces kept apart, so the input is never copied.
+struct Layered<'a> {
+    input: &'a Map<String, Value>,
+    changes: Map<String, Value>,
+}
+
+impl Layered<'_> {
+    fn get(&self, key: &str) -> Option<&Value> {
+        self.changes.get(key).or_else(|| self.input.get(key))
+    }
+
+    fn contains_key(&self, key: &str) -> bool {
+        self.get(key).is_some()
+    }
+
+    fn insert(&mut self, key: String, value: Value) {
+        self.changes.insert(key, value);
+    }
+}
+
 /// `dict.setdefault(key, value)`.
-fn set_default(values: &mut Map<String, Value>, key: &str, value: Value) {
+fn set_default(values: &mut Layered<'_>, key: &str, value: Value) {
     if !values.contains_key(key) {
         values.insert(key.to_owned(), value);
     }
@@ -648,14 +674,17 @@ pub fn context_energy_type(context: &Value) -> Result<EnergyType, ValidationErro
 /// rebinds the original (non-suffixed) field to its EV-leg value. The
 /// original combined string stays in `raw`, which is stashed here before
 /// anything is rebound.
-fn split_hybrid_legs(values: &Value, context: &Value) -> Result<Value, ValidationError> {
-    let Value::Object(original) = values else {
-        return Ok(values.clone());
+///
+/// Returns the keys it adds or replaces; [`Fields::cleaned_with_changes`]
+/// lays them over the input, which is also what `raw` gets.
+fn split_hybrid_legs(
+    original: &Map<String, Value>,
+    context: &Value,
+) -> Result<Map<String, Value>, ValidationError> {
+    let mut values = Layered {
+        input: original,
+        changes: Map::new(),
     };
-    let mut values = original.clone();
-    if !values.contains_key("raw") {
-        values.insert("raw".to_owned(), Value::Object(original.clone()));
-    }
     let energy_type = context_energy_type(context)?;
 
     for (raw_key, ev_key, ev_unit_key, fuel_key, fuel_unit_key) in SPLITS {
@@ -766,7 +795,7 @@ fn split_hybrid_legs(values: &Value, context: &Value) -> Result<Value, Validatio
         );
     }
 
-    Ok(Value::Object(values))
+    Ok(values.changes)
 }
 
 // ------------------------------------------------------------------
@@ -1421,9 +1450,11 @@ pub(crate) fn is_steering_wheel_heating(state: Option<StearingWheelHeat>) -> Opt
 
 impl BydModel for VehicleRealtimeData {
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let values = split_hybrid_legs(raw, context)?;
-        let values = base::clean_byd_values(&values, KEY_ALIASES);
-        let mut fields = Fields::new(&values)?;
+        let changes = match raw {
+            Value::Object(input) => split_hybrid_legs(input, context)?,
+            _ => Map::new(),
+        };
+        let mut fields = Fields::cleaned_with_changes(raw, &changes, KEY_ALIASES)?;
         let float = coerce::float;
         let int = coerce::int;
         let string = coerce::string;
@@ -1737,7 +1768,12 @@ mod tests {
             "AttributeError"
         );
         assert!(VehicleRealtimeData::parse(&json!({}), &json!([1])).is_err());
-        assert_eq!(split_hybrid_legs(&json!(5), &json!("x")).unwrap(), json!(5));
+        assert_eq!(
+            VehicleRealtimeData::parse(&json!(5), &json!("x"))
+                .unwrap_err()
+                .error_type,
+            "model_type"
+        );
     }
 
     #[test]

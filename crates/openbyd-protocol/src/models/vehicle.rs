@@ -77,8 +77,7 @@ const EMPOWER_RANGE_KEY_ALIASES: &[(&str, &str)] = &[("childList", "children")];
 
 impl BydModel for EmpowerRange {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, EMPOWER_RANGE_KEY_ALIASES);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, EMPOWER_RANGE_KEY_ALIASES)?;
         let model = Self {
             raw: fields.raw(),
             code: fields.get("code", String::new(), coerce::string),
@@ -187,8 +186,7 @@ impl Vehicle {
 
 impl BydModel for Vehicle {
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let mut model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),

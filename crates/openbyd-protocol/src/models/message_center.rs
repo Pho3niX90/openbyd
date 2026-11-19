@@ -113,8 +113,7 @@ fn normalise_id(value: &Value) -> Result<Value, ValidationError> {
 
 impl BydModel for VehicleMsgItemInfo {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             // `required` needs a `Default`; an error is reported by `finish`, so the 0 never escapes.
@@ -167,8 +166,8 @@ fn unwrap_list(values: &Value) -> Value {
 
 impl BydModel for VehicleMsgListResponse {
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(&unwrap_list(raw), &[]);
-        let mut fields = Fields::new(&values)?;
+        let values = unwrap_list(raw);
+        let mut fields = Fields::cleaned(&values, &[])?;
         let model = Self {
             raw: fields.raw(),
             messages: fields.get("messages", Vec::new(), |value| {

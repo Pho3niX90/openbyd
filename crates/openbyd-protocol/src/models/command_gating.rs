@@ -44,8 +44,7 @@ pub struct CommandGateRule {
 
 impl BydModel for CommandGateRule {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let strings = |value: &Value| coerce::list(value, coerce::string);
         let raw = fields.raw();
         let gate_id = fields.required("gate_id", coerce::string);
@@ -90,8 +89,7 @@ pub struct CommandGateVerdict {
 
 impl BydModel for CommandGateVerdict {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let strings = |value: &Value| coerce::list(value, coerce::string);
         let raw = fields.raw();
         let command = fields.required("command", |value| coerce::str_enum(value).map(Some));

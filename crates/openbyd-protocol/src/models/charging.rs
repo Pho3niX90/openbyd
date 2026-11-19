@@ -69,8 +69,7 @@ impl ChargingStatus {
 
 impl BydModel for ChargingStatus {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, KEY_ALIASES);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, KEY_ALIASES)?;
         let mut model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),

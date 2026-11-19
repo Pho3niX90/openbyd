@@ -53,8 +53,7 @@ pub struct ClimateBooking {
 
 impl BydModel for ClimateBooking {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, &[]);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             booking_id: fields.opt("booking_id", coerce::int),
@@ -93,8 +92,7 @@ const KEY_ALIASES: &[(&str, &str)] = &[("listInfo", "bookings")];
 
 impl BydModel for BookingList {
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let values = base::clean_byd_values(raw, KEY_ALIASES);
-        let mut fields = Fields::new(&values)?;
+        let mut fields = Fields::cleaned(raw, KEY_ALIASES)?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),

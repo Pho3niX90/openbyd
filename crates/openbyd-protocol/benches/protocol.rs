@@ -153,6 +153,14 @@ fn models(bench: &Bench) {
     bench.run("realtime/full parse", || {
         VehicleRealtimeData::parse(black_box(&realtime), &Value::Null).unwrap()
     });
+    bench.run("realtime/full parse_owned+into_dump", || {
+        VehicleRealtimeData::parse_owned(black_box(realtime.clone()), &Value::Null)
+            .unwrap()
+            .into_dump()
+    });
+    bench.run("realtime/full clone (the input of the row above)", || {
+        black_box(&realtime).clone()
+    });
     let parsed = VehicleRealtimeData::parse(&realtime, &Value::Null).unwrap();
     bench.run("realtime/full dump", || black_box(&parsed).dump());
     bench.run("realtime/full properties", || {

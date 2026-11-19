@@ -16,6 +16,8 @@ sample in brackets. It measures, with the payloads in `parity/corpus/`:
 | Line | What one call does |
 |---|---|
 | `realtime/full parse+dump (headline)` | `VehicleRealtimeData::parse` + `dump` of the "every field present" reply |
+| `realtime/full parse_owned+into_dump` | the same through the by-value calls (`BydModel::parse_owned`, `into_dump`), plus cloning the input for them |
+| `realtime/full clone` | that clone alone, to subtract |
 | `realtime/full parse`, `dump`, `properties` | the three steps on their own |
 | `realtime/corpus[i] parse+dump` | every realtime payload, with a HYBRID context |
 | `model/<Class> parse+dump` | the largest corpus payload of each other model |
@@ -46,9 +48,18 @@ watch: absolute times move with the machine, the ratio much less.
 
 ## Where the time goes
 
-For the full realtime reply most of what is left is memory allocation: the
-API returns `serde_json::Value`s, so a parse copies the reply into `raw`
-(about 170 allocations) and a dump allocates every field name and copies
-`raw` again (about 350). On Windows' default heap that is roughly half of
-the parse+dump time. Through Python, converting the reply to a `Value` and
-the dump back to Python objects (in `openbyd-py`) costs about as much again.
+The benchmark binary uses the system allocator, so its figures compare
+with earlier runs; the Python extension and the `openbyd` binary use
+mimalloc (cargo feature `mimalloc`, on by default), which roughly halves
+the cost of the many small allocations a parse makes.
+
+For the full realtime reply the by-reference `parse` + `dump` copies the
+reply twice (into `raw`, and `raw` into the dump); `parse_owned` and
+`into_dump` move it instead, which is about half the time. The bindings
+use `parse_owned` and serialise the model straight into Python objects
+(`crates/openbyd-py/src/dump.rs`), so there is no `Value` dump at all.
+
+Through Python (`compare_pybyd.py`), what is left for the full realtime
+reply is roughly a third each: converting the Python dict to a `Value`
+(about 10 us), the parse, and building the Python dump, of which `raw`
+alone is about 8 us (it could reuse the input's objects; not done).

@@ -16,5 +16,6 @@ pub mod mqtt;
 pub mod parity;
 #[doc(hidden)]
 pub mod scripted;
+pub mod testing;
 
 pub use env::Env;

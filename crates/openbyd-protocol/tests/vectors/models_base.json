@@ -1,0 +1,4189 @@
+{
+ "group": "models_base",
+ "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
+ "cases": [
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "vin": "TESTVIN0000000001",
+      "soc": 80
+     }
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {},
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": null,
+    "context": null
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": [],
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": "x",
+    "context": null
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": 0,
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": true,
+    "context": null
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": [
+     {
+      "vin": "TESTVIN0000000001",
+      "soc": 80
+     }
+    ],
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "vin": "TESTVIN0000000001",
+      "soc": 80
+     }
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": {}
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": {
+      "a": 1
+     }
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "a": 1
+     }
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": {
+      "a": 1,
+      "b": {
+       "a": 1
+      }
+     }
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "a": 1,
+      "b": {
+       "a": 1
+      }
+     }
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": {
+      "a": null
+     }
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "a": null
+     }
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": []
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": "x"
+    },
+    "context": null
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": ""
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": "--"
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": "NaN"
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": "nan"
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": " -- "
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": "  "
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": "\tnan\n"
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": null
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": -1
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": -1.0
+    },
+    "context": null
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": -129
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": -129.0
+    },
+    "context": null
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "unknownKey": 1,
+     "extra": 1,
+     "Extra Key": 1,
+     "x-y": 1,
+     "\u6bd4\u4e9a\u8fea": 1,
+     "": 1
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "vin": "TESTVIN0000000001",
+      "soc": 80,
+      "unknownKey": 1,
+      "extra": 1,
+      "Extra Key": 1,
+      "x-y": 1,
+      "\u6bd4\u4e9a\u8fea": 1,
+      "": 1
+     }
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "data": {
+      "vin": "TESTVIN0000000001",
+      "soc": 80
+     }
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "data": {
+       "vin": "TESTVIN0000000001",
+       "soc": 80
+      }
+     }
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "data": {
+      "vin": "TESTVIN0000000001",
+      "soc": 80
+     },
+     "raw": null
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "data": "notadict"
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "vin": "TESTVIN0000000001",
+      "soc": 80,
+      "data": "notadict"
+     }
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": {
+      "a": 1
+     }
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "a": 1
+     }
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": ""
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": "--"
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": null
+    },
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": 5
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": []
+    },
+    "context": null
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": 80,
+     "raw": {}
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {},
+    "context": null
+   },
+   "ok": {
+    "dump": {
+     "raw": {}
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.BydBaseModel",
+   "args": {
+    "raw": {
+     "vin": "TESTVIN0000000001",
+     "soc": "80"
+    },
+    "context": {
+     "energy_type": 1
+    }
+   },
+   "ok": {
+    "dump": {
+     "raw": {
+      "vin": "TESTVIN0000000001",
+      "soc": "80"
+     }
+    },
+    "properties": {}
+   }
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": 1700000000
+   },
+   "ok": "2023-11-14T22:13:20+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": 1700000000
+   },
+   "ok": "2023-11-14T22:13:20Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": 1700000000123
+   },
+   "ok": "2023-11-14T22:13:20+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": 1700000000123
+   },
+   "ok": "2023-11-14T22:13:20Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": 1
+   },
+   "ok": "1970-01-01T00:00:01+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": 1
+   },
+   "ok": "1970-01-01T00:00:01Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": 1000000000000
+   },
+   "ok": "2001-09-09T01:46:40+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": 1000000000000
+   },
+   "ok": "2001-09-09T01:46:40Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": 32536850399
+   },
+   "ok": "3001-01-19T21:59:59+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": 32536850399
+   },
+   "ok": "3001-01-19T21:59:59Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": 32536850399999
+   },
+   "ok": "3001-01-19T21:59:59+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": 32536850399999
+   },
+   "ok": "3001-01-19T21:59:59Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": 1.9
+   },
+   "ok": "1970-01-01T00:00:01+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": 1.9
+   },
+   "ok": "1970-01-01T00:00:01Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": 1000000000000.0
+   },
+   "ok": "2001-09-09T01:46:40+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": 1000000000000.0
+   },
+   "ok": "2001-09-09T01:46:40Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "1700000000"
+   },
+   "ok": "2023-11-14T22:13:20+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "1700000000"
+   },
+   "ok": "2023-11-14T22:13:20Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": " 1700000000123 "
+   },
+   "ok": "2023-11-14T22:13:20+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": " 1700000000123 "
+   },
+   "ok": "2023-11-14T22:13:20Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "-5"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "-5"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "0"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "0"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "--5"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "--5"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "1\u00b2"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "1\u00b2"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10"
+   },
+   "ok": "2023-11-14T22:13:20+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "\uff11\uff17\uff10\uff10\uff10\uff10\uff10\uff10\uff10\uff10"
+   },
+   "ok": "2023-11-14T22:13:20Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "\u0661\u0667"
+   },
+   "ok": "1970-01-01T00:00:17+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "\u0661\u0667"
+   },
+   "ok": "1970-01-01T00:00:17Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "2024-01-01T00:00:00Z"
+   },
+   "ok": "2024-01-01T00:00:00+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "2024-01-01T00:00:00Z"
+   },
+   "ok": "2024-01-01T00:00:00Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "2024-01-01"
+   },
+   "ok": "2024-01-01T00:00:00+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "2024-01-01"
+   },
+   "ok": "2024-01-01T00:00:00Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "2024-01-01 10:00:00.5+05:30"
+   },
+   "ok": "2024-01-01T10:00:00.500000+05:30"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "2024-01-01 10:00:00.5+05:30"
+   },
+   "ok": "2024-01-01T10:00:00.500000+05:30"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "2024-W01-1T10"
+   },
+   "ok": "2024-01-01T10:00:00+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "2024-W01-1T10"
+   },
+   "ok": "2024-01-01T10:00:00Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "20240101T1000Z"
+   },
+   "ok": "2024-01-01T10:00:00+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "20240101T1000Z"
+   },
+   "ok": "2024-01-01T10:00:00Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "2024-05-07T05:56:45.000+00:00"
+   },
+   "ok": "2024-05-07T05:56:45+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "2024-05-07T05:56:45.000+00:00"
+   },
+   "ok": "2024-05-07T05:56:45Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "2024-01-01T10:00:00-00:30:15.5"
+   },
+   "ok": "2024-01-01T10:00:00-00:30:15.500000"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "2024-01-01T10:00:00-00:30:15.5"
+   },
+   "ok": "2024-01-01T10:00:00-00:30"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "garbage"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "garbage"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "2024-13-01"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "2024-13-01"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "2024-01-01T24:00"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "2024-01-01T24:00"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": true
+   },
+   "ok": "1970-01-01T00:00:01+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": true
+   },
+   "ok": "1970-01-01T00:00:01Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": false
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": false
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": 0
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": 0
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": -1
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": -1
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": -1.5
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": -1.5
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": null
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": null
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": []
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": []
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": {}
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": {}
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": ""
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": ""
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": " "
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": " "
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "\u3000"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "\u3000"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "Z"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "Z"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "2024-01-01T10:00Z"
+   },
+   "ok": "2024-01-01T10:00:00+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "2024-01-01T10:00Z"
+   },
+   "ok": "2024-01-01T10:00:00Z"
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "2024-01-01Z10:00"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "2024-01-01Z10:00"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "2024-01-01T10:00:00+01:00Z"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "2024-01-01T10:00:00+01:00Z"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "2024-01-01\u0000"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "2024-01-01\u0000"
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.parse_byd_timestamp",
+   "args": {
+    "value": "2024-01-01T10:00Z\u0000"
+   },
+   "ok": "2024-01-01T10:00:00+00:00"
+  },
+  {
+   "call": "models.base.BydTimestamp",
+   "args": {
+    "value": "2024-01-01T10:00Z\u0000"
+   },
+   "ok": "2024-01-01T10:00:00Z"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": null
+   },
+   "ok": null
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": ""
+   },
+   "ok": ""
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "kW\u00b7h/100km"
+   },
+   "ok": "kWh/100km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "kWh/100km"
+   },
+   "ok": "kWh/100km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "KWH/100 KM"
+   },
+   "ok": "kWh/100km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "kw.h/100km"
+   },
+   "ok": "kWh/100km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "\u5ea6/\u767e\u516c\u91cc"
+   },
+   "ok": "kWh/100km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "\u5347/\u767e\u516c\u91cc"
+   },
+   "ok": "L/100km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "L/100km"
+   },
+   "ok": "L/100km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "l/100mi"
+   },
+   "ok": "L/100miles"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "kWh/100mile"
+   },
+   "ok": "kWh/100miles"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "kWh/100miles"
+   },
+   "ok": "kWh/100miles"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "kWh/\u767e\u82f1\u91cc"
+   },
+   "ok": "kWh/100miles"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "kW\u00b7h"
+   },
+   "ok": "kWh"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "kWh"
+   },
+   "ok": "kWh"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "km"
+   },
+   "ok": "km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "L"
+   },
+   "ok": "L"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "mi"
+   },
+   "ok": "mi"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "/"
+   },
+   "ok": "/"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "//"
+   },
+   "ok": "//"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "kWh/"
+   },
+   "ok": "kWh/"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "/100km"
+   },
+   "ok": "/100km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": " k W h / 1 0 0 k m "
+   },
+   "ok": "kWh/100km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "\u212awh/100km"
+   },
+   "ok": "kWh/100km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "kwh/100mile\u017f"
+   },
+   "ok": "kWh/100miles"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "KWH\u3000/\u001c100KM"
+   },
+   "ok": "kWh/100km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "kW\u00b7\u00b7h/100km"
+   },
+   "ok": "kWh/100km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "kW\u00b7h/100km+7.2L/100km"
+   },
+   "ok": "kWh/100km+7.2L/100km"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "%"
+   },
+   "ok": "%"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "mpg"
+   },
+   "ok": "mpg"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "\u00df"
+   },
+   "ok": "\u00df"
+  },
+  {
+   "call": "models.base.normalize_unit",
+   "args": {
+    "text": "\ufb01"
+   },
+   "ok": "\ufb01"
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": 0
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": 0
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": 1
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": 1
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": -1
+   },
+   "ok": true
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": -1
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": -0.0
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": -0.0
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": 0.5
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": 0.5
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": -0.5
+   },
+   "ok": true
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": -0.5
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": -129
+   },
+   "ok": true
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": -129
+   },
+   "ok": true
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": -129.0
+   },
+   "ok": true
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": -129.0
+   },
+   "ok": true
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": -129.5
+   },
+   "ok": true
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": -129.5
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": -128.9999
+   },
+   "ok": true
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": -128.9999
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": 9223372036854775807
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": 9223372036854775807
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": -9223372036854775808
+   },
+   "ok": true
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": -9223372036854775808
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": 18446744073709551615
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": 18446744073709551615
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": 1e+300
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": 1e+300
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.is_negative",
+   "args": {
+    "value": -1e+300
+   },
+   "ok": true
+  },
+  {
+   "call": "models.base.is_temp_sentinel",
+   "args": {
+    "value": -1e+300
+   },
+   "ok": false
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "abs_warning"
+   },
+   "ok": "absWarning"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "ac_switch"
+   },
+   "ok": "acSwitch"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "ack"
+   },
+   "ok": "ack"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "air_accuracy"
+   },
+   "ok": "airAccuracy"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "air_condition_temp_range"
+   },
+   "ok": "airConditionTempRange"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "air_conditioning_mode"
+   },
+   "ok": "airConditioningMode"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "air_distribution"
+   },
+   "ok": "airDistribution"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "air_run_state"
+   },
+   "ok": "airRunState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "air_set"
+   },
+   "ok": "airSet"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "allow_setting"
+   },
+   "ok": "allowSetting"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "app_config_version"
+   },
+   "ok": "appConfigVersion"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "auto_alias"
+   },
+   "ok": "autoAlias"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "auto_bought_time"
+   },
+   "ok": "autoBoughtTime"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "auto_model_graph"
+   },
+   "ok": "autoModelGraph"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "auto_plate"
+   },
+   "ok": "autoPlate"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "avg_eq_oil_consumption"
+   },
+   "ok": "avgEqOilConsumption"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "avg_ev_consumption"
+   },
+   "ok": "avgEvConsumption"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "avg_oil_consumption"
+   },
+   "ok": "avgOilConsumption"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "battery_heat"
+   },
+   "ok": "batteryHeat"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "battery_heat_state"
+   },
+   "ok": "batteryHeatState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "booking_charge_state"
+   },
+   "ok": "bookingChargeState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "booking_charging_hour"
+   },
+   "ok": "bookingChargingHour"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "booking_charging_minute"
+   },
+   "ok": "bookingChargingMinute"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "booking_id"
+   },
+   "ok": "bookingId"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "booking_time"
+   },
+   "ok": "bookingTime"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "bookings"
+   },
+   "ok": "bookings"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "braking_system"
+   },
+   "ok": "brakingSystem"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "brand_name"
+   },
+   "ok": "brandName"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "car_on"
+   },
+   "ok": "carOn"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "car_type"
+   },
+   "ok": "carType"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "cf_fixed_list"
+   },
+   "ok": "cfFixedList"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "cf_fixed_second_level_list"
+   },
+   "ok": "cfFixedSecondLevelList"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "chair_type"
+   },
+   "ok": "chairType"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "charge"
+   },
+   "ok": "charge"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "charge_heat_state"
+   },
+   "ok": "chargeHeatState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "charge_power"
+   },
+   "ok": "chargePower"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "charge_power_unit"
+   },
+   "ok": "chargePowerUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "charge_state"
+   },
+   "ok": "chargeState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "charge_until_full"
+   },
+   "ok": "chargeUntilFull"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "charge_way"
+   },
+   "ok": "chargeWay"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "charging_state"
+   },
+   "ok": "chargingState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "charging_system"
+   },
+   "ok": "chargingSystem"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "child_presence_detection"
+   },
+   "ok": "childPresenceDetection"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "children"
+   },
+   "ok": "children"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "climate"
+   },
+   "ok": "climate"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "close_trunk"
+   },
+   "ok": "closeTrunk"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "close_windows"
+   },
+   "ok": "closeWindows"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "code"
+   },
+   "ok": "code"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "codes"
+   },
+   "ok": "codes"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "command"
+   },
+   "ok": "command"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "config_data"
+   },
+   "ok": "configData"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "config_version"
+   },
+   "ok": "configVersion"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "connect_state"
+   },
+   "ok": "connectState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "content"
+   },
+   "ok": "content"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "control_state"
+   },
+   "ok": "controlState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "copilot_heat"
+   },
+   "ok": "copilotHeat"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "copilot_seat_heat_state"
+   },
+   "ok": "copilotSeatHeatState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "copilot_seat_ventilation_state"
+   },
+   "ok": "copilotSeatVentilationState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "copilot_setting_temp"
+   },
+   "ok": "copilotSettingTemp"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "copilot_setting_temp_new"
+   },
+   "ok": "copilotSettingTempNew"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "copilot_temperature"
+   },
+   "ok": "copilotTemperature"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "copilot_ventilation"
+   },
+   "ok": "copilotVentilation"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "create_time"
+   },
+   "ok": "createTime"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "cumulative_energy_consumption"
+   },
+   "ok": "cumulativeEnergyConsumption"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "current_ev_current_limit"
+   },
+   "ok": "currentEvCurrentLimit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "current_limit_list"
+   },
+   "ok": "currentLimitList"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "cycle_choice"
+   },
+   "ok": "cycleChoice"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "cycle_mode"
+   },
+   "ok": "cycleMode"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "default_car"
+   },
+   "ok": "defaultCar"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "digital_key"
+   },
+   "ok": "digitalKey"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "direction"
+   },
+   "ok": "direction"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "discount_end"
+   },
+   "ok": "discountEnd"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "discount_start"
+   },
+   "ok": "discountStart"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "drive_distribution"
+   },
+   "ok": "driveDistribution"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "driver_seat_heat"
+   },
+   "ok": "driverSeatHeat"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "driver_seat_ventilation"
+   },
+   "ok": "driverSeatVentilation"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "ect"
+   },
+   "ok": "ect"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "ect_value"
+   },
+   "ok": "ectValue"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "elec_percent"
+   },
+   "ok": "elecPercent"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "elect_distribution"
+   },
+   "ok": "electDistribution"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "electric_defrost_status"
+   },
+   "ok": "electricDefrostStatus"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "empower_id"
+   },
+   "ok": "empowerId"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "empower_type"
+   },
+   "ok": "empowerType"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "encry_token"
+   },
+   "ok": "encryToken"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "end_time"
+   },
+   "ok": "endTime"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "endurance_mileage"
+   },
+   "ok": "enduranceMileage"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "endurance_mileage_v2"
+   },
+   "ok": "enduranceMileageV2"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "endurance_mileage_v2_unit"
+   },
+   "ok": "enduranceMileageV2Unit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "energy_analysis"
+   },
+   "ok": "energyAnalysis"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "energy_consumption"
+   },
+   "ok": "energyConsumption"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "energy_consumption_ev"
+   },
+   "ok": "energyConsumptionEv"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "energy_consumption_ev_unit"
+   },
+   "ok": "energyConsumptionEvUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "energy_consumption_fuel"
+   },
+   "ok": "energyConsumptionFuel"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "energy_consumption_fuel_unit"
+   },
+   "ok": "energyConsumptionFuelUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "energy_consumption_unit"
+   },
+   "ok": "energyConsumptionUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "energy_type"
+   },
+   "ok": "energyType"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "engine_status"
+   },
+   "ok": "engineStatus"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "epb"
+   },
+   "ok": "epb"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "eps"
+   },
+   "ok": "eps"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "eq_consumption"
+   },
+   "ok": "eqConsumption"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "eq_consumption_unit"
+   },
+   "ok": "eqConsumptionUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "esp"
+   },
+   "ok": "esp"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "ev_consumption"
+   },
+   "ok": "evConsumption"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "ev_endurance"
+   },
+   "ok": "evEndurance"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "ev_unit"
+   },
+   "ok": "evUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "ev_value_unit"
+   },
+   "ok": "evValueUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "exe_time"
+   },
+   "ok": "exeTime"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "expired"
+   },
+   "ok": "expired"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "find_car"
+   },
+   "ok": "findCar"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "flash_lights"
+   },
+   "ok": "flashLights"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "forehold"
+   },
+   "ok": "forehold"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "front_defrost_status"
+   },
+   "ok": "frontDefrostStatus"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "full_hour"
+   },
+   "ok": "fullHour"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "full_minute"
+   },
+   "ok": "fullMinute"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "function_name"
+   },
+   "ok": "functionName"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "function_no"
+   },
+   "ok": "functionNo"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "function_nos"
+   },
+   "ok": "functionNos"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "gl"
+   },
+   "ok": "gl"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "gps_timestamp"
+   },
+   "ok": "gpsTimestamp"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "health_abs"
+   },
+   "ok": "healthAbs"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "health_battery"
+   },
+   "ok": "healthBattery"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "health_braking"
+   },
+   "ok": "healthBraking"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "health_charging"
+   },
+   "ok": "healthCharging"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "health_esp"
+   },
+   "ok": "healthEsp"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "health_powertrain"
+   },
+   "ok": "healthPowertrain"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "health_srs"
+   },
+   "ok": "healthSrs"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "health_steering"
+   },
+   "ok": "healthSteering"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "health_tpms"
+   },
+   "ok": "healthTpms"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "heat_type"
+   },
+   "ok": "heatType"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "ins"
+   },
+   "ok": "ins"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "journey"
+   },
+   "ok": "journey"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "jump_url"
+   },
+   "ok": "jumpUrl"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "latitude"
+   },
+   "ok": "latitude"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "left_front_door"
+   },
+   "ok": "leftFrontDoor"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "left_front_door_lock"
+   },
+   "ok": "leftFrontDoorLock"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "left_front_tire_pressure"
+   },
+   "ok": "leftFrontTirePressure"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "left_front_tire_status"
+   },
+   "ok": "leftFrontTireStatus"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "left_front_window"
+   },
+   "ok": "leftFrontWindow"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "left_front_window_pct"
+   },
+   "ok": "leftFrontWindowPct"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "left_rear_door"
+   },
+   "ok": "leftRearDoor"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "left_rear_door_lock"
+   },
+   "ok": "leftRearDoorLock"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "left_rear_tire_pressure"
+   },
+   "ok": "leftRearTirePressure"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "left_rear_tire_status"
+   },
+   "ok": "leftRearTireStatus"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "left_rear_window"
+   },
+   "ok": "leftRearWindow"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "left_rear_window_pct"
+   },
+   "ok": "leftRearWindowPct"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "less_one_min"
+   },
+   "ok": "lessOneMin"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "location"
+   },
+   "ok": "location"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "lock"
+   },
+   "ok": "lock"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "longitude"
+   },
+   "ok": "longitude"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "lr_seat_heat_state"
+   },
+   "ok": "lrSeatHeatState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "lr_seat_ventilation_state"
+   },
+   "ok": "lrSeatVentilationState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "lr_third_heat_state"
+   },
+   "ok": "lrThirdHeatState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "lr_third_ventilation_state"
+   },
+   "ok": "lrThirdVentilationState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "main_heat"
+   },
+   "ok": "mainHeat"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "main_seat_heat_state"
+   },
+   "ok": "mainSeatHeatState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "main_seat_ventilation_state"
+   },
+   "ok": "mainSeatVentilationState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "main_setting_temp"
+   },
+   "ok": "mainSettingTemp"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "main_setting_temp_new"
+   },
+   "ok": "mainSettingTempNew"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "main_ventilation"
+   },
+   "ok": "mainVentilation"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "matched"
+   },
+   "ok": "matched"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "message"
+   },
+   "ok": "message"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "message_group"
+   },
+   "ok": "messageGroup"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "message_id"
+   },
+   "ok": "messageId"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "messages"
+   },
+   "ok": "messages"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "mileage_unit"
+   },
+   "ok": "mileageUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "mobile_ota"
+   },
+   "ok": "mobileOta"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "model_id"
+   },
+   "ok": "modelId"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "model_name"
+   },
+   "ok": "modelName"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "name"
+   },
+   "ok": "name"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "nearest_energy_consumption"
+   },
+   "ok": "nearestEnergyConsumption"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "nearest_energy_consumption_ev"
+   },
+   "ok": "nearestEnergyConsumptionEv"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "nearest_energy_consumption_ev_unit"
+   },
+   "ok": "nearestEnergyConsumptionEvUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "nearest_energy_consumption_fuel"
+   },
+   "ok": "nearestEnergyConsumptionFuel"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "nearest_energy_consumption_fuel_unit"
+   },
+   "ok": "nearestEnergyConsumptionFuelUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "nearest_energy_consumption_unit"
+   },
+   "ok": "nearestEnergyConsumptionUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "nfc_key"
+   },
+   "ok": "nfcKey"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "nfc_key_3c"
+   },
+   "ok": "nfcKey3C"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "oil_consumption"
+   },
+   "ok": "oilConsumption"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "oil_endurance"
+   },
+   "ok": "oilEndurance"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "oil_percent"
+   },
+   "ok": "oilPercent"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "oil_pressure_system"
+   },
+   "ok": "oilPressureSystem"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "oil_unit"
+   },
+   "ok": "oilUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "oil_value_unit"
+   },
+   "ok": "oilValueUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "ok"
+   },
+   "ok": "ok"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "ok_light"
+   },
+   "ok": "okLight"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "on"
+   },
+   "ok": "on"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "one_click_shutdown"
+   },
+   "ok": "oneClickShutdown"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "online_state"
+   },
+   "ok": "onlineState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "open_trunk"
+   },
+   "ok": "openTrunk"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "open_windows"
+   },
+   "ok": "openWindows"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "other_distribution"
+   },
+   "ok": "otherDistribution"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "out_model_type"
+   },
+   "ok": "outModelType"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "passenger_seat_heat"
+   },
+   "ok": "passengerSeatHeat"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "passenger_seat_ventilation"
+   },
+   "ok": "passengerSeatVentilation"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "pending"
+   },
+   "ok": "pending"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "pending_by_vin"
+   },
+   "ok": "pendingByVin"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "permission_status"
+   },
+   "ok": "permissionStatus"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "pic_main_url"
+   },
+   "ok": "picMainUrl"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "pic_set_url"
+   },
+   "ok": "picSetUrl"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "pm"
+   },
+   "ok": "pm"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "pm25_state_out_car"
+   },
+   "ok": "pm25StateOutCar"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "power_battery"
+   },
+   "ok": "powerBattery"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "power_battery_connection"
+   },
+   "ok": "powerBatteryConnection"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "power_gear"
+   },
+   "ok": "powerGear"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "power_system"
+   },
+   "ok": "powerSystem"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "push_time"
+   },
+   "ok": "pushTime"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "pwr"
+   },
+   "ok": "pwr"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "range_detail_list"
+   },
+   "ok": "rangeDetailList"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "rapid_decrease_temp_state"
+   },
+   "ok": "rapidDecreaseTempState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "rapid_increase_temp_state"
+   },
+   "ok": "rapidIncreaseTempState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "rapid_tire_leak"
+   },
+   "ok": "rapidTireLeak"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "rate"
+   },
+   "ok": "rate"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "raw"
+   },
+   "ok": "raw"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "raw_uuid"
+   },
+   "ok": "rawUuid"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "rear_left_seat_heat"
+   },
+   "ok": "rearLeftSeatHeat"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "rear_left_seat_ventilation"
+   },
+   "ok": "rearLeftSeatVentilation"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "rear_right_seat_heat"
+   },
+   "ok": "rearRightSeatHeat"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "rear_right_seat_ventilation"
+   },
+   "ok": "rearRightSeatVentilation"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "reason"
+   },
+   "ok": "reason"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "recent_50km_energy"
+   },
+   "ok": "recent50KmEnergy"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "recent_50km_energy_ev"
+   },
+   "ok": "recent50KmEnergyEv"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "recent_50km_energy_ev_unit"
+   },
+   "ok": "recent50KmEnergyEvUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "recent_50km_energy_fuel"
+   },
+   "ok": "recent50KmEnergyFuel"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "recent_50km_energy_fuel_unit"
+   },
+   "ok": "recent50KmEnergyFuelUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "refrigerator_door_state"
+   },
+   "ok": "refrigeratorDoorState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "refrigerator_state"
+   },
+   "ok": "refrigeratorState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "remaining_hours"
+   },
+   "ok": "remainingHours"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "remaining_minutes"
+   },
+   "ok": "remainingMinutes"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "remote_mode"
+   },
+   "ok": "remoteMode"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "repair_mode_switch"
+   },
+   "ok": "repairModeSwitch"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "request_serial"
+   },
+   "ok": "requestSerial"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "res"
+   },
+   "ok": "res"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "result"
+   },
+   "ok": "result"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "right_front_door"
+   },
+   "ok": "rightFrontDoor"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "right_front_door_lock"
+   },
+   "ok": "rightFrontDoorLock"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "right_front_tire_pressure"
+   },
+   "ok": "rightFrontTirePressure"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "right_front_tire_status"
+   },
+   "ok": "rightFrontTireStatus"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "right_front_window"
+   },
+   "ok": "rightFrontWindow"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "right_front_window_pct"
+   },
+   "ok": "rightFrontWindowPct"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "right_rear_door"
+   },
+   "ok": "rightRearDoor"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "right_rear_door_lock"
+   },
+   "ok": "rightRearDoorLock"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "right_rear_tire_pressure"
+   },
+   "ok": "rightRearTirePressure"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "right_rear_tire_status"
+   },
+   "ok": "rightRearTireStatus"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "right_rear_window"
+   },
+   "ok": "rightRearWindow"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "right_rear_window_pct"
+   },
+   "ok": "rightRearWindowPct"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "rr_seat_heat_state"
+   },
+   "ok": "rrSeatHeatState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "rr_seat_ventilation_state"
+   },
+   "ok": "rrSeatVentilationState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "rr_third_heat_state"
+   },
+   "ok": "rrThirdHeatState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "rr_third_ventilation_state"
+   },
+   "ok": "rrThirdVentilationState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "scheduled_departure"
+   },
+   "ok": "scheduledDeparture"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "self_graph"
+   },
+   "ok": "selfGraph"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "sentry_status"
+   },
+   "ok": "sentryStatus"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "sign_token"
+   },
+   "ok": "signToken"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "skylight"
+   },
+   "ok": "skylight"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "sliding_door"
+   },
+   "ok": "slidingDoor"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "sliding_door_lock"
+   },
+   "ok": "slidingDoorLock"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "soc"
+   },
+   "ok": "soc"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "sort_num"
+   },
+   "ok": "sortNum"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "source"
+   },
+   "ok": "source"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "speed"
+   },
+   "ok": "speed"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "srs"
+   },
+   "ok": "srs"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "start_charge"
+   },
+   "ok": "startCharge"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "start_time"
+   },
+   "ok": "startTime"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "state"
+   },
+   "ok": "state"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "status"
+   },
+   "ok": "status"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "steering_system"
+   },
+   "ok": "steeringSystem"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "steering_wheel_heat"
+   },
+   "ok": "steeringWheelHeat"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "steering_wheel_heat_state"
+   },
+   "ok": "steeringWheelHeatState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "stop_charge"
+   },
+   "ok": "stopCharge"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "style_id"
+   },
+   "ok": "styleId"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "success"
+   },
+   "ok": "success"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "svs"
+   },
+   "ok": "svs"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "switches"
+   },
+   "ok": "switches"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "tbox_version"
+   },
+   "ok": "tboxVersion"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "temp_in_car"
+   },
+   "ok": "tempInCar"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "temp_offset"
+   },
+   "ok": "tempOffset"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "temp_out_car"
+   },
+   "ok": "tempOutCar"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "temperature"
+   },
+   "ok": "temperature"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "terminal_type"
+   },
+   "ok": "terminalType"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "time_span"
+   },
+   "ok": "timeSpan"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "time_zone"
+   },
+   "ok": "timeZone"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "timestamp"
+   },
+   "ok": "timestamp"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "tire_press_unit"
+   },
+   "ok": "tirePressUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "tirepressure_system"
+   },
+   "ok": "tirepressureSystem"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "title"
+   },
+   "ok": "title"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "title_id"
+   },
+   "ok": "titleId"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_consumption"
+   },
+   "ok": "totalConsumption"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_consumption_en"
+   },
+   "ok": "totalConsumptionEn"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_consumption_en_ev"
+   },
+   "ok": "totalConsumptionEnEv"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_consumption_en_ev_unit"
+   },
+   "ok": "totalConsumptionEnEvUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_consumption_en_fuel"
+   },
+   "ok": "totalConsumptionEnFuel"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_consumption_en_fuel_unit"
+   },
+   "ok": "totalConsumptionEnFuelUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_consumption_ev"
+   },
+   "ok": "totalConsumptionEv"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_consumption_ev_unit"
+   },
+   "ok": "totalConsumptionEvUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_consumption_fuel"
+   },
+   "ok": "totalConsumptionFuel"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_consumption_fuel_unit"
+   },
+   "ok": "totalConsumptionFuelUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_energy"
+   },
+   "ok": "totalEnergy"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_energy_ev"
+   },
+   "ok": "totalEnergyEv"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_energy_ev_unit"
+   },
+   "ok": "totalEnergyEvUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_energy_fuel"
+   },
+   "ok": "totalEnergyFuel"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_energy_fuel_unit"
+   },
+   "ok": "totalEnergyFuelUnit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_mileage"
+   },
+   "ok": "totalMileage"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_mileage_v2"
+   },
+   "ok": "totalMileageV2"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_mileage_v2_unit"
+   },
+   "ok": "totalMileageV2Unit"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_oil"
+   },
+   "ok": "totalOil"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "total_power"
+   },
+   "ok": "totalPower"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "trunk_lid"
+   },
+   "ok": "trunkLid"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "type"
+   },
+   "ok": "type"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "uncorrelated"
+   },
+   "ok": "uncorrelated"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "unknown_function_nos"
+   },
+   "ok": "unknownFunctionNos"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "unlock"
+   },
+   "ok": "unlock"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "update_time"
+   },
+   "ok": "updateTime"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "upgrade_status"
+   },
+   "ok": "upgradeStatus"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "use_vehicle_time"
+   },
+   "ok": "useVehicleTime"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "user_id"
+   },
+   "ok": "userId"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "uwb_key"
+   },
+   "ok": "uwbKey"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "vde_temp_range_max"
+   },
+   "ok": "vdeTempRangeMax"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "vde_temp_range_min"
+   },
+   "ok": "vdeTempRangeMin"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "vehicle_fun_learn_info"
+   },
+   "ok": "vehicleFunLearnInfo"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "vehicle_health"
+   },
+   "ok": "vehicleHealth"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "vehicle_state"
+   },
+   "ok": "vehicleState"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "vehicle_time_zone"
+   },
+   "ok": "vehicleTimeZone"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "vin"
+   },
+   "ok": "vin"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "wait_status"
+   },
+   "ok": "waitStatus"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "whether_support_adjust_temp"
+   },
+   "ok": "whetherSupportAdjustTemp"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "widget_config_id"
+   },
+   "ok": "widgetConfigId"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "wind_level"
+   },
+   "ok": "windLevel"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "wind_mode"
+   },
+   "ok": "windMode"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "wind_position"
+   },
+   "ok": "windPosition"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "wiper_heat_status"
+   },
+   "ok": "wiperHeatStatus"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "yun_active_time"
+   },
+   "ok": "yunActiveTime"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "a__b"
+   },
+   "ok": "a__B"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "__x"
+   },
+   "ok": "__x"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "_private"
+   },
+   "ok": "_private"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "Already"
+   },
+   "ok": "already"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "x2y"
+   },
+   "ok": "x2Y"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "lr_3rd_heat"
+   },
+   "ok": "lr3RdHeat"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "rr_seat2_heat"
+   },
+   "ok": "rrSeat2Heat"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "a_1b"
+   },
+   "ok": "a1B"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "a_B"
+   },
+   "ok": "aB"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "ABC"
+   },
+   "ok": "abc"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "a"
+   },
+   "ok": "a"
+  },
+  {
+   "call": "models.base.to_camel",
+   "args": {
+    "name": "x_"
+   },
+   "ok": "x_"
+  },
+  {
+   "call": "models.base.clean_dict",
+   "args": {
+    "values": {},
+    "aliases": {}
+   },
+   "ok": {}
+  },
+  {
+   "call": "models.base.clean_dict",
+   "args": {
+    "values": {
+     "elecPercent": 1,
+     "time": "",
+     "a": null,
+     "b": " -- ",
+     "c": "\tnan ",
+     "d": "NAN",
+     "e": 0
+    },
+    "aliases": {
+     "elecPercent": "soc",
+     "time": "updateTime"
+    }
+   },
+   "ok": {
+    "d": "NAN",
+    "e": 0,
+    "soc": 1
+   }
+  },
+  {
+   "call": "models.base.clean_dict",
+   "args": {
+    "values": {
+     "elecPercent": 1,
+     "soc": 2,
+     "x": 3
+    },
+    "aliases": {
+     "elecPercent": "soc"
+    }
+   },
+   "ok": {
+    "elecPercent": 1,
+    "soc": 2,
+    "x": 3
+   }
+  },
+  {
+   "call": "models.base.clean_dict",
+   "args": {
+    "values": {
+     "a": 1,
+     "b": 2,
+     "c": 3
+    },
+    "aliases": {
+     "a": "z",
+     "z": "y",
+     "c": "a"
+    }
+   },
+   "ok": {
+    "b": 2,
+    "y": 1,
+    "a": 3
+   }
+  }
+ ]
+}

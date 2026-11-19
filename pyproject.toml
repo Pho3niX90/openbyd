@@ -1,0 +1,39 @@
+[build-system]
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
+
+[project]
+name = "openbyd"
+description = "Unofficial client for the BYD overseas app API, with a Rust core"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+dynamic = ["version"]
+keywords = ["byd", "ev", "vehicle", "telemetry"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Repository = "https://github.com/Pho3niX90/openbyd"
+Upstream = "https://github.com/jkaberg/pyBYD"
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.maturin]
+manifest-path = "crates/openbyd-py/Cargo.toml"
+python-source = "python"
+module-name = "openbyd._native"
+include = [{ path = "LICENSE", format = "sdist" }]
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]

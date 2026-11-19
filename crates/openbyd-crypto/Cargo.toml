@@ -1,0 +1,17 @@
+[package]
+name = "openbyd-crypto"
+description = "Cipher and envelope primitives for the BYD overseas app API"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../README.md"
+include = ["src/**", "data/bangcle_tables.bin", "tests/**", "Cargo.toml"]
+
+[dependencies]
+
+[dev-dependencies]
+serde_json = "1"
+
+[lints]
+workspace = true

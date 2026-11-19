@@ -7,3 +7,6 @@ __pycache__/
 *.so
 .pytest_cache/
 *.pdb
+.coverage
+.coverage.*
+lcov.info

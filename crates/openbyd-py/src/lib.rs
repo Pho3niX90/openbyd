@@ -28,6 +28,13 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 
+/// mimalloc serves the many small allocations of parsing and converting
+/// replies about twice as fast as the system heaps (cargo feature `mimalloc`,
+/// on by default). It only serves Rust's allocations; Python keeps its own.
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 #[derive(FromPyObject)]
 enum Plaintext {
     Text(String),

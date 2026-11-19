@@ -177,6 +177,21 @@ impl ScriptedBackend {
         self.script.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Queues one reply (see the module documentation for its form).
+    pub fn queue(&self, reply: Value) {
+        self.script().replies.push_back(reply);
+    }
+
+    /// The calls made so far, cleared.
+    pub fn take_calls(&self) -> Vec<Value> {
+        std::mem::take(&mut self.script().calls)
+    }
+
+    /// Lets the backend deliver its scripted pushes to `car`.
+    pub fn attach(car: &BydCar<ScriptedBackend>) {
+        let _ = car.inner.backend.car.set(Arc::downgrade(&car.inner));
+    }
+
     /// Records `call`, takes the next reply, delivers its pushes and gives
     /// the raw result and its context, or the scripted error.
     async fn answer(&self, call: Value) -> Result<(Value, Value), Error> {
@@ -625,7 +640,7 @@ fn run(args: &Args<'_>) -> Outcome {
         Ok(car) => car,
         Err(error) => return Ok(json!({"error": describe_error(&error)})),
     };
-    let _ = car.inner.backend.car.set(Arc::downgrade(&car.inner));
+    ScriptedBackend::attach(&car);
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .build()

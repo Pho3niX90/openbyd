@@ -12,12 +12,19 @@ name = "_native"
 crate-type = ["cdylib"]
 doc = false
 
+[features]
+# `openbyd.testing.FakeServer`: the fake BYD server, for tests and benchmarks.
+# `parity/dev_install.py` builds with it; released wheels leave it out.
+testing = ["openbyd-client/testing"]
+
 [dependencies]
 openbyd-crypto.workspace = true
 openbyd-protocol.workspace = true
 openbyd-client.workspace = true
 serde_json.workspace = true
 pyo3 = { version = "0.30", features = ["abi3-py311"] }
+# The shared runtime the asyncio bridge runs Rust futures on.
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "time", "sync", "net"] }
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }

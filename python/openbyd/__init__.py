@@ -1,31 +1,80 @@
 """openbyd: an unofficial client for the BYD overseas app API, with a Rust core.
 
-So far this package holds the envelope cipher. The rest of the client is
-being ported from pyBYD.
+The package so far:
+
+- :mod:`openbyd.exceptions`: pyBYD's exception hierarchy (also exported here).
+- :mod:`openbyd.models`: pyBYD's reply models, parsed in Rust.
+- :mod:`openbyd.shadow`: compare openbyd with pyBYD on live replies.
+- :mod:`openbyd.runtime`: the Rust runtime behind openbyd's awaitables.
+- :mod:`openbyd.lowlevel`: single API requests from asyncio.
+- :mod:`openbyd.pybyd_accel`: run pyBYD's envelope cipher in Rust.
+- ``openbyd.testing``: a fake BYD server (development builds only).
+- The envelope cipher: :func:`encode_envelope`, :func:`decode_envelope`,
+  :func:`encrypt_cbc`, :func:`decrypt_cbc`, :func:`embedded_tables`.
+
+The rest of the client is being ported from pyBYD.
 """
 
 from importlib.metadata import PackageNotFoundError, version
 
+# exceptions first: the extension raises its classes.
+from openbyd import exceptions
 from openbyd._native import (
-    BangcleError,
     decode_envelope,
     decrypt_cbc,
     embedded_tables,
     encode_envelope,
     encrypt_cbc,
 )
+from openbyd import lowlevel, models, runtime, shadow
+from openbyd.exceptions import (
+    BangcleError,
+    BangcleTableLoadError,
+    BydApiError,
+    BydAuthenticationError,
+    BydControlPasswordError,
+    BydCryptoError,
+    BydDataUnavailableError,
+    BydEndpointNotSupportedError,
+    BydError,
+    BydRateLimitError,
+    BydRemoteControlError,
+    BydServiceBusyError,
+    BydSessionExpiredError,
+    BydTransportError,
+    ValidationError,
+)
 
 try:
     __version__ = version("openbyd")
-except PackageNotFoundError:
+except PackageNotFoundError:  # pragma: no cover - only when run from a source tree
     __version__ = "0+local"
 
 __all__ = [
     "BangcleError",
+    "BangcleTableLoadError",
+    "BydApiError",
+    "BydAuthenticationError",
+    "BydControlPasswordError",
+    "BydCryptoError",
+    "BydDataUnavailableError",
+    "BydEndpointNotSupportedError",
+    "BydError",
+    "BydRateLimitError",
+    "BydRemoteControlError",
+    "BydServiceBusyError",
+    "BydSessionExpiredError",
+    "BydTransportError",
+    "ValidationError",
     "__version__",
     "decode_envelope",
     "decrypt_cbc",
     "embedded_tables",
     "encode_envelope",
     "encrypt_cbc",
+    "exceptions",
+    "lowlevel",
+    "models",
+    "runtime",
+    "shadow",
 ]

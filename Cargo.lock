@@ -656,6 +656,7 @@ dependencies = [
  "openbyd-protocol",
  "pyo3",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]

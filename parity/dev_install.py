@@ -8,6 +8,10 @@ Python on Windows) would collide with it. This builds a wheel into the
 cargo target directory and installs that.
 
 Honours ``CARGO_TARGET_DIR``, so several people can build side by side.
+
+The extension is built with the cargo feature ``testing``, which adds
+``openbyd.testing`` (the fake BYD server) for the tests. Released wheels
+are built without it.
 """
 
 from __future__ import annotations
@@ -28,7 +32,8 @@ def main() -> int:
 
     maturin = shutil.which("maturin") or str(Path(sys.executable).with_name("maturin"))
     build = subprocess.run(
-        [maturin, "build", "--release", "--interpreter", sys.executable, "--out", str(wheels)],
+        # `testing` adds openbyd.testing.FakeServer; released wheels are built without it.
+        [maturin, "build", "--release", "--features", "testing", "--interpreter", sys.executable, "--out", str(wheels)],
         cwd=ROOT,
     )
     if build.returncode != 0:

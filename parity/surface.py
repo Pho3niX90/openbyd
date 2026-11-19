@@ -6,7 +6,8 @@ public symbol that needs a parity call, mapped to where it lives::
     {"hashing.md5_hex": "pybyd._crypto.hashing:md5_hex", ...}
 
 ``io_functions()`` lists the public coroutine functions. They are ported in
-``openbyd-client`` and covered by its scenario tests, so they need no call.
+``openbyd-client`` and need a parity call too: one that runs the flow against
+a script and compares its trace (``parity/api_support.py``).
 
 The rules that decide which module maps to which prefix are in ``_EXACT``,
 ``_SKIP`` and ``prefix_for``. A module that matches no rule raises
@@ -146,7 +147,7 @@ def expected_calls() -> dict[str, str]:
 def io_functions() -> dict[str, str]:
     """Every public pyBYD coroutine function, mapped to ``module:Symbol``.
 
-    These are ported in ``openbyd-client``, not through a parity call.
+    These are ported in ``openbyd-client`` and compared by trace.
     """
     return _collect()[1]
 
@@ -164,7 +165,7 @@ def main() -> None:
         for name in names:
             print(f"  {name:<40} {calls[name]}")
 
-    print(f"\n{len(io)} I/O functions (ported in openbyd-client)")
+    print(f"\n{len(io)} I/O functions (ported in openbyd-client, compared by trace)")
     for name in sorted(io):
         print(f"  {name:<40} {io[name]}")
 

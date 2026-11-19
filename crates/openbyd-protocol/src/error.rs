@@ -19,6 +19,10 @@ use crate::parity::{Args, Outcome, ParityError};
 /// Python built-in exceptions that pyBYD lets through unchanged for some
 /// inputs (a reply that is not JSON, text that is not UTF-8, a config value
 /// of the wrong type), so the client can still tell them apart.
+///
+/// [`ErrorKind::ScriptExhausted`] is the parity tests' own: a scripted
+/// environment raises it when a flow asks for more replies than the script
+/// holds. Production code never sees it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ErrorKind {
     /// Base of every pyBYD error.
@@ -61,11 +65,13 @@ pub enum ErrorKind {
     TypeError,
     /// Python's `AttributeError`.
     AttributeError,
+    /// A scripted test environment ran out of replies (`parity/api_support.py`).
+    ScriptExhausted,
 }
 
 impl ErrorKind {
     /// Every kind, parents before children.
-    pub const ALL: [ErrorKind; 20] = [
+    pub const ALL: [ErrorKind; 21] = [
         ErrorKind::BydError,
         ErrorKind::BydCryptoError,
         ErrorKind::BangcleError,
@@ -86,6 +92,7 @@ impl ErrorKind {
         ErrorKind::ValidationError,
         ErrorKind::TypeError,
         ErrorKind::AttributeError,
+        ErrorKind::ScriptExhausted,
     ];
 
     /// The Python class name, for example `"BydSessionExpiredError"`.
@@ -111,6 +118,7 @@ impl ErrorKind {
             ErrorKind::ValidationError => "ValidationError",
             ErrorKind::TypeError => "TypeError",
             ErrorKind::AttributeError => "AttributeError",
+            ErrorKind::ScriptExhausted => "ScriptExhausted",
         }
     }
 
@@ -123,7 +131,7 @@ impl ErrorKind {
     pub fn parent(self) -> Option<Self> {
         use ErrorKind::*;
         match self {
-            BydError | ValueError | TypeError | AttributeError => None,
+            BydError | ValueError | TypeError | AttributeError | ScriptExhausted => None,
             BydCryptoError | BydTransportError | BydApiError => Some(BydError),
             BangcleError => Some(BydCryptoError),
             BangcleTableLoadError => Some(BangcleError),

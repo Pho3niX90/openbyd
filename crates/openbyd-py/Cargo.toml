@@ -15,6 +15,7 @@ doc = false
 [dependencies]
 openbyd-crypto.workspace = true
 openbyd-protocol.workspace = true
+openbyd-client.workspace = true
 serde_json.workspace = true
 pyo3 = { version = "0.30", features = ["abi3-py311"] }
 

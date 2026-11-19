@@ -2,7 +2,10 @@
 //!
 //! Every function ported from pyBYD is reachable here under a name such as
 //! `"hashing.md5_hex"`, taking and returning JSON. The test suites feed the
-//! same arguments to pyBYD and compare. Nothing else should use this module.
+//! same arguments to pyBYD and compare. Nothing else should use this module,
+//! except `openbyd-client`, whose own `parity` module answers the calls for
+//! the flows it ports with the same helpers ([`Args`], [`first_of`],
+//! [`no_calls!`](crate::no_calls)).
 
 use std::fmt;
 
@@ -43,7 +46,9 @@ impl std::error::Error for ParityError {}
 /// What a parity call gives back.
 pub type Outcome = Result<Value, ParityError>;
 
-pub(crate) type Handler = fn(&str, &Value) -> Option<Outcome>;
+/// A module's parity entry point: `None` when the name is not one of its calls.
+#[doc(hidden)]
+pub type Handler = fn(&str, &Value) -> Option<Outcome>;
 
 const MODULES: &[Handler] = &[
     crate::aes::parity_call,
@@ -74,40 +79,47 @@ pub fn call(name: &str, args: &Value) -> Outcome {
     })
 }
 
-pub(crate) fn first_of(handlers: &[Handler], name: &str, args: &Value) -> Option<Outcome> {
+/// The answer of the first handler that knows `name`.
+#[doc(hidden)]
+pub fn first_of(handlers: &[Handler], name: &str, args: &Value) -> Option<Outcome> {
     handlers.iter().find_map(|handler| handler(name, args))
 }
 
-/// For a module that has nothing to call yet.
+/// Defines `parity_call` for a module that has nothing to call yet.
+#[doc(hidden)]
+#[macro_export]
 macro_rules! no_calls {
     () => {
         pub(crate) fn parity_call(
             _name: &str,
             _args: &serde_json::Value,
-        ) -> Option<crate::parity::Outcome> {
+        ) -> Option<$crate::parity::Outcome> {
             None
         }
     };
 }
-pub(crate) use no_calls;
+#[doc(hidden)]
+pub use no_calls;
 
 /// Reads named arguments out of the JSON object a call was given.
-pub(crate) struct Args<'a>(pub &'a Value);
+#[doc(hidden)]
+pub struct Args<'a>(pub &'a Value);
 
-#[allow(dead_code)] // each accessor is used as modules are ported
 impl<'a> Args<'a> {
     /// The argument, or JSON null when it was left out.
-    pub(crate) fn value(&self, key: &str) -> &'a Value {
+    pub fn value(&self, key: &str) -> &'a Value {
         self.0.get(key).unwrap_or(&Value::Null)
     }
 
-    pub(crate) fn str(&self, key: &str) -> Result<&'a str, ParityError> {
+    /// A required string argument.
+    pub fn str(&self, key: &str) -> Result<&'a str, ParityError> {
         self.value(key)
             .as_str()
             .ok_or_else(|| ParityError::bad_arguments(format!("{key} must be a string")))
     }
 
-    pub(crate) fn opt_str(&self, key: &str) -> Result<Option<&'a str>, ParityError> {
+    /// A string argument that may be null or left out.
+    pub fn opt_str(&self, key: &str) -> Result<Option<&'a str>, ParityError> {
         match self.value(key) {
             Value::Null => Ok(None),
             Value::String(text) => Ok(Some(text)),
@@ -117,13 +129,15 @@ impl<'a> Args<'a> {
         }
     }
 
-    pub(crate) fn i64(&self, key: &str) -> Result<i64, ParityError> {
+    /// A required integer argument.
+    pub fn i64(&self, key: &str) -> Result<i64, ParityError> {
         self.value(key)
             .as_i64()
             .ok_or_else(|| ParityError::bad_arguments(format!("{key} must be an integer")))
     }
 
-    pub(crate) fn bool(&self, key: &str) -> Result<bool, ParityError> {
+    /// A required boolean argument.
+    pub fn bool(&self, key: &str) -> Result<bool, ParityError> {
         self.value(key)
             .as_bool()
             .ok_or_else(|| ParityError::bad_arguments(format!("{key} must be true or false")))

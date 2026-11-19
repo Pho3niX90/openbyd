@@ -1,8 +1,10 @@
 """Every public pyBYD symbol has a parity call, or a stated reason it has none.
 
-``parity/surface.py`` lists what the installed pyBYD exposes. A symbol counts
-as covered when a group registers an oracle under its call name, or when
-``parity/surface_exceptions.py`` lists it in ``NOT_PORTED``.
+``parity/surface.py`` lists what the installed pyBYD exposes: the pure
+functions, models and enums (``expected_calls``) and the ``async def`` flows
+(``io_functions``), which are compared by trace through the client crate. A
+symbol counts as covered when a group registers an oracle under its call
+name, or when ``parity/surface_exceptions.py`` lists it in ``NOT_PORTED``.
 
 While the port is in progress the coverage test skips and reports the gap.
 Set ``OPENBYD_SURFACE_STRICT=1`` to make it fail instead.
@@ -33,8 +35,12 @@ def _missing(expected: dict[str, str]) -> list[str]:
     return sorted(name for name in expected if name not in registered and name not in NOT_PORTED)
 
 
+def _all_expected() -> dict[str, str]:
+    return {**expected_calls(), **io_functions()}
+
+
 def test_every_pybyd_symbol_has_a_parity_call() -> None:
-    expected = expected_calls()
+    expected = _all_expected()
     missing = _missing(expected)
     if os.environ.get("OPENBYD_SURFACE_STRICT") == "1":
         if missing:
@@ -48,7 +54,7 @@ def test_every_pybyd_symbol_has_a_parity_call() -> None:
 
 
 def test_exceptions_are_still_needed() -> None:
-    expected = expected_calls()
+    expected = _all_expected()
     registered = _registered()
     stale = sorted(name for name in NOT_PORTED if name not in expected)
     assert not stale, f"NOT_PORTED names symbols pyBYD no longer has: {stale}"
@@ -67,4 +73,14 @@ def test_surface_introspection_is_sane() -> None:
         "session.content_key",
     ):
         assert name in expected, f"{name} missing from expected_calls()"
-    assert "api.gps.fetch_gps_endpoint" in io_functions()
+    io = io_functions()
+    assert "api.gps.fetch_gps_endpoint" in io
+    assert "api.common.post_vehicle_json" in io
+    assert not set(io) & set(expected), "a symbol is listed both as a flow and as a pure call"
+
+
+def test_ported_flows_are_covered() -> None:
+    """The flows ported so far stay registered, whatever the strict setting."""
+    registered = _registered()
+    for name in ("api.common.post_token_json", "api.common.post_vehicle_json", "api.gps.fetch_gps_endpoint"):
+        assert name in registered, f"{name} lost its parity oracle"

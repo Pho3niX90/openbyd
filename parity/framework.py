@@ -2,13 +2,16 @@
 
 Every function ported from pyBYD has a *call name* such as
 ``"hashing.md5_hex"``. On the Rust side the name is answered by
-``openbyd_protocol::parity::call``. Here, a *group* module in
+``openbyd_protocol::parity::call``, or for the ``_api`` flows ported in the
+client crate by ``openbyd_client::parity::call``. Here, a *group* module in
 ``parity/groups/`` says what pyBYD answers for it (the oracle) and which
 arguments to try:
 
 - recorded cases: a fixed list. ``parity/generate.py`` runs pyBYD on them
-  and writes ``crates/openbyd-protocol/tests/vectors/<group>.json``, which
-  the Rust tests replay without needing Python.
+  and writes ``crates/<crate>/tests/vectors/<group>.json`` (``crate`` is
+  ``openbyd-protocol`` by default, ``openbyd-client`` for
+  ``Group(name, crate="client")``), which the Rust tests replay without
+  needing Python.
 - fuzz cases: random arguments, compared live in ``python/tests``.
 
 A group module looks like this::
@@ -36,6 +39,10 @@ the Rust side must fail with an error whose kind is the exception's class
 name. Only pyBYD's own errors and ``ValueError`` (which covers pydantic's
 ``ValidationError``) count; anything else is a bug in the oracle and stops
 the run. Pass ``errors=`` to ``oracle`` to allow more.
+
+The flows of pyBYD's ``_api`` package (``async def``s that post requests)
+are compared as traces; ``parity/api_support.py`` has the runner and the
+case builders.
 """
 
 from __future__ import annotations
@@ -50,7 +57,12 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
-VECTOR_DIR = ROOT / "crates" / "openbyd-protocol" / "tests" / "vectors"
+#: Where each crate's recorded vectors live.
+VECTOR_DIRS = {
+    "protocol": ROOT / "crates" / "openbyd-protocol" / "tests" / "vectors",
+    "client": ROOT / "crates" / "openbyd-client" / "tests" / "vectors",
+}
+VECTOR_DIR = VECTOR_DIRS["protocol"]
 UPSTREAM_COMMIT = (ROOT / "parity" / "UPSTREAM_COMMIT").read_text(encoding="utf-8").strip()
 
 Case = tuple[str, dict[str, Any]]
@@ -64,13 +76,22 @@ def _default_errors() -> tuple[type[BaseException], ...]:
 
 @dataclass
 class Group:
-    """The oracles and cases of one area of pyBYD."""
+    """The oracles and cases of one area of pyBYD.
+
+    ``crate`` says which Rust crate answers the group's calls and replays its
+    vectors: ``"protocol"`` (the default) or ``"client"``.
+    """
 
     name: str
+    crate: str = "protocol"
     oracles: dict[str, Callable[..., Any]] = field(default_factory=dict)
     expected_errors: dict[str, tuple[type[BaseException], ...]] = field(default_factory=dict)
     _recorded: list[Callable[[], Iterable[Case]]] = field(default_factory=list)
     _fuzz: list[Callable[[random.Random], Iterable[Case]]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.crate not in VECTOR_DIRS:
+            raise ValueError(f"group {self.name}: crate must be one of {sorted(VECTOR_DIRS)}")
 
     def oracle(
         self, call: str, *, errors: tuple[type[BaseException], ...] | None = None
@@ -136,7 +157,7 @@ class Group:
         return self.oracles[call]
 
     def vector_path(self) -> Path:
-        return VECTOR_DIR / f"{self.name}.json"
+        return VECTOR_DIRS[self.crate] / f"{self.name}.json"
 
     def vector_document(self) -> str:
         """The text of this group's vector file, from running pyBYD now."""

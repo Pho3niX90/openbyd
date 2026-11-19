@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from parity.framework import VECTOR_DIR, load_groups  # noqa: E402
+from parity.framework import ROOT, VECTOR_DIRS, load_groups  # noqa: E402
 
 
 def main() -> int:
@@ -43,15 +43,16 @@ def main() -> int:
         if not args.check:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text, encoding="utf-8", newline="\n")
-            print(f"wrote {path.relative_to(VECTOR_DIR.parents[3])}")
+            print(f"wrote {path.relative_to(ROOT).as_posix()}")
 
     if not args.groups:
         known = {group.vector_path() for group in selected if group.recorded_cases()}
-        for orphan in sorted(set(VECTOR_DIR.glob("*.json")) - known):
+        present = {path for directory in VECTOR_DIRS.values() for path in directory.glob("*.json")}
+        for orphan in sorted(present - known):
             stale.append(orphan.stem)
             if not args.check:
                 orphan.unlink()
-                print(f"removed {orphan.name}: no group writes it")
+                print(f"removed {orphan.relative_to(ROOT).as_posix()}: no group writes it")
 
     if args.check and stale:
         print(f"out of date: {', '.join(stale)}. Run python parity/generate.py", file=sys.stderr)

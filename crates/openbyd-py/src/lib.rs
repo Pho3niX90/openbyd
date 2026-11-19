@@ -62,6 +62,8 @@ fn decrypt_cbc<'py>(py: Python<'py>, data: &[u8], iv: &[u8]) -> PyResult<Bound<'
 
 /// Run one parity call. Takes the arguments as JSON text and returns JSON
 /// text: `{"ok": value}` or `{"error": {"kind": ..., "message": ...}}`.
+/// The protocol crate answers first; names it does not know go to the
+/// client crate, which holds the ported `_api` flows.
 ///
 /// This is the hook the parity tests use to compare openbyd with pyBYD. It
 /// is not part of the public API.
@@ -69,13 +71,20 @@ fn decrypt_cbc<'py>(py: Python<'py>, data: &[u8], iv: &[u8]) -> PyResult<Bound<'
 fn parity_call(py: Python<'_>, name: &str, args_json: &str) -> PyResult<String> {
     let args: serde_json::Value = serde_json::from_str(args_json)
         .map_err(|error| PyValueError::new_err(format!("arguments are not JSON: {error}")))?;
-    let reply = py.detach(|| match openbyd_protocol::parity::call(name, &args) {
+    let reply = py.detach(|| match call(name, &args) {
         Ok(value) => serde_json::json!({ "ok": value }),
         Err(error) => {
             serde_json::json!({ "error": { "kind": error.kind, "message": error.message } })
         }
     });
     Ok(reply.to_string())
+}
+
+fn call(name: &str, args: &serde_json::Value) -> openbyd_protocol::parity::Outcome {
+    match openbyd_protocol::parity::call(name, args) {
+        Err(error) if error.kind == "UnknownCall" => openbyd_client::parity::call(name, args),
+        answer => answer,
+    }
 }
 
 /// The built-in table file, in pyBYD's `bangcle_tables.bin` format.

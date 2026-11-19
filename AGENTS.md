@@ -21,14 +21,15 @@ The same commit must be installed in the Python environment you test with.
 |---|---|
 | `crates/openbyd-crypto` | The envelope cipher. No dependencies. |
 | `crates/openbyd-protocol` | Signing, envelopes, models, error codes, request building. No network, no clock, no randomness. |
-| `crates/openbyd-client` | The async client: HTTP, sessions, MQTT, commands. |
+| `crates/openbyd-client` | The async client. `api/` ports pyBYD's `_api` flows, generic over the `Env` trait (`env.rs`); `scripted.rs` is the scripted `Env` the parity tests run them in. HTTP, sessions and MQTT come later. |
 | `crates/openbyd-cli` | The `openbyd` command-line tool. |
 | `crates/openbyd-py` | Python bindings, imported as `openbyd._native`. |
 | `python/openbyd` | The Python package. |
 | `python/tests` | Python tests, including the live comparison with pyBYD. |
-| `parity/` | The parity framework, the oracles and the vector generator. |
+| `parity/` | The parity framework, the oracles and the vector generator. `api_support.py` runs pyBYD's flows against a script. |
+| `crates/*/tests/vectors` | Recorded pyBYD answers: `openbyd-protocol`'s for pure calls, `openbyd-client`'s for flows. |
 
-Each file in `openbyd-protocol/src` names the pyBYD file it ports in its first doc line.
+Each file in `openbyd-protocol/src` and `openbyd-client/src/api` names the pyBYD file it ports in its first doc line.
 
 ## The parity rule
 
@@ -57,7 +58,7 @@ Call names follow the pyBYD file, so the surface audit can work out which ones s
 | `_capabilities/<file>.py` | `capabilities.<file>.<name>` |
 | `_state_engine.py`, `_validators.py` | `state.<name>` |
 
-A model call takes `{"raw": ..., "context": ...}` and returns `{"dump": ..., "properties": ...}`: the `model_dump(mode="json")` and the value of every `@property` on the class. Functions that do I/O (`async def`) are ported in `openbyd-client` and covered by its scenario tests instead.
+A model call takes `{"raw": ..., "context": ...}` and returns `{"dump": ..., "properties": ...}`: the `model_dump(mode="json")` and the value of every `@property` on the class. Functions that do I/O (`async def`) are ported in `openbyd-client` under the same call names and compared by trace: see [Porting an `_api` function](#porting-an-_api-function). The client crate answers the names the protocol crate does not know.
 
 Rules for parity calls:
 
@@ -66,6 +67,53 @@ Rules for parity calls:
 - **Determinism.** Where pyBYD reads the clock or `secrets`, the oracle patches them and passes the same values to openbyd as arguments.
 - **Cases must reach the awkward inputs:** empty values, missing keys, wrong types, sentinels (`""`, `"--"`, `-1`, `NaN`), numbers as strings, non-ASCII text, very large values. Fuzz sources should generate these on purpose, not only well-formed data.
 - **Never weaken an oracle to make a test pass.** If pyBYD's behaviour looks like a bug, port the bug and note it in a comment. openbyd follows upstream.
+
+## Porting an `_api` function
+
+pyBYD's `_api/<file>.py` functions are `async def`s that build a request, post it, and interpret the reply; some loop with sleeps and retries. Each is ported 1:1 as an `async fn` in `crates/openbyd-client/src/api/<file>.rs` with the same name, generic over `Env`:
+
+```rust
+pub async fn fetch_gps_endpoint<E: Env>(
+    cx: Context<'_, E>,          // pyBYD's config, session and transport
+    endpoint: &str,
+    vin: &str,
+    request_serial: Option<&str>,
+) -> Result<(Value, Option<String>), Error>
+```
+
+`Env` (`env.rs`) is everything a flow may touch: `now_ms()` (`int(time.time() * 1000)`), `monotonic()`, `random_bytes()` (`secrets.token_hex(16)`), `sleep(seconds)` and `post_secure(endpoint, outer)` (`SecureTransport.post_secure`). Read the clock and draw random values where pyBYD does: call `env.now_ms()` wherever pyBYD calls `time.time()`. The session is shared by reference; change its guest state only with `Session::set_guest` and `Session::settle_user_type`. Request building, signing and code mapping are pure and live in `openbyd-protocol` (`build_inner_base`, `build_token_outer_envelope`, `handle_token_response`, `raise_for_code`); reuse them, and call `api::common::post_token_json` / `post_vehicle_json` where pyBYD does.
+
+Steps:
+
+1. Write the function in `api/<file>.rs`, replacing the `no_calls!()` stub.
+2. Add an arm to that module's `parity_call` that builds a `Scenario` from the arguments, reads the function's own arguments with `scenario.args()` and returns `scenario.run(flow, to_json)`. See `api/gps.rs`.
+3. In `parity/groups/api_<file>.py`, create `group = Group("api_<file>", crate="client")` and register the oracle in one line: `flow_oracle(group, "api.<file>.<function>", <pybyd function>)`. Pure helpers of the same file get ordinary oracles.
+4. Add recorded scripts and a fuzz source with the builders in `parity/api_support.py`: `scenario(...)`, `ok_reply(session, data)`, `error_reply(code)`, `sealed_reply`, `raw_reply`, `transport_error(status)`. `vehicle_scripts(endpoint, ok)` walks every branch of the guest retry; `random_vehicle_script` and `random_reply` vary replies (success, every code, wrong shapes, non-object replies, transport errors, guest and owner). Cover every code the function maps and every way out of its loops. See `parity/groups/api_gps.py`.
+5. `python parity/generate.py api_<file>`, then the tests as usual. The vectors land in `crates/openbyd-client/tests/vectors/`.
+
+A flow's parity call takes `config` and `session` (keyword arguments; give `created_at`), `guest_vins` and `user_type_settled` (the session's guest state before the call), `now_ms`, `seed`, `replies` (the script) and `args` (the function's own arguments; a list for a code set, `[[codes], "ClassName"]` pairs for an `extra_code_map`). It returns the trace:
+
+```json
+{
+  "steps": [{"post": "/control/getGpsInfo", "outer": {"...": "the complete signed outer payload"}}, {"sleep": 2.0}],
+  "result": ["the return value as JSON"],
+  "guest_vins": {"TESTVIN0000000001": true},
+  "user_type_settled": [["TESTVIN0000000001", "/control/getGpsInfo"]],
+  "unused_replies": 0
+}
+```
+
+On failure `"error": {"class", "code", "endpoint", "status_code"}` replaces `"result"` (`null` where the class has no such attribute; the message is not compared). pyBYD's side runs the real function with `transport.post_secure` replaced by the script and `time.time`, `time.monotonic`, `secrets.token_hex` and `asyncio.sleep` patched, without an event loop. Both sides follow the same rules:
+
+- the wall clock is `now_ms` plus the total time slept so far (`now_ms + int(slept * 1000)`; Python's `time.time()` returns it plus half a millisecond, so `int(time.time() * 1000)` is exact); the monotonic clock is `now_ms / 1000 + slept`;
+- the n-th random value (from 0) is `MD5("<seed>:<n>")`;
+- a reply is `{"reply": <the decoded outer reply>}` or `{"transport_error": {"status_code": ...}}`; `ok_reply` encrypts `respondData` with the session's content key when the case is built, so vectors are self-contained;
+- a request with no reply left fails with `ScriptExhausted`, which no pyBYD `except` catches;
+- a flow that waits on anything else (a real future) is a test bug, reported as `Stalled`.
+
+Debugging a trace mismatch: the test prints both traces. Compare `steps` first. A different number of posts or sleeps means a branch differs. The same steps with a different `encryData`, `sign` or `checkcode` mean the inner payload differs: its key order, or a clock read or random draw in a different place (`reqTimestamp`, `serviceTime` and the inner `random` and `timeStamp` show which). Then compare `error`, and last `guest_vins` and `user_type_settled`. To look at one case, call `parity.api_support.run_flow(<pybyd function>, **args)` and `openbyd._native.parity_call(name, json.dumps(args))` with the printed arguments.
+
+`_mqtt.fetch_mqtt_bootstrap` is an `async def` too: port it in the client crate as `mqtt.fetch_mqtt_bootstrap` the same way.
 
 ## Commands
 
@@ -94,8 +142,8 @@ Do not use `maturin develop`: it writes the compiled module into `python/openbyd
 ## Tests
 
 - Everything is covered by tests. New code needs parity cases, and unit tests for anything parity cannot reach (error paths, argument checks, private helpers).
-- Line coverage of `openbyd-crypto` and `openbyd-protocol` stays at or above 90%. CI enforces it.
-- Tests never contact BYD. Client tests run against the fake server in the repo.
+- Line coverage of `openbyd-crypto` and `openbyd-protocol` stays at or above 90%. CI enforces it. Keep `openbyd-client` there too.
+- Tests never contact BYD. Client flows run against the scripted environment (`openbyd_client::scripted`).
 - Test data is synthetic. Never commit a real VIN, account name, token, location or plate. Use `TESTVIN0000000001`, `user@example.com` and coordinates such as `52.0, 4.0`.
 
 ## Code
@@ -103,7 +151,7 @@ Do not use `maturin develop`: it writes the compiled module into `python/openbyd
 - No `unsafe`. The workspace forbids it outside the Python bindings.
 - Public items have a doc comment that says what the thing is for. Do not restate the code.
 - Mirror pyBYD's names (`get_vehicle_realtime`, `VehicleRealtimeData`, field names in snake_case) so a reader can move between the two code bases.
-- Keep `openbyd-protocol` free of I/O, async, the clock and randomness.
+- Keep `openbyd-protocol` free of I/O, async, the clock and randomness. In `openbyd-client`, flows reach them only through `Env`.
 - A model serialises to exactly what pyBYD's `model_dump(mode="json")` gives for the same input. That JSON is the compatibility contract for every binding.
 - Prefer a small helper to a macro, and a plain match to a framework.
 - Commit messages say what changed and why, in plain prose. No tool or AI attribution lines.

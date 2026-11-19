@@ -204,6 +204,7 @@ name = "openbyd-client"
 version = "0.0.1"
 dependencies = [
  "openbyd-protocol",
+ "serde_json",
 ]
 
 [[package]]
@@ -231,6 +232,7 @@ dependencies = [
 name = "openbyd-py"
 version = "0.0.1"
 dependencies = [
+ "openbyd-client",
  "openbyd-crypto",
  "openbyd-protocol",
  "pyo3",

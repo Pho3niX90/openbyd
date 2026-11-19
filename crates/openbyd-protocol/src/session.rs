@@ -2,6 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use serde_json::{Map, Value, json};
 
@@ -18,7 +19,10 @@ pub const DEFAULT_SESSION_TTL: f64 = 12.0 * 3600.0;
 ///
 /// Times are seconds on a monotonic clock the caller chooses; this crate
 /// never reads a clock, so "now" is always an argument.
-#[derive(Clone, PartialEq)]
+///
+/// The guest state is updated through `&self` (it sits behind a mutex), so
+/// one session can be shared by flows running at the same time, as pyBYD
+/// shares one `Session` object between its coroutines.
 pub struct Session {
     user_id: String,
     sign_token: String,
@@ -27,8 +31,41 @@ pub struct Session {
     ttl: f64,
     content_key: String,
     sign_key: String,
-    guest_vins: HashMap<String, bool>,
-    user_type_settled: HashSet<(String, String)>,
+    guest_vins: Mutex<HashMap<String, bool>>,
+    user_type_settled: Mutex<HashSet<(String, String)>>,
+}
+
+fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    // The guarded maps stay consistent even if a holder panicked.
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+impl Clone for Session {
+    fn clone(&self) -> Self {
+        Self {
+            user_id: self.user_id.clone(),
+            sign_token: self.sign_token.clone(),
+            encry_token: self.encry_token.clone(),
+            created_at: self.created_at,
+            ttl: self.ttl,
+            content_key: self.content_key.clone(),
+            sign_key: self.sign_key.clone(),
+            guest_vins: Mutex::new(self.guest_vins()),
+            user_type_settled: Mutex::new(self.user_type_settled()),
+        }
+    }
+}
+
+impl PartialEq for Session {
+    fn eq(&self, other: &Self) -> bool {
+        self.user_id == other.user_id
+            && self.sign_token == other.sign_token
+            && self.encry_token == other.encry_token
+            && self.created_at == other.created_at
+            && self.ttl == other.ttl
+            && self.guest_vins() == other.guest_vins()
+            && self.user_type_settled() == other.user_type_settled()
+    }
 }
 
 impl fmt::Debug for Session {
@@ -39,8 +76,8 @@ impl fmt::Debug for Session {
             .field("encry_token", &"<redacted>")
             .field("created_at", &self.created_at)
             .field("ttl", &self.ttl)
-            .field("guest_vins", &self.guest_vins)
-            .field("user_type_settled", &self.user_type_settled)
+            .field("guest_vins", &self.guest_vins())
+            .field("user_type_settled", &self.user_type_settled())
             .finish()
     }
 }
@@ -65,8 +102,8 @@ impl Session {
             encry_token,
             created_at,
             ttl,
-            guest_vins: HashMap::new(),
-            user_type_settled: HashSet::new(),
+            guest_vins: Mutex::default(),
+            user_type_settled: Mutex::default(),
         }
     }
 
@@ -152,27 +189,43 @@ impl Session {
         now - self.created_at
     }
 
-    /// VIN to whether this account reaches the car as a guest (a car shared
-    /// through "Family and friends"). Filled from the vehicle list and
-    /// corrected by the cloud's answers.
-    pub fn guest_vins(&self) -> &HashMap<String, bool> {
-        &self.guest_vins
+    /// A copy of the VIN to guest map: whether this account reaches each car
+    /// as a guest (a car shared through "Family and friends"). Filled from
+    /// the vehicle list and corrected by the cloud's answers (pyBYD's
+    /// `session.guest_vins`).
+    pub fn guest_vins(&self) -> HashMap<String, bool> {
+        lock(&self.guest_vins).clone()
     }
 
-    /// Mutable access to [`Session::guest_vins`].
-    pub fn guest_vins_mut(&mut self) -> &mut HashMap<String, bool> {
-        &mut self.guest_vins
+    /// Whether this account is believed to reach `vin` as a guest: pyBYD's
+    /// `session.guest_vins.get(vin, False)`.
+    pub fn is_guest(&self, vin: &str) -> bool {
+        lock(&self.guest_vins).get(vin).copied().unwrap_or(false)
     }
 
-    /// (VIN, endpoint) pairs whose refusal the other `userType` did not fix,
-    /// so they are not retried the other way again.
-    pub fn user_type_settled(&self) -> &HashSet<(String, String)> {
-        &self.user_type_settled
+    /// Records whether this account reaches `vin` as a guest: pyBYD's
+    /// `session.guest_vins[vin] = guest`.
+    pub fn set_guest(&self, vin: &str, guest: bool) {
+        lock(&self.guest_vins).insert(vin.to_owned(), guest);
     }
 
-    /// Mutable access to [`Session::user_type_settled`].
-    pub fn user_type_settled_mut(&mut self) -> &mut HashSet<(String, String)> {
-        &mut self.user_type_settled
+    /// A copy of the (VIN, endpoint) pairs whose refusal the other
+    /// `userType` did not fix, so they are not retried the other way again
+    /// (pyBYD's `session.user_type_settled`).
+    pub fn user_type_settled(&self) -> HashSet<(String, String)> {
+        lock(&self.user_type_settled).clone()
+    }
+
+    /// Whether the (VIN, endpoint) pair is settled:
+    /// `(vin, endpoint) in session.user_type_settled`.
+    pub fn is_user_type_settled(&self, vin: &str, endpoint: &str) -> bool {
+        lock(&self.user_type_settled).contains(&(vin.to_owned(), endpoint.to_owned()))
+    }
+
+    /// Marks the (VIN, endpoint) pair settled:
+    /// `session.user_type_settled.add((vin, endpoint))`.
+    pub fn settle_user_type(&self, vin: &str, endpoint: &str) {
+        lock(&self.user_type_settled).insert((vin.to_owned(), endpoint.to_owned()));
     }
 
     /// The session as pyBYD's `model_dump(mode="json")` gives it, with
@@ -223,7 +276,7 @@ mod tests {
 
     #[test]
     fn keys_expiry_and_guest_state() {
-        let mut session = Session::new(" 42 ", " sign ", "encry", 100.0, 10.0);
+        let session = Session::new(" 42 ", " sign ", "encry", 100.0, 10.0);
         assert_eq!(session.user_id(), "42");
         assert_eq!(session.sign_token(), "sign");
         assert_eq!(session.encry_token(), "encry");
@@ -234,16 +287,34 @@ mod tests {
         assert!(!session.is_expired(109.9));
         assert!(session.is_expired(110.0));
         assert_eq!(session.age(105.0), 5.0);
-        session
-            .guest_vins_mut()
-            .insert("TESTVIN0000000001".into(), true);
-        session
-            .user_type_settled_mut()
-            .insert(("TESTVIN0000000001".into(), "/x".into()));
+        assert!(!session.is_guest("TESTVIN0000000001"));
+        session.set_guest("TESTVIN0000000001", true);
+        assert!(session.is_guest("TESTVIN0000000001"));
+        assert!(!session.is_user_type_settled("TESTVIN0000000001", "/x"));
+        session.settle_user_type("TESTVIN0000000001", "/x");
+        assert!(session.is_user_type_settled("TESTVIN0000000001", "/x"));
         assert!(session.guest_vins()["TESTVIN0000000001"]);
         assert_eq!(session.user_type_settled().len(), 1);
+        let copy = session.clone();
+        assert_eq!(copy, session);
+        copy.set_guest("TESTVIN0000000001", false);
+        assert_ne!(copy, session);
         let shown = format!("{session:?}");
         assert!(!shown.contains("sign\"") && !shown.contains("encry\""));
+    }
+
+    #[test]
+    fn shared_between_threads() {
+        fn assert_sync<T: Send + Sync>() {}
+        assert_sync::<Session>();
+        let session = Session::new("1", "s", "e", 0.0, 1.0);
+        std::thread::scope(|scope| {
+            for index in 0..4 {
+                let session = &session;
+                scope.spawn(move || session.set_guest(&format!("V{index}"), true));
+            }
+        });
+        assert_eq!(session.guest_vins().len(), 4);
     }
 
     #[test]

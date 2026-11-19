@@ -1141,10 +1141,123 @@ def _method_args(rng, method: str) -> dict:  # noqa: PLR0911
     return {"vin": vin}
 
 
+#: Methods that trigger and then wait for MQTT or poll.
+POLLING_METHODS = {
+    *_SIMPLE_COMMANDS,
+    *COMMAND_PARAMS,
+    "start_charging",
+    "save_charging_schedule",
+    "get_vehicle_realtime",
+    "get_gps_info",
+}
+
+
+def _focused_reply(rng, method: str) -> dict:
+    """A reply a trigger or a poll of ``method`` could get."""
+    roll = rng.random()
+    if roll < 0.2:
+        return error_reply(rng.choice(["6024", "1009", "1001", "1005", "6051", "1008", "5005", "6002"]))
+    if roll < 0.25:
+        return transport_error(rng.choice([None, 500]))
+    serial = rng.choice(["S1", "S1", "S1", "S2", "", 5])
+    if method in ("get_vehicle_realtime", "get_gps_info"):
+        data = rng.choice(
+            [
+                {"requestSerial": serial},
+                {"requestSerial": serial, "time": 1700000000, "latitude": 52.0, "elecPercent": 50},
+                {"requestSerial": serial, "onlineState": 2},
+                {},
+            ]
+        )
+    elif method in ("start_charging", "save_charging_schedule"):
+        data = rng.choice([{"requestSerial": serial}, {"res": rng.choice([1, 1, 2, 3, 9, True])}, {}])
+    else:
+        data = rng.choice(
+            [
+                {"requestSerial": serial},
+                {"requestSerial": serial, "controlState": rng.choice([0, 0, 1, 2])},
+                {"requestSerial": serial, "res": rng.choice([1, 1, 2, 3])},
+                {"controlState": rng.choice([0, 1, 2])},
+                {},
+            ]
+        )
+    return ok_reply(SAMPLE_SESSION, data)
+
+
+def _focused_event(rng, at: float, method: str) -> dict:
+    """A push ``method`` might be waiting for, or one that only looks like it."""
+    if rng.random() < 0.15:
+        return _random_event(rng, at)
+    name = {"get_vehicle_realtime": "vehicleInfo", "start_charging": "smartCharge", "save_charging_schedule": "smartCharge"}.get(
+        method, "remoteControl"
+    )
+    if rng.random() < 0.2:
+        name = rng.choice(["vehicleInfo", "remoteControl", "smartCharge"])
+    respond = rng.choice(
+        [
+            {"res": rng.choice([1, 2, 2, 3])},
+            {"controlState": rng.choice([0, 1, 2])},
+            {"time": 1700000000, "latitude": 52.0, "elecPercent": 40},
+            {"code": "6051"},
+            {},
+        ]
+    )
+    data: dict = {"respondData": respond} if rng.random() < 0.9 else {"code": "6051"}
+    uuid = rng.choice(["S1", "S1", "S1", "S2", None])
+    return mqtt_event(at, name, data, uuid=uuid, vin=rng.choice([VIN, VIN, VIN, "OTHERVIN000000001"]))
+
+
+def _focused_client_case(rng, method: str) -> dict:
+    """A case for a command or polled read that gets past the checks in
+    front (session, PIN, gate) and into the trigger, wait and polls."""
+    state = logged_in(
+        mqtt=rng.random() < 0.85,
+        vehicles=[{"vin": VIN, "energyType": rng.choice(["0", "2"]), "modelName": "SEAL"}],
+        capabilities={VIN: rng.choice([ALL_FUNCTIONS_CONFIG] * 5 + [DEDICATED_HEAT_CONFIG])},
+        commands_enabled=True,
+        guest_vins={VIN: rng.random() < 0.2},
+    )
+    config = dict(SAMPLE_CONFIG)
+    if rng.random() < 0.3:
+        config["mqtt_timeout"] = rng.choice([0.0, 1.0, 3.0])
+    replies = [_focused_reply(rng, method) for _ in range(rng.choice([1, 2, 3, 4, 6, 8, 12]))]
+    if rng.random() < 0.15:
+        replies.insert(rng.randint(0, len(replies)), login_reply())
+        replies.insert(rng.randint(0, len(replies)), broker_reply())
+    times = sorted(rng.choice([0.0, 0.5, 1.0, 2.0, 4.0, 9.0, 11.0, 15.0, 40.0]) for _ in range(rng.choice([0, 1, 1, 2, 3])))
+    options: dict = {}
+    if rng.random() < 0.5:
+        options["command_retries"] = rng.choice([1, 1, 2, 3])
+    if rng.random() < 0.2:
+        options["command_ack_ttl_seconds"] = rng.choice([1.0, 5.0])
+    args = _method_args(rng, method)
+    if "command_pwd" in args and rng.random() < 0.8:
+        args["command_pwd"] = rng.choice(["123456", "0123456789abcdef0123456789ABCDEF"])
+    if "vin" in args and rng.random() < 0.9:
+        args["vin"] = VIN
+    if "poll_interval" in args and rng.random() < 0.5:
+        args["poll_interval"] = rng.choice([0.5, 1.5])
+    return client_case(
+        config=config,
+        state=state,
+        replies=replies,
+        mqtt=[_focused_event(rng, at, method) for at in times],
+        mqtt_starts=[rng.random() < 0.9],
+        options=options,
+        callbacks=rng.random() < 0.9,
+        now_ms=rng.choice([NOW_MS, rng.randint(0, 4_000_000_000_000)]),
+        seed=random_text(rng, 6),
+        **args,
+    )
+
+
 def random_client_case(rng, method: str) -> dict:
     """Random ``client.<method>`` arguments: config, starting state, setup
     calls, replies and an MQTT timeline, leaning on what drives the client
-    (expired sessions, serials that match, pushes that come or do not)."""
+    (expired sessions, serials that match, pushes that come or do not).
+    Commands and polled reads usually get past the checks in front of them."""
+    if method in POLLING_METHODS and rng.random() < 0.7:
+        return _focused_client_case(rng, method)
     config = dict(SAMPLE_CONFIG)
     if rng.random() < 0.25:
         config["mqtt_timeout"] = rng.choice([0.0, 2.0, 30.0])

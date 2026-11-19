@@ -8,7 +8,7 @@ micro-benchmark row, when a load run's request count differs from the plan, or w
 all come up. CI can call ``python bench/run_all.py --quick``.
 
 It needs the extension built with the fake server (``python parity/dev_install.py``), pyBYD at the pinned
-commit, psutil and a Rust toolchain on PATH. ``pip install ".[bench]"`` installs the Python parts.
+commit, psutil and a Rust toolchain on PATH. ``pip install ".[bench]"`` installs psutil; install pyBYD at the pinned commit separately.
 """
 
 from __future__ import annotations

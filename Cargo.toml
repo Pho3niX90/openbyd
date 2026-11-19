@@ -9,15 +9,15 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/Pho3niX90/openbyd"
 
 [workspace.dependencies]
-openbyd-crypto = { path = "crates/openbyd-crypto", version = "0.1.0" }
-openbyd-protocol = { path = "crates/openbyd-protocol", version = "0.1.0" }
-openbyd-client = { path = "crates/openbyd-client", version = "0.1.0" }
+openbyd-crypto = { path = "crates/openbyd-crypto", version = "0.1.1" }
+openbyd-protocol = { path = "crates/openbyd-protocol", version = "0.1.1" }
+openbyd-client = { path = "crates/openbyd-client", version = "0.1.1" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 

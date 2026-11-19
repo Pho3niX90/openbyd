@@ -75,3 +75,11 @@ def test_version_falls_back_when_the_package_is_not_installed(monkeypatch) -> No
         patch.setattr(importlib.metadata, "version", missing)
         assert importlib.reload(openbyd).__version__ == "0+local"
     assert importlib.reload(openbyd).__version__ != "0+local"
+
+
+def test_package_metadata_has_no_direct_references() -> None:
+    """PyPI rejects an upload whose dependencies point at a URL (``name @ git+https://...``)."""
+    import importlib.metadata
+
+    requirements = importlib.metadata.requires("openbyd") or []
+    assert not [requirement for requirement in requirements if " @ " in requirement]

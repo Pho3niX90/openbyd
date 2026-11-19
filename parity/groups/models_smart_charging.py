@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import copy
 import random
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from typing import Any
 
 from pybyd.models.smart_charging import AcCurrentLimit, SmartChargeDto, SmartChargingSchedule, SmartJourneyDto
 
 from parity.framework import Group, random_text
-from parity.models_support import ModelCases, random_json, random_numeric_text, register_model
+from parity.models_support import (
+    ModelCases,
+    random_json,
+    random_numeric_text,
+    register_model,
+    skip_unrepresentable_integers,
+)
 
 group = Group("models_smart_charging")
 
@@ -148,39 +154,6 @@ def schedule_fuzz(rng: random.Random) -> Iterator[tuple[str, dict[str, Any]]]:
         yield _SCHEDULE, {"raw": payload, "context": None}
 
 
-# ``_to_int``-style conversions do not appear here, but ``repeat_days`` can return an
-# integer wider than i64 for text such as "99999999999999999999". openbyd's integers are
-# i64 (docs/porting-models.md, "Representation limits"), so cases whose answer holds such
-# an integer are left out; every other case, including all errors, is kept.
-
-
-def _ints(value: Any) -> Iterator[int]:
-    if isinstance(value, bool):
-        return
-    if isinstance(value, int):
-        yield value
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            if key != "raw":  # the input echoed back; openbyd keeps it as JSON
-                yield from _ints(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _ints(item)
-
-
-def _representable(call: str, args: dict[str, Any]) -> bool:
-    answer = group.answer(call, args)
-    return all(-(2**63) < number < 2**63 for number in _ints(answer.get("ok")))
-
-
-def _keep_representable(source: Any) -> Any:
-    def wrapped(*arguments: Any) -> Iterable[Any]:
-        for call, args in source(*arguments):
-            if _representable(call, args):
-                yield call, args
-
-    return wrapped
-
-
-group._recorded = [_keep_representable(source) for source in group._recorded]
-group._fuzz = [_keep_representable(source) for source in group._fuzz]
+# ``repeat_days`` can return an integer wider than i64 for text such as
+# "99999999999999999999".
+skip_unrepresentable_integers(group)

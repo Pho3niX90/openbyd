@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
 from typing import Any
 
 from pybyd.exceptions import BydError
@@ -14,7 +13,7 @@ from pybyd.models.energy import (
 )
 
 from parity.framework import Group
-from parity.models_support import register_model
+from parity.models_support import register_model, skip_unrepresentable_integers
 
 group = Group("models_energy")
 
@@ -93,40 +92,5 @@ for _call in (
     group.expected_errors[_call] = (BydError, ValueError, OverflowError)
 
 
-def _ints(value: Any) -> Iterator[int]:
-    if isinstance(value, bool):
-        return
-    if isinstance(value, int):
-        yield value
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            if key != "raw":  # the input echoed back; openbyd keeps it as JSON
-                yield from _ints(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _ints(item)
-
-
-def _representable(call: str, args: dict[str, Any]) -> bool:
-    """Whether pyBYD's answer stays inside what openbyd can hold.
-
-    ``_to_int`` turns a float such as ``1e300`` into a Python int of any size;
-    openbyd's integers are ``i64`` (see docs/porting-models.md, "Representation
-    limits"). Cases whose answer holds such an integer are left out of the
-    comparison; every other case, including all errors, is kept.
-    """
-    answer = group.answer(call, args)
-    return all(-(2**63) < number < 2**63 for number in _ints(answer.get("ok")))
-
-
-def _keep_representable(source: Any) -> Any:
-    def wrapped(*arguments: Any) -> Iterable[Any]:
-        for call, args in source(*arguments):
-            if _representable(call, args):
-                yield call, args
-
-    return wrapped
-
-
-group._recorded = [_keep_representable(source) for source in group._recorded]
-group._fuzz = [_keep_representable(source) for source in group._fuzz]
+# ``_to_int`` turns a float such as ``1e300`` into an integer of any size.
+skip_unrepresentable_integers(group)

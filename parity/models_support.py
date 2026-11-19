@@ -42,7 +42,7 @@ import math
 import random
 import types
 import typing
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -653,3 +653,56 @@ def mutate_fields(
         if cases.accepts(spec, value):
             payload[key] = value
     return payload if json_safe(payload) else {}
+
+
+# ---------------------------------------------------------------------------
+# openbyd's integer limit
+# ---------------------------------------------------------------------------
+
+
+def _answer_ints(value: Any) -> Iterator[int]:
+    """Every integer in a pyBYD answer, leaving out ``raw`` (the input echoed back)."""
+    if isinstance(value, bool):
+        return
+    if isinstance(value, int):
+        yield value
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            if key != "raw":  # openbyd keeps the input as JSON, so it can hold any integer in it
+                yield from _answer_ints(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _answer_ints(item)
+
+
+def skip_unrepresentable_integers(group: Group, bound: int = 2**63) -> None:
+    """Leave out the cases where pyBYD answers an integer outside ``(-bound, bound)``.
+
+    openbyd's integers are ``i64`` (docs/porting-models.md, "Representation
+    limits"), but pyBYD's are unbounded: a conversion such as ``int(1e300)`` or
+    ``int("99999999999999999999")`` gives a Python ``int`` of any size, which
+    openbyd answers with the error kind ``Unsupported``. Call this once, after
+    registering everything in the group, for a group whose calls can do that.
+    Every other case, including all errors, is kept. ``raw`` in an answer is
+    not looked at. ``bound`` moves the limit; openbyd's own is the default.
+
+    This looks at pyBYD's *answer*. A group that must also drop cases whose
+    answer is an error (``models_control``'s event models, where the input is
+    converted to an out-of-range int before validation fails) keeps its own
+    input-side check.
+    """
+
+    def keep(call: str, args: dict[str, Any]) -> bool:
+        answer = group.answer(call, args)
+        return all(-bound < number < bound for number in _answer_ints(answer.get("ok")))
+
+    def filtered(source: Callable[..., Iterable[Any]]) -> Callable[..., Iterable[Any]]:
+        def wrapped(*arguments: Any) -> Iterable[Any]:
+            for call, args in source(*arguments):
+                if keep(call, args):
+                    yield call, args
+
+        return wrapped
+
+    group._recorded = [filtered(source) for source in group._recorded]
+    group._fuzz = [filtered(source) for source in group._fuzz]

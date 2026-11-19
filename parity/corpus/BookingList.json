@@ -1,0 +1,32 @@
+[
+ {
+  "source": "tests/test_booking_list.py",
+  "note": "scheduled-climate timer captured live from a Sealion 7 (EU)",
+  "payload": {
+   "vin": "TESTVIN0000000001",
+   "allowSetting": 0,
+   "configData": 0,
+   "listInfo": [
+    {
+     "bookingTime": 1780938216,
+     "mainSettingTemp": 23,
+     "airConditionTempRange": 7,
+     "cycleMode": 2,
+     "windLevel": 0,
+     "timeSpan": 1,
+     "mainSettingTempNew": 23.0,
+     "acSwitch": 0,
+     "bookingId": 1216038691305533440,
+     "windMode": 0
+    }
+   ]
+  }
+ },
+ {
+  "source": "tests/test_booking_list.py",
+  "note": "empty booking response",
+  "payload": {
+   "vin": "TESTVIN0000000001"
+  }
+ }
+]

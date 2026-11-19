@@ -1,0 +1,48 @@
+[
+ {
+  "source": "tests/test_validators.py",
+  "note": "asleep HVAC placeholder, all sensor fields zero",
+  "payload": {
+   "tempInCar": 0,
+   "tempOutCar": 0,
+   "pm": 0,
+   "acSwitch": 0,
+   "status": 0,
+   "mainSettingTemp": 0.0,
+   "refrigeratorState": -1
+  }
+ },
+ {
+  "source": "tests/test_validators.py",
+  "note": "HVAC sentinel -129 temperature with zero placeholders",
+  "payload": {
+   "tempInCar": -129,
+   "tempOutCar": 0,
+   "pm": 0,
+   "acSwitch": 0,
+   "status": 0,
+   "mainSettingTemp": 0.0,
+   "refrigeratorState": -1
+  }
+ },
+ {
+  "source": "tests/test_issue_74.py",
+  "note": "running climate with VDE temperature range",
+  "payload": {
+   "status": 2,
+   "vdeTempRangeMin": 17,
+   "vdeTempRangeMax": 33,
+   "pm": 5
+  }
+ },
+ {
+  "source": "tests/test_issue_74.py",
+  "note": "temperature range nested under statusNow",
+  "payload": {
+   "statusNow": {
+    "vdeTempRangeMin": 17,
+    "vdeTempRangeMax": 33
+   }
+  }
+ }
+]

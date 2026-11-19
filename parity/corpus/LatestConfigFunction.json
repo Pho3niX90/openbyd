@@ -1,0 +1,12 @@
+[
+ {
+  "source": "tests/test_latest_config.py",
+  "note": "Electric A/C entry with all fields",
+  "payload": {
+   "code": "Electric A/C",
+   "functionName": "电动空调",
+   "functionNo": "1015",
+   "sortNum": 15
+  }
+ }
+]

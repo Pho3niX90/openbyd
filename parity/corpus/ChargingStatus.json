@@ -1,0 +1,10 @@
+[
+ {
+  "source": "tests/test_charging_telemetry.py",
+  "note": "charge power reported in kW while charging",
+  "payload": {
+   "chargePower": "5.1",
+   "chargePowerUnit": "kW"
+  }
+ }
+]

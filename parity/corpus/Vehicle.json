@@ -1,0 +1,34 @@
+[
+ {
+  "source": "tests/test_vehicle_fun_learn_info.py",
+  "note": "vehicleFunLearnInfo tri-state flags (subset of the 46 keys)",
+  "payload": {
+   "vin": "TESTVIN0000000001",
+   "modelName": "SEALION 7",
+   "vehicleFunLearnInfo": {
+    "openWindowLearnInfo": 1,
+    "openWindow499LearnInfo": 1,
+    "batteryHeating": 0,
+    "refrigeratorLearnInfo": -1,
+    "trunkLearnInfo": 1
+   }
+  }
+ },
+ {
+  "source": "tests/test_guest_user_type.py",
+  "note": "vehicle list entry for a guest (shared) user",
+  "payload": {
+   "vin": "TESTVIN0000000001",
+   "empowerType": -1,
+   "empowerId": 123
+  }
+ },
+ {
+  "source": "tests/test_guest_user_type.py",
+  "note": "vehicle list entry owned by the account",
+  "payload": {
+   "vin": "TESTVIN0000000001",
+   "empowerType": 3
+  }
+ }
+]

@@ -1,0 +1,110 @@
+[
+ {
+  "source": "tests/test_validators.py",
+  "note": "getEnergyConsumption, energy_type 0 (EV only)",
+  "payload": {
+   "selfGraph": {
+    "energyConsumption": [
+     "8.3",
+     "8.4",
+     "8.0",
+     "8.0",
+     "8.7",
+     "10.1",
+     "6.1"
+    ],
+    "energyConsumptionUnit": "kWh/100km"
+   },
+   "cumulativeEnergyConsumption": {
+    "mileageUnit": "km",
+    "evUnit": "kWh/100km",
+    "avgOilConsumption": "--",
+    "avgEvConsumption": "19.7",
+    "oilUnit": "--",
+    "totalMileage": "443"
+   },
+   "time": 1778212356,
+   "nearestEnergyConsumption": {
+    "driveDistribution": "99",
+    "otherDistribution": "0",
+    "evConsumption": "3.05",
+    "electDistribution": "1",
+    "avgOilConsumption": "--",
+    "evValueUnit": "kW·h",
+    "airDistribution": "0",
+    "avgEvConsumption": "6.1",
+    "avgEqOilConsumption": "--",
+    "oilUnit": "--",
+    "evUnit": "kWh/100km",
+    "oilConsumption": "--",
+    "oilValueUnit": "--"
+   },
+   "autoModelGraph": {
+    "energyConsumption": [
+     "0",
+     "0",
+     "0",
+     "0",
+     "0",
+     "0",
+     "0"
+    ],
+    "energyConsumptionUnit": "kWh/100km"
+   }
+  }
+ },
+ {
+  "source": "tests/test_validators.py",
+  "note": "getEnergyConsumption, energy_type 2 (hybrid, fuel leg)",
+  "payload": {
+   "selfGraph": {
+    "energyConsumption": [
+     "8.3",
+     "8.4",
+     "8.0",
+     "8.0",
+     "8.7",
+     "10.1",
+     "10.1"
+    ],
+    "energyConsumptionUnit": "L/100km"
+   },
+   "cumulativeEnergyConsumption": {
+    "mileageUnit": "km",
+    "evUnit": "kWh/100km",
+    "avgOilConsumption": "3.5",
+    "avgEvConsumption": "19.7",
+    "oilUnit": "L/100km",
+    "totalMileage": "443"
+   },
+   "time": 1778212356,
+   "nearestEnergyConsumption": {
+    "driveDistribution": "99",
+    "otherDistribution": "0",
+    "evConsumption": "3.05",
+    "electDistribution": "1",
+    "avgOilConsumption": "8.4",
+    "evValueUnit": "kW·h",
+    "airDistribution": "0",
+    "avgEvConsumption": "6.1",
+    "avgEqOilConsumption": "10.1",
+    "oilUnit": "L/100km",
+    "evUnit": "kWh/100km",
+    "oilConsumption": "4.2",
+    "oilValueUnit": "L"
+   },
+   "autoModelGraph": {
+    "energyConsumption": [
+     "8.3",
+     "8.3",
+     "8.3",
+     "8.2",
+     "8.2",
+     "8.4",
+     "8.4"
+    ],
+    "energyConsumptionUnit": "L/100km"
+   }
+  }
+ }
+]

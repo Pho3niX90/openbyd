@@ -1,0 +1,26 @@
+[
+ {
+  "source": "tests/test_message_center.py",
+  "note": "inbox item with millisecond pushTime and camelCase keys",
+  "payload": {
+   "content": "2026-10-02 20:40,ATTO 3 El coche comience a cargar.",
+   "jumpUrl": "",
+   "messageGroup": 1,
+   "pushId": 211902416,
+   "pushTime": 1790966443550,
+   "title": "Empezar carga",
+   "titleId": 1
+  }
+ },
+ {
+  "source": "tests/test_message_center.py",
+  "note": "inbox item with alternative keys, seconds pushTime, sentinel content",
+  "payload": {
+   "messageId": "102",
+   "messageTitle": "Door open",
+   "content": "--",
+   "pushTime": "1790966443",
+   "messageGroup": ""
+  }
+ }
+]

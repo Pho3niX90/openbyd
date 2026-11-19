@@ -1,0 +1,24 @@
+[
+ {
+  "source": "tests/test_message_center.py",
+  "note": "unread inbox, bare list (EU host)",
+  "payload": [
+   {
+    "content": "2026-10-02 20:40,ATTO 3 El coche comience a cargar.",
+    "jumpUrl": "",
+    "messageGroup": 1,
+    "pushId": 211902416,
+    "pushTime": 1790966443550,
+    "title": "Empezar carga",
+    "titleId": 1
+   },
+   {
+    "messageId": "102",
+    "messageTitle": "Door open",
+    "content": "--",
+    "pushTime": "1790966443",
+    "messageGroup": ""
+   }
+  ]
+ }
+]

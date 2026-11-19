@@ -1,0 +1,162 @@
+[
+ {
+  "source": "tests/test_latest_config.py",
+  "note": "44 functionNos from a real overseas vehicle (functionNo only)",
+  "payload": {
+   "cfFixedList": [
+    {
+     "functionNo": "1001"
+    },
+    {
+     "functionNo": "1002"
+    },
+    {
+     "functionNo": "1003"
+    },
+    {
+     "functionNo": "1004"
+    },
+    {
+     "functionNo": "1005"
+    },
+    {
+     "functionNo": "1006"
+    },
+    {
+     "functionNo": "1007"
+    },
+    {
+     "functionNo": "1008"
+    },
+    {
+     "functionNo": "1009"
+    },
+    {
+     "functionNo": "1012"
+    },
+    {
+     "functionNo": "1013"
+    },
+    {
+     "functionNo": "1014"
+    },
+    {
+     "functionNo": "1020"
+    },
+    {
+     "functionNo": "1021"
+    },
+    {
+     "functionNo": "1022"
+    },
+    {
+     "functionNo": "1023"
+    },
+    {
+     "functionNo": "1026"
+    },
+    {
+     "functionNo": "1030"
+    },
+    {
+     "functionNo": "1031"
+    },
+    {
+     "functionNo": "10020002"
+    },
+    {
+     "functionNo": "10020003"
+    },
+    {
+     "functionNo": "10020004"
+    },
+    {
+     "functionNo": "10020005"
+    },
+    {
+     "functionNo": "10030001"
+    },
+    {
+     "functionNo": "10030002"
+    },
+    {
+     "functionNo": "10030004"
+    },
+    {
+     "functionNo": "10030005"
+    },
+    {
+     "functionNo": "10030007"
+    },
+    {
+     "functionNo": "10030009"
+    },
+    {
+     "functionNo": "10030010"
+    },
+    {
+     "functionNo": "10040001"
+    },
+    {
+     "functionNo": "10130002"
+    },
+    {
+     "functionNo": "10230001"
+    },
+    {
+     "functionNo": "10230002"
+    },
+    {
+     "functionNo": "10230003"
+    },
+    {
+     "functionNo": "10230004"
+    },
+    {
+     "functionNo": "10230005"
+    },
+    {
+     "functionNo": "10230007"
+    },
+    {
+     "functionNo": "10230010"
+    },
+    {
+     "functionNo": "10230011"
+    },
+    {
+     "functionNo": "10230012"
+    },
+    {
+     "functionNo": "10300001"
+    },
+    {
+     "functionNo": "10300003"
+    },
+    {
+     "functionNo": "10300004"
+    }
+   ]
+  }
+ },
+ {
+  "source": "tests/test_rear_seat_climate.py",
+  "note": "rear seat functionNos reported by a Han",
+  "payload": {
+   "cfFixedList": [
+    {
+     "functionNo": "10030006"
+    },
+    {
+     "functionNo": "10030007"
+    },
+    {
+     "functionNo": "10030008"
+    },
+    {
+     "functionNo": "10030009"
+    }
+   ]
+  }
+ }
+]

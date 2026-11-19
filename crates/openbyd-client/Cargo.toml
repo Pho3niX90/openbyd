@@ -9,9 +9,27 @@ readme = "../../README.md"
 # The recorded vectors are large and only useful with the parity tooling in the repository.
 exclude = ["tests/"]
 
+[features]
+# The fake BYD server (`openbyd_client::testing`) for tests, bindings and benchmarks.
+testing = ["dep:openbyd-crypto", "hyper/server", "tokio/macros", "tokio/net", "tokio/sync"]
+
 [dependencies]
 openbyd-protocol.workspace = true
 serde_json.workspace = true
+# HTTP environment (`http.rs`): tokio, hyper's HTTP/1.1 client and rustls on ring with
+# bundled web-PKI roots, so every target builds without OpenSSL, cmake or NASM.
+getrandom = "0.2"
+http-body-util = "0.1"
+httpdate = "1"
+hyper = { version = "1", default-features = false, features = ["client", "http1"] }
+hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "tls12", "ring", "webpki-roots"] }
+hyper-util = { version = "0.1", default-features = false, features = ["client-legacy", "http1", "tokio"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+tokio = { version = "1", default-features = false, features = ["rt", "time"] }
+openbyd-crypto = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [lints]
 workspace = true

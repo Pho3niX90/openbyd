@@ -50,6 +50,40 @@ two files first; most models are the same shape with more fields.
 6. Run `python parity/generate.py models_<file>`, `cargo test -p openbyd-protocol`,
    `python parity/dev_install.py` and `OPENBYD_FUZZ=20000 pytest python/tests/test_parity.py`.
 
+## Shared helpers
+
+Rust (`models/base.rs`; `models::vehicle` and `models::realtime` re-export
+their old names):
+
+- **Enums.** `byd_enum!` declares a `BydEnum` (an `IntEnum` with `UNKNOWN = -1`
+  and a Python name per member); write `impl PyEnum` and `impl IntEnum` by hand
+  for one that differs (`StearingWheelHeat`, `SeatHeatVentState`). Read a field
+  with `fields.opt("x", enum_field)` (or `fields.get("x", E::Unknown, enum_field)`).
+  Answer the enum's parity call with `"models.<file>.<Enum>" => enum_call::<Enum>(args)`.
+  Python's `EnumClass(value)` is `PyEnum::call`; `PyEnum::methods` adds a
+  method's result (`to_command_level`) to the answer.
+- **Python semantics.** `py_truthy(&Value)` is `bool(value)`, `py_equals_int(&Value, n)`
+  is `value == n` (so `1.0` and `true` equal `1`).
+- **`byd_enum_member`** is `BydEnum(value)` for any member list (the `models.base.BydEnum` call).
+- **Seat state.** `SeatClimateState` converts from `&HvacStatus` and `&VehicleRealtimeData`;
+  `SeatClimateParams::from_current_models(hvac, realtime)` takes the parsed models.
+
+Python (`parity/models_support.py`):
+
+- **`register_enum(group, call, cls, methods=())`** registers the oracle, recorded
+  values and fuzz of one `BydEnum` call (add the names of methods to call, such as
+  `("to_command_level",)`). `enum_values(cls)` is its list of awkward inputs.
+- **`mutate_fields(rng, cases, pools=None, nested=None)`** is the usual fuzz step:
+  a realistic sample with one to three fields changed.
+- **`skip_unrepresentable_integers(group, bound=2**63)`** is the integer-limit option.
+  pyBYD's integers are unbounded and openbyd's are `i64`, so a conversion such as
+  `int(1e300)` gives an answer openbyd can only call `Unsupported`. Call it once at
+  the end of a group module and every case whose pyBYD answer holds an integer
+  outside `(-bound, bound)` is left out of the recorded and fuzz sources (errors and
+  `raw` are not looked at). It filters on the answer; if a case must be dropped
+  because of its input even when pyBYD raises, filter in the group, as
+  `models_control` does for its event models.
+
 ## Field types
 
 | Python annotation | Rust field | Reader call | `#[serde(...)]` |

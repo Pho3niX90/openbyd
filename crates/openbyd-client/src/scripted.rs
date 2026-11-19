@@ -115,6 +115,12 @@ impl ScriptedEnv {
         self.state().steps.clone()
     }
 
+    /// Adds a step of the test's own to the trace, such as a scripted MQTT
+    /// wait or callback, so its place among the posts and sleeps is compared.
+    pub fn record(&self, step: Value) {
+        self.state().steps.push(step);
+    }
+
     /// How many replies the flow did not use.
     pub fn unused_replies(&self) -> usize {
         self.state().replies.len()

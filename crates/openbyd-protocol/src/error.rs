@@ -65,13 +65,16 @@ pub enum ErrorKind {
     TypeError,
     /// Python's `AttributeError`.
     AttributeError,
+    /// Python's `AssertionError`: pyBYD's `poll_remote_control` asserts its
+    /// retry loop ran, so `command_retries <= 0` fails with it.
+    AssertionError,
     /// A scripted test environment ran out of replies (`parity/api_support.py`).
     ScriptExhausted,
 }
 
 impl ErrorKind {
     /// Every kind, parents before children.
-    pub const ALL: [ErrorKind; 21] = [
+    pub const ALL: [ErrorKind; 22] = [
         ErrorKind::BydError,
         ErrorKind::BydCryptoError,
         ErrorKind::BangcleError,
@@ -92,6 +95,7 @@ impl ErrorKind {
         ErrorKind::ValidationError,
         ErrorKind::TypeError,
         ErrorKind::AttributeError,
+        ErrorKind::AssertionError,
         ErrorKind::ScriptExhausted,
     ];
 
@@ -118,6 +122,7 @@ impl ErrorKind {
             ErrorKind::ValidationError => "ValidationError",
             ErrorKind::TypeError => "TypeError",
             ErrorKind::AttributeError => "AttributeError",
+            ErrorKind::AssertionError => "AssertionError",
             ErrorKind::ScriptExhausted => "ScriptExhausted",
         }
     }
@@ -131,7 +136,8 @@ impl ErrorKind {
     pub fn parent(self) -> Option<Self> {
         use ErrorKind::*;
         match self {
-            BydError | ValueError | TypeError | AttributeError | ScriptExhausted => None,
+            BydError | ValueError | TypeError | AttributeError | AssertionError
+            | ScriptExhausted => None,
             BydCryptoError | BydTransportError | BydApiError => Some(BydError),
             BangcleError => Some(BydCryptoError),
             BangcleTableLoadError => Some(BangcleError),

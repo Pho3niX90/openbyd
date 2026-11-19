@@ -61,8 +61,8 @@ def corpus_payloads(path: Path) -> list[tuple[str, dict[str, Any]]]:
 
 def per_call(fn: Callable[[], Any], number: int, repeats: int) -> tuple[float, float]:
     """Minimum and median microseconds per call."""
-    times = sorted(sample / number * 1e6 for sample in timeit.Timer(fn).repeat(repeats, number))
-    return times[0], times[len(times) // 2]
+    times = [sample / number * 1e6 for sample in timeit.Timer(fn).repeat(repeats, number)]
+    return min(times), statistics.median(times)
 
 
 def table(title: str, rows: list[tuple[str, float, float, str]]) -> str:

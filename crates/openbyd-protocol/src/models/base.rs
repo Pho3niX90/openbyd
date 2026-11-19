@@ -1315,11 +1315,13 @@ impl<'a> Fields<'a> {
             self.record(ValidationError::new("missing").at(field.name));
             return T::default();
         };
+        // The default is made before the conversion runs, as `get` takes it.
+        let default = T::default();
         match convert(value) {
             Ok(converted) => converted,
             Err(error) => {
                 self.record(error.at(field.name));
-                T::default()
+                default
             }
         }
     }

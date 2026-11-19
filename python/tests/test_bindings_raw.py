@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import collections
 import enum
+import gc
 import json
 import math
 import random
@@ -34,6 +35,11 @@ def _model_calls() -> dict[str, str]:
 
 
 CALLS = _model_calls()
+
+# A model whose ``raw`` is the reply itself, so its dump's ``raw`` is built from the caller's
+# objects. ``BydBaseModel`` parses a cleaned copy and ``Vehicle`` parses by reference: their
+# ``raw`` is converted from the parsed reply, as every model's was before.
+KEEPS_REPLY = "VehicleRealtimeData"
 
 
 def test_every_model_has_a_parity_call():
@@ -186,11 +192,31 @@ def test_raw_matches_the_json_round_trip_for_every_model(seed):
 
 
 def test_raw_matches_the_held_value_round_trip():
+    kept = 0
     for raw in generated(3, 300):
         if "raw" in raw:
             continue  # the model's own raw key: covered by the parity comparison
-        got = models.parse("BydBaseModel", raw)["raw"]
-        assert same(got, _native._Value(raw).to_python()) is None
+        expected = _native._Value(raw).to_python()
+        assert same(models.parse("BydBaseModel", raw)["raw"], expected) is None
+        # A model that keeps the reply itself, so its raw comes from the caller's objects.
+        dump = parsed(KEEPS_REPLY, raw)
+        if dump is not None:
+            kept += 1
+            assert same(dump["raw"], expected) is None
+    assert kept > 100
+
+
+def test_raw_is_made_of_the_callers_own_leaves_in_new_containers():
+    # Objects made at run time, so none is a shared constant or a cached small value.
+    text = "".join(["fresh ", "text"])
+    number = int("1000000000000001")
+    real = float("1.5")
+    reply = {"speed": 1.0, "text": text, "number": number, "real": real, "list": [text, {"in": number}]}
+    raw = models.parse(KEEPS_REPLY, reply)["raw"]
+    assert same(raw, _native._Value(reply).to_python()) is None
+    assert raw["text"] is text and raw["number"] is number and raw["real"] is real
+    assert raw["list"][0] is text and raw["list"][1]["in"] is number
+    assert raw is not reply and raw["list"] is not reply["list"] and raw["list"][1] is not reply["list"][1]
 
 
 @pytest.mark.parametrize(
@@ -211,12 +237,14 @@ def test_raw_matches_the_held_value_round_trip():
 def test_each_kind_of_value_round_trips(given, expected):
     for name in ("BydBaseModel", "VehicleRealtimeData", "GpsInfo"):
         check(name, given)
-    assert same(models.parse("BydBaseModel", given)["raw"], expected) is None
+    for name in ("BydBaseModel", KEEPS_REPLY):
+        assert same(models.parse(name, given)["raw"], expected) is None
 
 
 def test_a_dict_subclass_at_the_top_round_trips():
     given = collections.OrderedDict([("b", 1), ("a", Level.HIGH)])
-    assert same(models.parse("BydBaseModel", given)["raw"], {"b": 1, "a": 3}) is None
+    for name in ("BydBaseModel", KEEPS_REPLY):
+        assert same(models.parse(name, given)["raw"], {"b": 1, "a": 3}) is None
     check("VehicleRealtimeData", given)
 
 
@@ -234,18 +262,19 @@ def test_keys_with_the_same_text_keep_the_first_position_and_the_last_value(firs
     given[Key("a")] = 4  # a third key with the same text, another identity
     assert len(given) == 5
     expected = {"before": 0, "a": 4, "middle": 2}
-    got = models.parse("BydBaseModel", given)["raw"]
-    assert same(got, expected) is None
-    assert same(got, _native._Value(given).to_python()) is None
-    check("BydBaseModel", given)
-    check("VehicleRealtimeData", given)
     nested = {"outer": given}
-    assert same(models.parse("BydBaseModel", nested)["raw"], {"outer": expected}) is None
+    for name in ("BydBaseModel", KEEPS_REPLY):
+        got = models.parse(name, given)["raw"]
+        assert same(got, expected) is None
+        assert same(got, _native._Value(given).to_python()) is None
+        check(name, given)
+        assert same(models.parse(name, nested)["raw"], {"outer": expected}) is None
 
 
-def test_raw_shares_no_container_with_the_input():
+@pytest.mark.parametrize("name", ["BydBaseModel", "VehicleRealtimeData"])
+def test_raw_shares_no_container_with_the_input(name):
     flat = {"a": 1, "b": "x", "c": 2.5}
-    raw = models.parse("BydBaseModel", flat)["raw"]
+    raw = models.parse(name, flat)["raw"]
     assert raw == flat and raw is not flat
     flat["a"] = 99
     flat["new"] = 1
@@ -254,7 +283,7 @@ def test_raw_shares_no_container_with_the_input():
     assert flat["b"] == "x"
 
     nested = {"list": [1, {"in": [2]}], "dict": {"d": 3}, "tuple": (4,)}
-    raw = models.parse("BydBaseModel", nested)["raw"]
+    raw = models.parse(name, nested)["raw"]
     assert raw["list"] is not nested["list"] and raw["list"][1] is not nested["list"][1]
     assert raw["list"][1]["in"] is not nested["list"][1]["in"] and raw["dict"] is not nested["dict"]
     nested["list"].append(5)
@@ -265,11 +294,48 @@ def test_raw_shares_no_container_with_the_input():
     raw["list"][1]["in"].clear()
     assert nested["dict"]["d"] == 7 and nested["list"][1]["in"] == [2, 6]
 
-    # Through a model that keeps the reply, too.
-    reply = {"vin": "TESTVIN0000000001", "speed": 1.0, "extra": {"k": [1]}}
-    raw = models.parse("VehicleRealtimeData", reply)["raw"]
-    reply["extra"]["k"].append(2)
-    assert raw["extra"] == {"k": [1]}
+
+def test_a_collection_during_the_copy_cannot_change_the_reply():
+    # Python 3.11 runs the collector inside an allocation, and its callbacks are arbitrary code.
+    # The copy allocates a list per item; a callback that edits the reply must not run until the
+    # reply has been read both for the parse and for raw.
+    reply: dict[str, Any] = {"items": [[index] for index in range(2000)], "speed": 2.0}
+
+    def edit(phase: str, info: dict[str, Any]) -> None:
+        reply["speed"] = 9.0
+        reply["added"] = 1
+
+    thresholds = gc.get_threshold()
+    gc.collect()
+    gc.callbacks.append(edit)
+    gc.set_threshold(1, 1, 1)
+    try:
+        dump = models.parse(KEEPS_REPLY, reply)
+    finally:
+        gc.set_threshold(*thresholds)
+        gc.callbacks.remove(edit)
+    assert dump["raw"]["speed"] == dump["speed"]
+    assert ("added" in dump["raw"]) == (dump["speed"] == 9.0)
+    assert len(dump["raw"]["items"]) == 2000
+
+
+def test_the_collector_is_left_as_it_was():
+    was_enabled = gc.isenabled()
+    try:
+        gc.enable()
+        models.parse(KEEPS_REPLY, {"speed": 1.0})
+        assert gc.isenabled()
+        with pytest.raises(TypeError):
+            models.parse(KEEPS_REPLY, {"speed": object()})
+        assert gc.isenabled()
+        with pytest.raises(TypeError):
+            models.parse(KEEPS_REPLY, {"nested": [{"bad": {1, 2}}]})
+        assert gc.isenabled()
+        gc.disable()
+        models.parse(KEEPS_REPLY, {"speed": 1.0})
+        assert not gc.isenabled()
+    finally:
+        gc.enable() if was_enabled else gc.disable()
 
 
 def test_vehicle_fills_its_pictures_from_raw():

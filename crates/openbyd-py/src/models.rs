@@ -155,8 +155,8 @@ enum Raw {
     /// It can (it has a `raw` field filled by `Fields::raw`).
     MayBeReply,
     /// It never is: no `raw` field, a before-validator that always builds a
-    /// new dict (`RemoteControlResult` and the command events), or a parse
-    /// by reference (`Vehicle`).
+    /// new dict (`RemoteControlResult` and the command events), a parse of
+    /// a cleaned copy (`BydBaseModel`) or a parse by reference (`Vehicle`).
     NeverReply,
 }
 
@@ -171,7 +171,7 @@ const MODELS: &[(&str, Run, Raw)] = &[
     ),
     ("AuthToken", run_auth_token, NeverReply),
     ("BookingList", run::<booking::BookingList>, MayBeReply),
-    ("BydBaseModel", run::<BydBaseModel>, MayBeReply),
+    ("BydBaseModel", run::<BydBaseModel>, NeverReply),
     (
         "ChargeChangeResult",
         run::<control::ChargeChangeResult>,
@@ -326,6 +326,34 @@ enum Part {
     Properties,
 }
 
+/// Pauses Python's cyclic garbage collector while it lives, so no finalizer
+/// or weak reference callback can run between two reads of the same objects.
+/// Holds the GIL's lifetime: it must be dropped before the GIL is released.
+struct GcPaused<'py> {
+    was_enabled: bool,
+    _py: Python<'py>,
+}
+
+impl<'py> GcPaused<'py> {
+    fn new(py: Python<'py>) -> Self {
+        // SAFETY: `PyGC_Disable` only needs the GIL, which `py` proves is held.
+        let was_enabled = unsafe { pyo3::ffi::PyGC_Disable() } != 0;
+        Self {
+            was_enabled,
+            _py: py,
+        }
+    }
+}
+
+impl Drop for GcPaused<'_> {
+    fn drop(&mut self) {
+        if self.was_enabled {
+            // SAFETY: the GIL is held for `'py`, which outlives this guard.
+            unsafe { pyo3::ffi::PyGC_Enable() };
+        }
+    }
+}
+
 fn parse_part<'py>(
     py: Python<'py>,
     name: &str,
@@ -335,17 +363,19 @@ fn parse_part<'py>(
 ) -> PyResult<Bound<'py, PyAny>> {
     let (run, keeps) = require(name)?;
     let input = raw;
-    let raw = convert::to_value(input, Mode::Strict)?;
-    // The dump's `raw` for a model that keeps the reply itself, built from
+    // The dump's `raw` for a model that keeps the reply itself is built from
     // the caller's objects: cheaper than converting the parsed reply back.
-    // It is taken straight after `to_value`, with the GIL held and before
-    // `detach` lets other threads run, so it is the snapshot the parse sees:
-    // neither conversion calls the input's own Python code (dicts are read
-    // with `PyDict_Next`, numbers and text through the C API, never
-    // `__iter__`, `__index__`, `__hash__` or `__eq__`), and no other thread
-    // can run in between. (The one way left is a finalizer run by a garbage
-    // collection that the copy's allocations trigger, and it would have to
-    // mutate this very input.)
+    // It must be the snapshot the parse sees, so it is taken straight after
+    // `to_value`, with the GIL held and before `detach` lets other threads
+    // run. Neither conversion calls the input's own Python code (dicts are
+    // read with `PyDict_Next`, numbers and text through the C API, never
+    // `__iter__`, `__index__`, `__hash__` or `__eq__`). The one thing that
+    // could still run in between is a garbage collection started by the
+    // copy's allocations (Python 3.11 collects inside the allocation), whose
+    // finalizers and weak reference callbacks are arbitrary code; the
+    // collector is paused until both are done.
+    let paused = GcPaused::new(py);
+    let raw = convert::to_value(input, Mode::Strict)?;
     // A reply with its own `raw` key never is the model's `raw`; that is
     // read from the converted value, so no Python code runs here either.
     let own_raw = raw
@@ -357,6 +387,7 @@ fn parse_part<'py>(
         }
         _ => None,
     };
+    drop(paused);
     let context = match context {
         Some(context) => convert::to_value(context, Mode::Strict)?,
         None => Value::Null,

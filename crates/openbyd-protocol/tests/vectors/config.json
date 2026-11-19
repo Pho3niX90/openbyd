@@ -1,0 +1,4074 @@
+{
+ "group": "config",
+ "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
+ "cases": [
+  {
+   "call": "config.DeviceProfile",
+   "args": {
+    "kwargs": {}
+   },
+   "ok": {
+    "ostype": "and",
+    "imei": "BANGCLE01234",
+    "mac": "00:00:00:00:00:00",
+    "model": "POCO F1",
+    "sdk": "35",
+    "mod": "Xiaomi",
+    "imei_md5": "00000000000000000000000000000000",
+    "mobile_brand": "XIAOMI",
+    "mobile_model": "POCO F1",
+    "device_type": "0",
+    "network_type": "wifi",
+    "os_type": "15",
+    "os_version": "35"
+   }
+  },
+  {
+   "call": "config.DeviceProfile",
+   "args": {
+    "kwargs": {
+     "imei": " 1 ",
+     "mod": "\u001cx\u001c"
+    }
+   },
+   "ok": {
+    "ostype": "and",
+    "imei": "1",
+    "mac": "00:00:00:00:00:00",
+    "model": "POCO F1",
+    "sdk": "35",
+    "mod": "\u001cx\u001c",
+    "imei_md5": "00000000000000000000000000000000",
+    "mobile_brand": "XIAOMI",
+    "mobile_model": "POCO F1",
+    "device_type": "0",
+    "network_type": "wifi",
+    "os_type": "15",
+    "os_version": "35"
+   }
+  },
+  {
+   "call": "config.DeviceProfile",
+   "args": {
+    "kwargs": {
+     "imei": 1
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.DeviceProfile",
+   "args": {
+    "kwargs": {
+     "nope": "x"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "name+byd@example.com",
+     "password": "p@ss \"w\u00f6rd\" \\ \ud83d\ude97 &=",
+     "country_code": "NL",
+     "device": {
+      "mobile_model": "Pixel \"9\" \ud83d\ude80",
+      "imei": "BANGCLE01234"
+     }
+    }
+   },
+   "ok": {
+    "username": "name+byd@example.com",
+    "password": "p@ss \"w\u00f6rd\" \\ \ud83d\ude97 &=",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "38B8AEA917BC4563F325A82FAB298ECF",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "Pixel \"9\" \ud83d\ude80",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": " u ",
+     "password": "p",
+     "device": {
+      "imei_md5": " 00000000000000000000000000000000"
+     }
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 1.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1.5"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 1.5,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": " 2 "
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 2.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1e3"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 1000.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1E-2"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 0.01,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "inf"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": "inf",
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "-Infinity"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": "-inf",
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "nan"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": "nan",
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "NaN"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": "nan",
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "+.5"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 0.5,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "5."
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 5.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "."
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1_000"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 1000.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1__0"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "_1"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1_"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1_.5"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 1.5,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": " 1_0"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1_0 "
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "0x10"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": ""
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": " "
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1,5"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "--1"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1e400"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": "inf",
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "-0"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": -0.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "\u0661"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "\u001c1"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1\u0085"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 1.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "i_nf"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": "inf",
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1e_5"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 100000.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "1._"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "session_ttl": "12abc"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "1"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 1,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": " 2 "
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 2,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "1.0"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 1,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "1.00"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 1,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "1.5"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "1."
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": ".0"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "1_000"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 1000,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "1__0"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "_1"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "+3"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 3,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "-0"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 0,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "-0.0"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 0,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "00012"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 12,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "1e3"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "9223372036854775807"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 9223372036854775807,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "-9223372036854775808"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": -9223372036854775808,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "0x10"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": ""
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "+"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "1_0.0"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 10,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "1.0_0"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "\u001c1"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_keepalive": "1\u0085"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 1,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "yes"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "YES"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "On"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "off"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "t"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "f"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "T"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "true "
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": " on"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "0"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "1"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "2"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": ""
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "y"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "N"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "nO"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig",
+   "args": {
+    "kwargs": {
+     "username": "u",
+     "password": "p",
+     "mqtt_enabled": "1.0"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {},
+    "overrides": {}
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {},
+    "overrides": {
+     "username": "over@example.com",
+     "password": "p"
+    }
+   },
+   "ok": {
+    "username": "over@example.com",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "C53F050F297F2558936DE1C1CFB6800B",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {},
+    "overrides": {
+     "session_ttl": 5,
+     "mqtt_enabled": false,
+     "mqtt_keepalive": 1,
+     "mqtt_timeout": 1
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {},
+    "overrides": {
+     "device": {
+      "imei": 5,
+      "sdk": null,
+      "mod": true,
+      "model": 1.0
+     }
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {},
+    "overrides": {
+     "device": "ignored"
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {},
+    "overrides": {
+     "device": {
+      "unknown": "x"
+     }
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {},
+    "overrides": {
+     "language": 5
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "user@example.com",
+     "BYD_PASSWORD": "secret"
+    },
+    "overrides": {}
+   },
+   "ok": {
+    "username": "user@example.com",
+    "password": "secret",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "B58996C504C5638798EB6B511E6F49AF",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "user@example.com",
+     "BYD_PASSWORD": "secret"
+    },
+    "overrides": {
+     "username": "over@example.com",
+     "password": "p"
+    }
+   },
+   "ok": {
+    "username": "over@example.com",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "C53F050F297F2558936DE1C1CFB6800B",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "user@example.com",
+     "BYD_PASSWORD": "secret"
+    },
+    "overrides": {
+     "session_ttl": 5,
+     "mqtt_enabled": false,
+     "mqtt_keepalive": 1,
+     "mqtt_timeout": 1
+    }
+   },
+   "ok": {
+    "username": "user@example.com",
+    "password": "secret",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 5.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 1,
+    "mqtt_timeout": 1.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "B58996C504C5638798EB6B511E6F49AF",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "user@example.com",
+     "BYD_PASSWORD": "secret"
+    },
+    "overrides": {
+     "device": {
+      "imei": 5,
+      "sdk": null,
+      "mod": true,
+      "model": 1.0
+     }
+    }
+   },
+   "ok": {
+    "username": "user@example.com",
+    "password": "secret",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "5",
+     "mac": "00:00:00:00:00:00",
+     "model": "1.0",
+     "sdk": "None",
+     "mod": "True",
+     "imei_md5": "B58996C504C5638798EB6B511E6F49AF",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "user@example.com",
+     "BYD_PASSWORD": "secret"
+    },
+    "overrides": {
+     "device": "ignored"
+    }
+   },
+   "ok": {
+    "username": "user@example.com",
+    "password": "secret",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "B58996C504C5638798EB6B511E6F49AF",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "user@example.com",
+     "BYD_PASSWORD": "secret"
+    },
+    "overrides": {
+     "device": {
+      "unknown": "x"
+     }
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "user@example.com",
+     "BYD_PASSWORD": "secret"
+    },
+    "overrides": {
+     "language": 5
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": " user@example.com ",
+     "BYD_PASSWORD": "secret",
+     "BYD_SESSION_TTL": " 3600 ",
+     "BYD_MQTT_ENABLED": " Off ",
+     "BYD_MQTT_KEEPALIVE": "1_000",
+     "BYD_MQTT_TIMEOUT": "",
+     "BYD_MQTT_COMMAND_TIMEOUT": "2.5",
+     "BYD_IMEI": " 123 ",
+     "BYD_CONTROL_PIN": "123456"
+    },
+    "overrides": {}
+   },
+   "ok": {
+    "username": "user@example.com",
+    "password": "secret",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": "123456",
+    "session_ttl": 3600.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 1000,
+    "mqtt_timeout": 2.5,
+    "device": {
+     "ostype": "and",
+     "imei": "123",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "B58996C504C5638798EB6B511E6F49AF",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": " user@example.com ",
+     "BYD_PASSWORD": "secret",
+     "BYD_SESSION_TTL": " 3600 ",
+     "BYD_MQTT_ENABLED": " Off ",
+     "BYD_MQTT_KEEPALIVE": "1_000",
+     "BYD_MQTT_TIMEOUT": "",
+     "BYD_MQTT_COMMAND_TIMEOUT": "2.5",
+     "BYD_IMEI": " 123 ",
+     "BYD_CONTROL_PIN": "123456"
+    },
+    "overrides": {
+     "username": "over@example.com",
+     "password": "p"
+    }
+   },
+   "ok": {
+    "username": "over@example.com",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": "123456",
+    "session_ttl": 3600.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 1000,
+    "mqtt_timeout": 2.5,
+    "device": {
+     "ostype": "and",
+     "imei": "123",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "C53F050F297F2558936DE1C1CFB6800B",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": " user@example.com ",
+     "BYD_PASSWORD": "secret",
+     "BYD_SESSION_TTL": " 3600 ",
+     "BYD_MQTT_ENABLED": " Off ",
+     "BYD_MQTT_KEEPALIVE": "1_000",
+     "BYD_MQTT_TIMEOUT": "",
+     "BYD_MQTT_COMMAND_TIMEOUT": "2.5",
+     "BYD_IMEI": " 123 ",
+     "BYD_CONTROL_PIN": "123456"
+    },
+    "overrides": {
+     "session_ttl": 5,
+     "mqtt_enabled": false,
+     "mqtt_keepalive": 1,
+     "mqtt_timeout": 1
+    }
+   },
+   "ok": {
+    "username": "user@example.com",
+    "password": "secret",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": "123456",
+    "session_ttl": 5.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 1,
+    "mqtt_timeout": 1.0,
+    "device": {
+     "ostype": "and",
+     "imei": "123",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "B58996C504C5638798EB6B511E6F49AF",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": " user@example.com ",
+     "BYD_PASSWORD": "secret",
+     "BYD_SESSION_TTL": " 3600 ",
+     "BYD_MQTT_ENABLED": " Off ",
+     "BYD_MQTT_KEEPALIVE": "1_000",
+     "BYD_MQTT_TIMEOUT": "",
+     "BYD_MQTT_COMMAND_TIMEOUT": "2.5",
+     "BYD_IMEI": " 123 ",
+     "BYD_CONTROL_PIN": "123456"
+    },
+    "overrides": {
+     "device": {
+      "imei": 5,
+      "sdk": null,
+      "mod": true,
+      "model": 1.0
+     }
+    }
+   },
+   "ok": {
+    "username": "user@example.com",
+    "password": "secret",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": "123456",
+    "session_ttl": 3600.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 1000,
+    "mqtt_timeout": 2.5,
+    "device": {
+     "ostype": "and",
+     "imei": "5",
+     "mac": "00:00:00:00:00:00",
+     "model": "1.0",
+     "sdk": "None",
+     "mod": "True",
+     "imei_md5": "B58996C504C5638798EB6B511E6F49AF",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": " user@example.com ",
+     "BYD_PASSWORD": "secret",
+     "BYD_SESSION_TTL": " 3600 ",
+     "BYD_MQTT_ENABLED": " Off ",
+     "BYD_MQTT_KEEPALIVE": "1_000",
+     "BYD_MQTT_TIMEOUT": "",
+     "BYD_MQTT_COMMAND_TIMEOUT": "2.5",
+     "BYD_IMEI": " 123 ",
+     "BYD_CONTROL_PIN": "123456"
+    },
+    "overrides": {
+     "device": "ignored"
+    }
+   },
+   "ok": {
+    "username": "user@example.com",
+    "password": "secret",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": "123456",
+    "session_ttl": 3600.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 1000,
+    "mqtt_timeout": 2.5,
+    "device": {
+     "ostype": "and",
+     "imei": "123",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "B58996C504C5638798EB6B511E6F49AF",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": " user@example.com ",
+     "BYD_PASSWORD": "secret",
+     "BYD_SESSION_TTL": " 3600 ",
+     "BYD_MQTT_ENABLED": " Off ",
+     "BYD_MQTT_KEEPALIVE": "1_000",
+     "BYD_MQTT_TIMEOUT": "",
+     "BYD_MQTT_COMMAND_TIMEOUT": "2.5",
+     "BYD_IMEI": " 123 ",
+     "BYD_CONTROL_PIN": "123456"
+    },
+    "overrides": {
+     "device": {
+      "unknown": "x"
+     }
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": " user@example.com ",
+     "BYD_PASSWORD": "secret",
+     "BYD_SESSION_TTL": " 3600 ",
+     "BYD_MQTT_ENABLED": " Off ",
+     "BYD_MQTT_KEEPALIVE": "1_000",
+     "BYD_MQTT_TIMEOUT": "",
+     "BYD_MQTT_COMMAND_TIMEOUT": "2.5",
+     "BYD_IMEI": " 123 ",
+     "BYD_CONTROL_PIN": "123456"
+    },
+    "overrides": {
+     "language": 5
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "abc"
+    },
+    "overrides": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "abc"
+    },
+    "overrides": {
+     "username": "over@example.com",
+     "password": "p"
+    }
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "abc"
+    },
+    "overrides": {
+     "session_ttl": 5,
+     "mqtt_enabled": false,
+     "mqtt_keepalive": 1,
+     "mqtt_timeout": 1
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 5.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 1,
+    "mqtt_timeout": 1.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "abc"
+    },
+    "overrides": {
+     "device": {
+      "imei": 5,
+      "sdk": null,
+      "mod": true,
+      "model": 1.0
+     }
+    }
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "abc"
+    },
+    "overrides": {
+     "device": "ignored"
+    }
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "abc"
+    },
+    "overrides": {
+     "device": {
+      "unknown": "x"
+     }
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "abc"
+    },
+    "overrides": {
+     "language": 5
+    }
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_KEEPALIVE": "1.0"
+    },
+    "overrides": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_KEEPALIVE": "1.0"
+    },
+    "overrides": {
+     "username": "over@example.com",
+     "password": "p"
+    }
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_KEEPALIVE": "1.0"
+    },
+    "overrides": {
+     "session_ttl": 5,
+     "mqtt_enabled": false,
+     "mqtt_keepalive": 1,
+     "mqtt_timeout": 1
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 5.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 1,
+    "mqtt_timeout": 1.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_KEEPALIVE": "1.0"
+    },
+    "overrides": {
+     "device": {
+      "imei": 5,
+      "sdk": null,
+      "mod": true,
+      "model": 1.0
+     }
+    }
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_KEEPALIVE": "1.0"
+    },
+    "overrides": {
+     "device": "ignored"
+    }
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_KEEPALIVE": "1.0"
+    },
+    "overrides": {
+     "device": {
+      "unknown": "x"
+     }
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_KEEPALIVE": "1.0"
+    },
+    "overrides": {
+     "language": 5
+    }
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_TIMEOUT": "x",
+     "BYD_MQTT_COMMAND_TIMEOUT": "1"
+    },
+    "overrides": {}
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_TIMEOUT": "x",
+     "BYD_MQTT_COMMAND_TIMEOUT": "1"
+    },
+    "overrides": {
+     "username": "over@example.com",
+     "password": "p"
+    }
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_TIMEOUT": "x",
+     "BYD_MQTT_COMMAND_TIMEOUT": "1"
+    },
+    "overrides": {
+     "session_ttl": 5,
+     "mqtt_enabled": false,
+     "mqtt_keepalive": 1,
+     "mqtt_timeout": 1
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 5.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 1,
+    "mqtt_timeout": 1.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_TIMEOUT": "x",
+     "BYD_MQTT_COMMAND_TIMEOUT": "1"
+    },
+    "overrides": {
+     "device": {
+      "imei": 5,
+      "sdk": null,
+      "mod": true,
+      "model": 1.0
+     }
+    }
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_TIMEOUT": "x",
+     "BYD_MQTT_COMMAND_TIMEOUT": "1"
+    },
+    "overrides": {
+     "device": "ignored"
+    }
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_TIMEOUT": "x",
+     "BYD_MQTT_COMMAND_TIMEOUT": "1"
+    },
+    "overrides": {
+     "device": {
+      "unknown": "x"
+     }
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_TIMEOUT": "x",
+     "BYD_MQTT_COMMAND_TIMEOUT": "1"
+    },
+    "overrides": {
+     "language": 5
+    }
+   },
+   "error": "ValueError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "inf",
+     "BYD_MQTT_TIMEOUT": "nan"
+    },
+    "overrides": {}
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": "inf",
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": "nan",
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "inf",
+     "BYD_MQTT_TIMEOUT": "nan"
+    },
+    "overrides": {
+     "username": "over@example.com",
+     "password": "p"
+    }
+   },
+   "ok": {
+    "username": "over@example.com",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": "inf",
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": "nan",
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "C53F050F297F2558936DE1C1CFB6800B",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "inf",
+     "BYD_MQTT_TIMEOUT": "nan"
+    },
+    "overrides": {
+     "session_ttl": 5,
+     "mqtt_enabled": false,
+     "mqtt_keepalive": 1,
+     "mqtt_timeout": 1
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 5.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 1,
+    "mqtt_timeout": 1.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "inf",
+     "BYD_MQTT_TIMEOUT": "nan"
+    },
+    "overrides": {
+     "device": {
+      "imei": 5,
+      "sdk": null,
+      "mod": true,
+      "model": 1.0
+     }
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": "inf",
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": "nan",
+    "device": {
+     "ostype": "and",
+     "imei": "5",
+     "mac": "00:00:00:00:00:00",
+     "model": "1.0",
+     "sdk": "None",
+     "mod": "True",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "inf",
+     "BYD_MQTT_TIMEOUT": "nan"
+    },
+    "overrides": {
+     "device": "ignored"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": "inf",
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": "nan",
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "inf",
+     "BYD_MQTT_TIMEOUT": "nan"
+    },
+    "overrides": {
+     "device": {
+      "unknown": "x"
+     }
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_SESSION_TTL": "inf",
+     "BYD_MQTT_TIMEOUT": "nan"
+    },
+    "overrides": {
+     "language": 5
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_ENABLED": "maybe"
+    },
+    "overrides": {}
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_ENABLED": "maybe"
+    },
+    "overrides": {
+     "username": "over@example.com",
+     "password": "p"
+    }
+   },
+   "ok": {
+    "username": "over@example.com",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "C53F050F297F2558936DE1C1CFB6800B",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_ENABLED": "maybe"
+    },
+    "overrides": {
+     "session_ttl": 5,
+     "mqtt_enabled": false,
+     "mqtt_keepalive": 1,
+     "mqtt_timeout": 1
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 5.0,
+    "mqtt_enabled": false,
+    "mqtt_keepalive": 1,
+    "mqtt_timeout": 1.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_ENABLED": "maybe"
+    },
+    "overrides": {
+     "device": {
+      "imei": 5,
+      "sdk": null,
+      "mod": true,
+      "model": 1.0
+     }
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "5",
+     "mac": "00:00:00:00:00:00",
+     "model": "1.0",
+     "sdk": "None",
+     "mod": "True",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_ENABLED": "maybe"
+    },
+    "overrides": {
+     "device": "ignored"
+    }
+   },
+   "ok": {
+    "username": "u",
+    "password": "p",
+    "base_url": "https://dilinkappoversea-eu.byd.auto",
+    "country_code": "NL",
+    "language": "en",
+    "time_zone": "Europe/Amsterdam",
+    "app_version": "3.5.1",
+    "app_inner_version": "351",
+    "soft_type": "0",
+    "tbox_version": "3",
+    "is_auto": "1",
+    "identifier_type": "0",
+    "control_pin": null,
+    "session_ttl": 43200.0,
+    "mqtt_enabled": true,
+    "mqtt_keepalive": 120,
+    "mqtt_timeout": 10.0,
+    "device": {
+     "ostype": "and",
+     "imei": "BANGCLE01234",
+     "mac": "00:00:00:00:00:00",
+     "model": "POCO F1",
+     "sdk": "35",
+     "mod": "Xiaomi",
+     "imei_md5": "7B774EFFE4A349C6DD82AD4F4F21D34C",
+     "mobile_brand": "XIAOMI",
+     "mobile_model": "POCO F1",
+     "device_type": "0",
+     "network_type": "wifi",
+     "os_type": "15",
+     "os_version": "35"
+    }
+   }
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_ENABLED": "maybe"
+    },
+    "overrides": {
+     "device": {
+      "unknown": "x"
+     }
+    }
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "config.BydConfig.from_env",
+   "args": {
+    "env": {
+     "BYD_USERNAME": "u",
+     "BYD_PASSWORD": "p",
+     "BYD_MQTT_ENABLED": "maybe"
+    },
+    "overrides": {
+     "language": 5
+    }
+   },
+   "error": "ValidationError"
+  }
+ ]
+}

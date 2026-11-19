@@ -1,0 +1,587 @@
+{
+ "group": "session",
+ "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
+ "cases": [
+  {
+   "call": "session.Session",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 100.0
+   },
+   "ok": {
+    "user_id": "1234567",
+    "sign_token": "SIGNTOKEN-synthetic",
+    "encry_token": "ENCRYTOKEN-synthetic",
+    "created_at": 100.0,
+    "ttl": 43200.0
+   }
+  },
+  {
+   "call": "session.Session",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 43300.0
+   },
+   "ok": {
+    "user_id": "1234567",
+    "sign_token": "SIGNTOKEN-synthetic",
+    "encry_token": "ENCRYTOKEN-synthetic",
+    "created_at": 100.0,
+    "ttl": 43200.0
+   }
+  },
+  {
+   "call": "session.Session",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": " padded\t",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": "60"
+    },
+    "now": 159.5
+   },
+   "ok": {
+    "user_id": "1234567",
+    "sign_token": "padded",
+    "encry_token": "ENCRYTOKEN-synthetic",
+    "created_at": 100.0,
+    "ttl": 60.0
+   }
+  },
+  {
+   "call": "session.Session",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 0
+    },
+    "now": 50.0
+   },
+   "ok": {
+    "user_id": "1234567",
+    "sign_token": "SIGNTOKEN-synthetic",
+    "encry_token": "ENCRYTOKEN-synthetic",
+    "created_at": 100.0,
+    "ttl": 0.0
+   }
+  },
+  {
+   "call": "session.Session",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": "inf"
+    },
+    "now": 1000000000.0
+   },
+   "ok": {
+    "user_id": "1234567",
+    "sign_token": "SIGNTOKEN-synthetic",
+    "encry_token": "ENCRYTOKEN-synthetic",
+    "created_at": 100.0,
+    "ttl": "inf"
+   }
+  },
+  {
+   "call": "session.Session",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": "nan",
+     "ttl": 43200.0
+    },
+    "now": 1.0
+   },
+   "ok": {
+    "user_id": "1234567",
+    "sign_token": "SIGNTOKEN-synthetic",
+    "encry_token": "ENCRYTOKEN-synthetic",
+    "created_at": "nan",
+    "ttl": 43200.0
+   }
+  },
+  {
+   "call": "session.Session",
+   "args": {
+    "session": {
+     "user_id": 5,
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 1.0
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "session.Session",
+   "args": {
+    "session": {
+     "user_id": "1",
+     "created_at": 0.0
+    },
+    "now": 1.0
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "session.content_key",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 100.0
+   },
+   "ok": "BF40331C26815272543A9ECEB8C8B680"
+  },
+  {
+   "call": "session.content_key",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 43300.0
+   },
+   "ok": "BF40331C26815272543A9ECEB8C8B680"
+  },
+  {
+   "call": "session.content_key",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": " padded\t",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": "60"
+    },
+    "now": 159.5
+   },
+   "ok": "BF40331C26815272543A9ECEB8C8B680"
+  },
+  {
+   "call": "session.content_key",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 0
+    },
+    "now": 50.0
+   },
+   "ok": "BF40331C26815272543A9ECEB8C8B680"
+  },
+  {
+   "call": "session.content_key",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": "inf"
+    },
+    "now": 1000000000.0
+   },
+   "ok": "BF40331C26815272543A9ECEB8C8B680"
+  },
+  {
+   "call": "session.content_key",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": "nan",
+     "ttl": 43200.0
+    },
+    "now": 1.0
+   },
+   "ok": "BF40331C26815272543A9ECEB8C8B680"
+  },
+  {
+   "call": "session.content_key",
+   "args": {
+    "session": {
+     "user_id": 5,
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 1.0
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "session.content_key",
+   "args": {
+    "session": {
+     "user_id": "1",
+     "created_at": 0.0
+    },
+    "now": 1.0
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "session.sign_key",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 100.0
+   },
+   "ok": "D57A23B1E19D2007367782BBA6255E46"
+  },
+  {
+   "call": "session.sign_key",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 43300.0
+   },
+   "ok": "D57A23B1E19D2007367782BBA6255E46"
+  },
+  {
+   "call": "session.sign_key",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": " padded\t",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": "60"
+    },
+    "now": 159.5
+   },
+   "ok": "5CF32AFE38209E996DF2E130DA9FBEDB"
+  },
+  {
+   "call": "session.sign_key",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 0
+    },
+    "now": 50.0
+   },
+   "ok": "D57A23B1E19D2007367782BBA6255E46"
+  },
+  {
+   "call": "session.sign_key",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": "inf"
+    },
+    "now": 1000000000.0
+   },
+   "ok": "D57A23B1E19D2007367782BBA6255E46"
+  },
+  {
+   "call": "session.sign_key",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": "nan",
+     "ttl": 43200.0
+    },
+    "now": 1.0
+   },
+   "ok": "D57A23B1E19D2007367782BBA6255E46"
+  },
+  {
+   "call": "session.sign_key",
+   "args": {
+    "session": {
+     "user_id": 5,
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 1.0
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "session.sign_key",
+   "args": {
+    "session": {
+     "user_id": "1",
+     "created_at": 0.0
+    },
+    "now": 1.0
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "session.is_expired",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 100.0
+   },
+   "ok": false
+  },
+  {
+   "call": "session.is_expired",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 43300.0
+   },
+   "ok": true
+  },
+  {
+   "call": "session.is_expired",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": " padded\t",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": "60"
+    },
+    "now": 159.5
+   },
+   "ok": false
+  },
+  {
+   "call": "session.is_expired",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 0
+    },
+    "now": 50.0
+   },
+   "ok": false
+  },
+  {
+   "call": "session.is_expired",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": "inf"
+    },
+    "now": 1000000000.0
+   },
+   "ok": false
+  },
+  {
+   "call": "session.is_expired",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": "nan",
+     "ttl": 43200.0
+    },
+    "now": 1.0
+   },
+   "ok": false
+  },
+  {
+   "call": "session.is_expired",
+   "args": {
+    "session": {
+     "user_id": 5,
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 1.0
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "session.is_expired",
+   "args": {
+    "session": {
+     "user_id": "1",
+     "created_at": 0.0
+    },
+    "now": 1.0
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "session.age",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 100.0
+   },
+   "ok": 0.0
+  },
+  {
+   "call": "session.age",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 43300.0
+   },
+   "ok": 43200.0
+  },
+  {
+   "call": "session.age",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": " padded\t",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": "60"
+    },
+    "now": 159.5
+   },
+   "ok": 59.5
+  },
+  {
+   "call": "session.age",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 0
+    },
+    "now": 50.0
+   },
+   "ok": -50.0
+  },
+  {
+   "call": "session.age",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": "inf"
+    },
+    "now": 1000000000.0
+   },
+   "ok": 999999900.0
+  },
+  {
+   "call": "session.age",
+   "args": {
+    "session": {
+     "user_id": "1234567",
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": "nan",
+     "ttl": 43200.0
+    },
+    "now": 1.0
+   },
+   "ok": "nan"
+  },
+  {
+   "call": "session.age",
+   "args": {
+    "session": {
+     "user_id": 5,
+     "sign_token": "SIGNTOKEN-synthetic",
+     "encry_token": "ENCRYTOKEN-synthetic",
+     "created_at": 100.0,
+     "ttl": 43200.0
+    },
+    "now": 1.0
+   },
+   "error": "ValidationError"
+  },
+  {
+   "call": "session.age",
+   "args": {
+    "session": {
+     "user_id": "1",
+     "created_at": 0.0
+    },
+    "now": 1.0
+   },
+   "error": "ValidationError"
+  }
+ ]
+}

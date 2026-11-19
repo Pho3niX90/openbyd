@@ -568,6 +568,75 @@
     "value": "sample-59"
    },
    "ok": "80183677B280A7802Ab23Ce12Ee7Ac9DEdb6990"
+  },
+  {
+   "call": "hashing.compute_checkcode",
+   "args": {
+    "payload": {}
+   },
+   "ok": "c90ae93b2bd37a50b983c5e799914b93"
+  },
+  {
+   "call": "hashing.compute_checkcode",
+   "args": {
+    "payload": {
+     "a": "1",
+     "b": 2,
+     "c": 1.0,
+     "d": null,
+     "e": true
+    }
+   },
+   "ok": "6c67e94fa458190e472081bbd3ac8764"
+  },
+  {
+   "call": "hashing.compute_checkcode",
+   "args": {
+    "payload": {
+     "name": "My \"Seal\" \ud83d\ude97",
+     "path": "a/b\\c",
+     "ctl": "\u0000\u001f\u007f",
+     "big": 18446744073709551615
+    }
+   },
+   "ok": "d59d63eab4e1a888647e01a594d295ec"
+  },
+  {
+   "call": "hashing.compute_checkcode",
+   "args": {
+    "payload": {
+     "f": 1e+16,
+     "g": 1e-05,
+     "h": -0.0,
+     "i": [
+      1,
+      {
+       "j": "k"
+      }
+     ]
+    }
+   },
+   "ok": "dcbf05e712f907d3f3724557ad5daa7e"
+  },
+  {
+   "call": "hashing.compute_checkcode",
+   "args": {
+    "payload": {
+     "z": "1",
+     "a": "2"
+    }
+   },
+   "ok": "9a9e949eda18d3e9d668a79085f5251d"
+  },
+  {
+   "call": "hashing.compute_checkcode",
+   "args": {
+    "payload": [
+     1,
+     "x"
+    ]
+   },
+   "ok": "9b908ad410ea67bb72605194977f047b"
   }
  ]
 }

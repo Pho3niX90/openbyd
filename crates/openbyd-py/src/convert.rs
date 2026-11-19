@@ -134,16 +134,21 @@ fn nonfinite_name(number: f64) -> &'static str {
     }
 }
 
+/// A dict key as text. Keys must be `str` (or a subclass).
+pub fn dict_key<'a>(key: &'a Bound<'_, PyAny>) -> PyResult<&'a str> {
+    match key.cast::<PyString>() {
+        Ok(key) => key.to_str(),
+        Err(_) => Err(PyTypeError::new_err(format!(
+            "dict keys must be str, not {}",
+            key.get_type().name()?
+        ))),
+    }
+}
+
 fn dict(entries: &Bound<'_, PyDict>, mode: Mode, depth: usize) -> PyResult<Value> {
     let mut map = Map::with_capacity(entries.len());
     for (key, item) in entries.iter() {
-        let Ok(key) = key.cast::<PyString>() else {
-            return Err(PyTypeError::new_err(format!(
-                "dict keys must be str, not {}",
-                key.get_type().name()?
-            )));
-        };
-        map.insert(key.to_str()?.to_owned(), convert(&item, mode, depth + 1)?);
+        map.insert(dict_key(&key)?.to_owned(), convert(&item, mode, depth + 1)?);
     }
     Ok(Value::Object(map))
 }
@@ -158,6 +163,82 @@ fn list<'py>(
         values.push(convert(&item, mode, depth + 1)?);
     }
     Ok(Value::Array(values))
+}
+
+/// [`to_value`] of a value found directly in a dict (one level deep, which
+/// counts towards [`MAX_DEPTH`]).
+pub fn item_to_value(object: &Bound<'_, PyAny>, mode: Mode) -> PyResult<Value> {
+    convert(object, mode, 1)
+}
+
+/// Fails exactly where [`item_to_value`] would, without building the value.
+pub fn check_item(object: &Bound<'_, PyAny>, mode: Mode) -> PyResult<()> {
+    check(object, mode, 1)
+}
+
+/// [`convert`] without the result: the same checks in the same order.
+fn check(object: &Bound<'_, PyAny>, mode: Mode, depth: usize) -> PyResult<()> {
+    if depth > MAX_DEPTH {
+        return Err(PyValueError::new_err(format!(
+            "value nests deeper than {MAX_DEPTH} levels"
+        )));
+    }
+    if object.is_exact_instance_of::<PyString>() {
+        return object.cast::<PyString>()?.to_str().map(drop);
+    }
+    if object.is_exact_instance_of::<PyDict>() {
+        return check_dict(object.cast::<PyDict>()?, mode, depth);
+    }
+    if object.is_exact_instance_of::<PyInt>() {
+        return int(object, mode).map(drop);
+    }
+    if object.is_exact_instance_of::<PyFloat>() {
+        return float(object.cast::<PyFloat>()?.value(), mode).map(drop);
+    }
+    if object.is_exact_instance_of::<PyList>() {
+        return check_items(object.cast::<PyList>()?.iter(), mode, depth);
+    }
+    if object.is_none() || object.cast::<PyBool>().is_ok() {
+        return Ok(());
+    }
+    if let Ok(text) = object.cast::<PyString>() {
+        return text.to_str().map(drop);
+    }
+    if object.is_instance_of::<PyInt>() {
+        return int(object, mode).map(drop);
+    }
+    if let Ok(number) = object.cast::<PyFloat>() {
+        return float(number.value(), mode).map(drop);
+    }
+    if let Ok(entries) = object.cast::<PyDict>() {
+        return check_dict(entries, mode, depth);
+    }
+    if let Ok(items) = object.cast::<PyList>() {
+        return check_items(items.iter(), mode, depth);
+    }
+    if let Ok(items) = object.cast::<PyTuple>() {
+        return check_items(items.iter(), mode, depth);
+    }
+    convert(object, mode, depth).map(drop)
+}
+
+fn check_dict(entries: &Bound<'_, PyDict>, mode: Mode, depth: usize) -> PyResult<()> {
+    for (key, item) in entries.iter() {
+        dict_key(&key)?;
+        check(&item, mode, depth + 1)?;
+    }
+    Ok(())
+}
+
+fn check_items<'py>(
+    items: impl Iterator<Item = Bound<'py, PyAny>>,
+    mode: Mode,
+    depth: usize,
+) -> PyResult<()> {
+    for item in items {
+        check(&item, mode, depth + 1)?;
+    }
+    Ok(())
 }
 
 /// Converts a JSON value to Python objects. See the module documentation.

@@ -87,7 +87,11 @@ def model_properties(name: str, raw: Any, context: Any = None) -> dict[str, Any]
     """The ``@property`` values of pyBYD's class ``name`` for ``raw``."""
 
 def shadow_compare(name: str, raw: Any, expected: Any, context: Any = None) -> list[str]:
-    """Names of top-level fields where openbyd's dump differs from ``expected``, or a marker."""
+    """Names of top-level fields where openbyd's dump differs from ``expected``, or a marker.
+
+    Reported: fields ``expected`` has and openbyd lacks, and fields both have with different
+    values. A field only openbyd has is not reported (an older pyBYD lacks it).
+    """
 
 # ---- low-level requests ----
 

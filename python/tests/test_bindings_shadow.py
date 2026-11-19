@@ -53,6 +53,33 @@ def test_reports_the_names_of_changed_fields_only():
     assert str(secret) not in repr(result)
 
 
+def _dump_without(model: Any, *names: str) -> _Evil:
+    """``model`` as a pyBYD model of the same class whose dump lacks ``names``."""
+    dump = {key: value for key, value in model.model_dump(mode="json").items() if key not in names}
+    return _named(type(model).__name__, raw=model.raw, dump=dump)
+
+
+def test_a_field_only_openbyd_has_is_not_reported():
+    # An older pyBYD (0.0.85) has no charge_power fields: not a difference.
+    model = VehicleRealtimeData.model_validate(REALTIME)
+    older = _dump_without(model, "charge_power", "charge_power_unit")
+    assert shadow.compare(older) == []
+
+
+def test_a_field_only_pybyd_has_is_reported():
+    model = VehicleRealtimeData.model_validate(REALTIME)
+    dump = {**model.model_dump(mode="json"), "brand_new_field": 1}
+    assert shadow.compare(_named("VehicleRealtimeData", raw=model.raw, dump=dump)) == ["brand_new_field"]
+
+
+def test_a_field_both_have_with_another_value_is_reported():
+    model = VehicleRealtimeData.model_validate(REALTIME)
+    dump = model.model_dump(mode="json")
+    dump["speed"] = None if dump["speed"] is not None else 1.0
+    dump["elec_percent"] = int(dump["elec_percent"]) if isinstance(dump["elec_percent"], float) else 1.5
+    assert shadow.compare(_named("VehicleRealtimeData", raw=model.raw, dump=dump)) == ["elec_percent", "speed"]
+
+
 def test_markers():
     class Unknown(BaseModel):
         raw: dict = {}

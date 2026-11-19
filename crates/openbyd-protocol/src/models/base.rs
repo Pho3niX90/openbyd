@@ -1210,6 +1210,12 @@ pub trait BydModel: Serialize + Sized {
     /// `Model.model_validate(raw, context=context)`. `context` is JSON null when there is none.
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError>;
 
+    /// [`BydModel::parse`] of a reply the caller does not need afterwards:
+    /// the same model, without copying the reply where the model keeps it.
+    fn parse_owned(raw: Value, context: &Value) -> Result<Self, ValidationError> {
+        Self::parse(&raw, context)
+    }
+
     /// Every `@property` of the Python class, by name, as JSON.
     fn properties(&self) -> Map<String, Value> {
         Map::new()

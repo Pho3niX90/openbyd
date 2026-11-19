@@ -16,6 +16,7 @@ mod bridge;
 mod car;
 mod client;
 mod convert;
+mod dump;
 mod errors;
 mod hooks;
 mod lowlevel;

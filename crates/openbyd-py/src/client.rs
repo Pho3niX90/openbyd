@@ -30,11 +30,13 @@ use openbyd_protocol::state::StateChangedCallback;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyTuple};
+use serde::Serialize;
 use serde_json::{Map, Value, json};
 
 use crate::bridge::{self, IntoPython};
 use crate::car::PyCar;
 use crate::convert::{self, Mode};
+use crate::dump::{self, DumpToPython};
 use crate::errors;
 use crate::hooks::LoopHooks;
 
@@ -42,21 +44,31 @@ use crate::hooks::LoopHooks;
 /// the car's capability data is incomplete, not refusing.
 const MISSING_DATA_REASONS: [&str; 2] = ["function_no_missing", "learn_info_missing"];
 
-/// A model dump, converted as pyBYD's `model_dump(mode="json")` gives it.
-pub struct Dump(pub Value);
+/// A model (or a list of them, or a JSON value) on its way to Python,
+/// converted on the event loop's thread into what pyBYD's
+/// `model_dump(mode="json")` gives, without a JSON value in between.
+pub struct Dump(Box<dyn DumpToPython>);
 
-impl IntoPython for Dump {
-    fn into_python(self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        convert::dump_to_python(py, &self.0).map(Bound::unbind)
+impl Dump {
+    /// Wraps a model, a `Vec` of models or a JSON value.
+    pub fn new(value: impl DumpToPython + 'static) -> Self {
+        Self(Box::new(value))
     }
 }
 
-fn dump<M: BydModel>(model: &M) -> Dump {
-    Dump(model.dump())
+impl IntoPython for Dump {
+    fn into_python(self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.0.dump_to_python(py).map(Bound::unbind)
+    }
 }
 
-fn dump_all<M: BydModel>(models: &[M]) -> Dump {
-    Dump(Value::Array(models.iter().map(BydModel::dump).collect()))
+/// `(key, value)` pairs serialised as a map, in order.
+struct Entries<T>(Vec<(String, T)>);
+
+impl<T: Serialize> Serialize for Entries<T> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_map(self.0.iter().map(|(key, value)| (key, value)))
+    }
 }
 
 /// A dict argument as a JSON object.
@@ -197,9 +209,14 @@ impl Options<'_> {
         if let Some(callback) = callable("on_vehicle_info", self.on_vehicle_info)? {
             let hooks = Arc::clone(hooks);
             options.on_vehicle_info = Some(Arc::new(move |vin, data| {
-                let data = data.dump();
                 hooks.post("on_vehicle_info", &callback, |py| {
-                    PyTuple::new(py, [vin.into_pyobject(py)?.into_any(), to_py(py, &data)?])
+                    PyTuple::new(
+                        py,
+                        [
+                            vin.into_pyobject(py)?.into_any(),
+                            dump::to_python(py, data)?,
+                        ],
+                    )
                 });
             }));
         }
@@ -222,18 +239,16 @@ impl Options<'_> {
         if let Some(callback) = callable("on_command_ack", self.on_command_ack)? {
             let hooks = Arc::clone(hooks);
             options.on_command_ack = Some(Arc::new(move |ack| {
-                let ack = ack.dump();
                 hooks.post("on_command_ack", &callback, |py| {
-                    PyTuple::new(py, [to_py(py, &ack)?])
+                    PyTuple::new(py, [dump::to_python(py, ack)?])
                 });
             }));
         }
         if let Some(callback) = callable("on_command_lifecycle", self.on_command_lifecycle)? {
             let hooks = Arc::clone(hooks);
             options.on_command_lifecycle = Some(Arc::new(move |event| {
-                let event = event.dump();
                 hooks.post("on_command_lifecycle", &callback, |py| {
-                    PyTuple::new(py, [to_py(py, &event)?])
+                    PyTuple::new(py, [dump::to_python(py, event)?])
                 });
             }));
         }
@@ -305,9 +320,14 @@ fn gate_policy(
     let callback = callable("gate_policy", Some(value))?.expect("not None");
     let hooks = Arc::clone(hooks);
     Ok(Some(Arc::new(move |vin, verdict: &CommandGateVerdict| {
-        let dumped = verdict.dump();
         let answer = hooks.decide("gate_policy", &callback, |py| {
-            PyTuple::new(py, [vin.into_pyobject(py)?.into_any(), to_py(py, &dumped)?])
+            PyTuple::new(
+                py,
+                [
+                    vin.into_pyobject(py)?.into_any(),
+                    dump::to_python(py, verdict)?,
+                ],
+            )
         });
         answer
             .and_then(|value| Python::try_attach(|py| value.bind(py).is_truthy().ok()).flatten())
@@ -387,7 +407,7 @@ impl PyClient {
 macro_rules! read {
     ($self:ident, $py:ident, |$client:ident| $call:expr) => {{
         let $client = $self.handle();
-        bridge::spawn($py, async move { $call.await.map(|model| dump(&model)) })
+        bridge::spawn($py, async move { $call.await.map(Dump::new) })
     }};
 }
 
@@ -395,10 +415,7 @@ macro_rules! command {
     ($self:ident, $py:ident, $vin:ident, $pwd:ident, $method:ident) => {{
         let client = $self.handle();
         bridge::spawn($py, async move {
-            client
-                .$method(&$vin, $pwd.as_deref())
-                .await
-                .map(|model| dump(&model))
+            client.$method(&$vin, $pwd.as_deref()).await.map(Dump::new)
         })
     }};
 }
@@ -412,7 +429,7 @@ macro_rules! with_params {
             client
                 .$method(&$vin, &params, $pwd.as_deref())
                 .await
-                .map(|model| dump(&model))
+                .map(Dump::new)
         })
     }};
 }
@@ -497,7 +514,7 @@ impl PyClient {
         let client = self.handle();
         bridge::spawn(py, async move {
             let session = client.ensure_session().await?;
-            Ok::<_, Error>(Dump(json!({
+            Ok::<_, Error>(Dump::new(json!({
                 "user_id": session.user_id(),
                 "sign_token": session.sign_token(),
                 "encry_token": session.encry_token(),
@@ -546,7 +563,7 @@ impl PyClient {
     }
 
     fn get_command_ack_diagnostics<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        to_py(py, &self.client.get_command_ack_diagnostics().dump())
+        dump::to_python(py, &self.client.get_command_ack_diagnostics())
     }
 
     #[pyo3(signature = (vin, energy_type, model_name = None))]
@@ -571,18 +588,16 @@ impl PyClient {
     ) -> PyResult<Option<Bound<'py, PyAny>>> {
         self.client
             .vehicle_metadata(vin)
-            .map(|vehicle| to_py(py, &vehicle.dump()))
+            .map(|vehicle| dump::to_python(py, &vehicle))
             .transpose()
     }
 
     fn get_vehicles<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let client = self.handle();
-        bridge::spawn(py, async move {
-            client
-                .get_vehicles()
-                .await
-                .map(|vehicles| dump_all(&vehicles))
-        })
+        bridge::spawn(
+            py,
+            async move { client.get_vehicles().await.map(Dump::new) },
+        )
     }
 
     #[pyo3(signature = (vin, *, vehicle = None, on_state_changed = None, projection_ttl = 30.0))]
@@ -637,14 +652,10 @@ impl PyClient {
     ) -> PyResult<Bound<'py, PyAny>> {
         let client = self.handle();
         bridge::spawn(py, async move {
-            client.get_latest_configs(&vins).await.map(|configs| {
-                Dump(Value::Object(
-                    configs
-                        .into_iter()
-                        .map(|(vin, config)| (vin, config.dump()))
-                        .collect(),
-                ))
-            })
+            client
+                .get_latest_configs(&vins)
+                .await
+                .map(|configs| Dump::new(Entries(configs)))
         })
     }
 
@@ -661,7 +672,7 @@ impl PyClient {
     ) -> PyResult<Bound<'py, PyAny>> {
         let client = self.handle();
         bridge::spawn(py, async move {
-            dump(&client.get_vehicle_capabilities(&vin, force_refresh).await)
+            Dump::new(client.get_vehicle_capabilities(&vin, force_refresh).await)
         })
     }
 
@@ -722,13 +733,12 @@ impl PyClient {
         let client = self.handle();
         bridge::spawn(py, async move {
             let (status, schedule) = client.get_charging_homepage(&vin).await?;
-            let (status, schedule) = (status.dump(), schedule.dump());
             Ok::<_, Error>(bridge::WithPython(move |py: Python<'_>| {
-                Ok(
-                    PyTuple::new(py, [to_py(py, &status)?, to_py(py, &schedule)?])?
-                        .into_any()
-                        .unbind(),
-                )
+                let items = [
+                    dump::to_python(py, &status)?,
+                    dump::to_python(py, &schedule)?,
+                ];
+                Ok(PyTuple::new(py, items)?.into_any().unbind())
             }))
         })
     }
@@ -789,10 +799,7 @@ impl PyClient {
         })?;
         let client = self.handle();
         bridge::spawn(py, async move {
-            client
-                .get_notifications(category)
-                .await
-                .map(|messages| dump_all(&messages))
+            client.get_notifications(category).await.map(Dump::new)
         })
     }
 
@@ -800,17 +807,10 @@ impl PyClient {
         let client = self.handle();
         bridge::spawn(py, async move {
             let all = client.get_all_notifications().await?;
-            let all: Vec<(i64, Value)> = all
-                .into_iter()
-                .map(|(category, messages)| {
-                    let messages = Value::Array(messages.iter().map(BydModel::dump).collect());
-                    (category as i64, messages)
-                })
-                .collect();
             Ok::<_, Error>(bridge::WithPython(move |py: Python<'_>| {
                 let dict = PyDict::new(py);
                 for (category, messages) in &all {
-                    dict.set_item(category, to_py(py, messages)?)?;
+                    dict.set_item(*category as i64, dump::to_python(py, messages)?)?;
                 }
                 Ok(dict.into_any().unbind())
             }))

@@ -21,8 +21,8 @@ use serde_json::{Map, Value, json};
 
 use crate::bridge;
 use crate::client::{Dump, object};
-use crate::convert;
 use crate::errors;
+use crate::{convert, dump};
 
 /// A car. See `openbyd.Car`.
 #[pyclass(frozen, module = "openbyd._native", name = "Car")]
@@ -217,7 +217,7 @@ impl PyCar {
     }
 
     fn capabilities<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        convert::dump_to_python(py, &self.car.capabilities().dump())
+        dump::to_python(py, self.car.capabilities())
     }
 
     fn features<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
@@ -232,36 +232,30 @@ impl PyCar {
             return Err(PyValueError::new_err(format!("no section {section:?}")));
         }
         bridge::spawn(py, async move {
-            Ok::<_, Error>(Dump(match section.as_str() {
-                "realtime" => car.update_realtime().await?.dump(),
-                "hvac" => car.update_hvac().await?.dump(),
-                "gps" => car.update_gps().await?.dump(),
-                "charging" => car.update_charging().await?.dump(),
-                _ => car.update_energy().await?.dump(),
-            }))
+            Ok::<_, Error>(match section.as_str() {
+                "realtime" => Dump::new(car.update_realtime().await?),
+                "hvac" => Dump::new(car.update_hvac().await?),
+                "gps" => Dump::new(car.update_gps().await?),
+                "charging" => Dump::new(car.update_charging().await?),
+                _ => Dump::new(car.update_energy().await?),
+            })
         })
     }
 
     fn start_charging<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let car = self.car.clone();
-        bridge::spawn(py, async move {
-            car.start_charging().await.map(|result| Dump(result.dump()))
-        })
+        bridge::spawn(py, async move { car.start_charging().await.map(Dump::new) })
     }
 
     fn stop_charging<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let car = self.car.clone();
-        bridge::spawn(py, async move {
-            car.stop_charging().await.map(|result| Dump(result.dump()))
-        })
+        bridge::spawn(py, async move { car.stop_charging().await.map(Dump::new) })
     }
 
     fn get_ac_current_limit<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let car = self.car.clone();
         bridge::spawn(py, async move {
-            car.get_ac_current_limit()
-                .await
-                .map(|result| Dump(result.dump()))
+            car.get_ac_current_limit().await.map(Dump::new)
         })
     }
 
@@ -278,7 +272,7 @@ impl PyCar {
         bridge::spawn(py, async move {
             car.save_charging_schedule(&start_charge_time, &end_charge_time, &charge_way, enabled)
                 .await
-                .map(|result| Dump(result.dump()))
+                .map(Dump::new)
         })
     }
 

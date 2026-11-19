@@ -4,6 +4,7 @@
 //! one here; a Python test checks it against every model pyBYD's parity
 //! groups register.
 
+use std::borrow::Cow;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use openbyd_protocol::coerce::ValidationError;
@@ -16,22 +17,16 @@ use openbyd_protocol::models::{
 use openbyd_protocol::mqtt;
 use pyo3::exceptions::PyKeyError;
 use pyo3::prelude::*;
+use pyo3::types::PyDict;
 use serde_json::{Map, Value};
 
 use crate::convert::{self, Mode};
-use crate::errors;
+use crate::{dump, errors};
 
 /// What a shadow comparison returns when openbyd fails where pyBYD did not.
 pub const SHADOW_ERROR: &str = "<error>";
 /// What a shadow comparison returns for a class openbyd does not know.
 pub const SHADOW_UNKNOWN_MODEL: &str = "<unknown model>";
-
-/// Which parts of a parsed model to compute.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Part {
-    Dump,
-    Properties,
-}
 
 /// Why a model could not be parsed.
 enum Failure {
@@ -48,22 +43,64 @@ impl Failure {
     }
 }
 
-type Run = fn(&Value, &Value, Part) -> Result<Value, Failure>;
+/// A parsed model, kept as it is until the GIL is held, so its dump goes
+/// straight into Python objects ([`dump::to_python`]).
+trait Parsed: Send {
+    /// `model_dump(mode="json")` as Python objects.
+    fn dump<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>>;
 
-fn run<M: BydModel>(raw: &Value, context: &Value, part: Part) -> Result<Value, Failure> {
-    let model = M::parse(raw, context).map_err(Failure::Validation)?;
-    Ok(match part {
-        Part::Dump => model.dump(),
-        Part::Properties => Value::Object(model.properties()),
-    })
+    /// Every `@property` of the Python class, by name.
+    fn properties(&self) -> Map<String, Value>;
+
+    /// The top-level fields of the dump other than `raw`, in order, or
+    /// `None` if the dump is not an object. For the shadow comparison.
+    fn fields(&self) -> Option<Vec<(Cow<'static, str>, Value)>>;
 }
 
-fn run_auth_token(raw: &Value, _context: &Value, part: Part) -> Result<Value, Failure> {
-    let token = token::AuthToken::from_raw(raw).map_err(Failure::Error)?;
-    Ok(match part {
-        Part::Dump => token.to_dump(),
-        Part::Properties => Value::Object(Map::new()),
-    })
+impl<M: BydModel + Send> Parsed for M {
+    fn dump<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        dump::to_python(py, self)
+    }
+
+    fn properties(&self) -> Map<String, Value> {
+        BydModel::properties(self)
+    }
+
+    fn fields(&self) -> Option<Vec<(Cow<'static, str>, Value)>> {
+        dump::fields_but_raw(self)
+    }
+}
+
+/// pyBYD's `AuthToken`, which openbyd keeps outside the models.
+struct Token(Value);
+
+impl Parsed for Token {
+    fn dump<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        dump::to_python(py, &self.0)
+    }
+
+    fn properties(&self) -> Map<String, Value> {
+        Map::new()
+    }
+
+    fn fields(&self) -> Option<Vec<(Cow<'static, str>, Value)>> {
+        dump::fields_but_raw(&self.0)
+    }
+}
+
+type Run = fn(Value, &Value) -> Result<Box<dyn Parsed>, Failure>;
+
+fn run<M: BydModel + Send + 'static>(
+    raw: Value,
+    context: &Value,
+) -> Result<Box<dyn Parsed>, Failure> {
+    let model = M::parse_owned(raw, context).map_err(Failure::Validation)?;
+    Ok(Box::new(model))
+}
+
+fn run_auth_token(raw: Value, _context: &Value) -> Result<Box<dyn Parsed>, Failure> {
+    let token = token::AuthToken::from_raw(&raw).map_err(Failure::Error)?;
+    Ok(Box::new(Token(token.to_dump())))
 }
 
 /// Every model openbyd parses, by pyBYD class name, sorted.
@@ -165,6 +202,13 @@ pub fn model_names() -> Vec<&'static str> {
     MODELS.iter().map(|(name, _)| *name).collect()
 }
 
+/// Which part of a parsed model a call returns.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Part {
+    Dump,
+    Properties,
+}
+
 fn parse_part<'py>(
     py: Python<'py>,
     name: &str,
@@ -179,9 +223,12 @@ fn parse_part<'py>(
         None => Value::Null,
     };
     let parsed = py
-        .detach(|| run(&raw, &context, part))
+        .detach(|| run(raw, &context))
         .map_err(|failure| failure.into_py_err(py))?;
-    convert::dump_to_python(py, &parsed)
+    match part {
+        Part::Dump => parsed.dump(py),
+        Part::Properties => dump::to_python(py, &parsed.properties()),
+    }
 }
 
 /// `Model.model_validate(raw, context=context).model_dump(mode="json")` for
@@ -212,8 +259,15 @@ pub fn model_properties<'py>(
 
 /// The sorted names of the top-level fields (other than `raw`) where
 /// openbyd's dump of `raw` differs from `expected` (pyBYD's
-/// `model_dump(mode="json")`), or one of
+/// `model_dump(mode="json")`): fields `expected` has and openbyd lacks, and
+/// fields both have with different values. A field only openbyd has is not
+/// reported (an older pyBYD lacks it). Or one of
 /// the markers [`SHADOW_UNKNOWN_MODEL`] and [`SHADOW_ERROR`].
+///
+/// Values are compared as JSON: `expected` is read as [`convert::to_value`]
+/// reads it in [`Mode::Lenient`], so `1` differs from `1.0` and a NaN float
+/// equals openbyd's `"NaN"`. `raw` is not compared, only checked to be
+/// convertible, and openbyd's own `raw` is not dumped at all.
 ///
 /// Never raises for bad values: anything openbyd cannot convert or parse is
 /// [`SHADOW_ERROR`]. Values never appear in the answer.
@@ -234,39 +288,85 @@ pub fn shadow_compare(
         Some(context) => convert::to_value(context, Mode::Strict),
         None => Ok(Value::Null),
     };
-    let (Ok(raw), Ok(expected), Ok(context)) = (
+    let (Ok(raw), Ok(context), Ok(theirs)) = (
         convert::to_value(raw, Mode::Strict),
-        convert::to_value(expected, Mode::Lenient),
         context,
+        expected_fields(expected),
     ) else {
         return error();
     };
-    py.detach(|| {
+    let ours = py.detach(|| {
         catch_unwind(AssertUnwindSafe(|| {
-            run(&raw, &context, Part::Dump)
-                .ok()
-                .and_then(|ours| differing_fields(&ours, &expected))
+            run(raw, &context).ok().and_then(|model| model.fields())
         }))
         .ok()
         .flatten()
-        .unwrap_or_else(error)
-    })
+    });
+    match (ours, theirs) {
+        (Some(ours), Some(theirs)) => differing_fields(&ours, theirs),
+        _ => error(),
+    }
 }
 
-/// The sorted top-level keys whose values differ, or `None` if either side
-/// is not an object.
+/// `expected` as `(key, value)` pairs, converted as [`Mode::Lenient`]
+/// converts them, except that `raw` is only checked (`None`). `Ok(None)`
+/// if `expected` is not a dict; an error where the conversion would fail.
+/// pyBYD's top-level fields by name; `None` for `raw`, which is only checked.
+type ExpectedFields = Vec<(String, Option<Value>)>;
+
+fn expected_fields(expected: &Bound<'_, PyAny>) -> PyResult<Option<ExpectedFields>> {
+    let Ok(entries) = expected.cast::<PyDict>() else {
+        // Not an object once converted, so the comparison fails whether it converts or not.
+        return Ok(None);
+    };
+    let mut fields = Vec::with_capacity(entries.len());
+    for (key, item) in entries.iter() {
+        let key = convert::dict_key(&key)?.to_owned();
+        let value = if key == "raw" {
+            convert::check_item(&item, Mode::Lenient)?;
+            None
+        } else {
+            Some(convert::item_to_value(&item, Mode::Lenient)?)
+        };
+        fields.push((key, value));
+    }
+    Ok(Some(fields))
+}
+
+/// The sorted top-level keys other than `raw` that pyBYD's dump has and
+/// openbyd's lacks, or that both have with different values.
+///
+/// A key only openbyd has is not reported: it means the installed pyBYD is
+/// older than the commit openbyd follows (which added the field), not that
+/// the two parse differently.
 ///
 /// `raw` is left out: it is the input echoed back, and openbyd only sees
 /// `model.raw`, which is not always the input pyBYD was given (a model that
 /// wraps a list reply keeps `{"list": [...]}` there).
-fn differing_fields(ours: &Value, theirs: &Value) -> Option<Vec<String>> {
-    let (ours, theirs) = (ours.as_object()?, theirs.as_object()?);
-    let mut names: Vec<String> = ours
-        .keys()
-        .chain(theirs.keys().filter(|key| !ours.contains_key(*key)))
-        .filter(|key| *key != "raw" && ours.get(*key) != theirs.get(*key))
-        .cloned()
-        .collect();
+fn differing_fields(
+    ours: &[(Cow<'static, str>, Value)],
+    mut theirs: ExpectedFields,
+) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut matched = vec![false; theirs.len()];
+    for (index, (key, value)) in ours.iter().enumerate() {
+        // Both sides are usually in the same order; search only when not.
+        let position = match theirs.get(index) {
+            Some((their_key, _)) if their_key == key => Some(index),
+            _ => theirs.iter().position(|(their_key, _)| their_key == key),
+        };
+        if let Some(position) = position {
+            matched[position] = true;
+            if theirs[position].1.as_ref() != Some(value) {
+                names.push(key.to_string());
+            }
+        }
+    }
+    for ((key, _), matched) in theirs.iter_mut().zip(matched) {
+        if !matched && key != "raw" {
+            names.push(std::mem::take(key));
+        }
+    }
     names.sort_unstable();
-    Some(names)
+    names
 }

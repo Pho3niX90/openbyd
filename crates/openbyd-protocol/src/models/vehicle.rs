@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields, ParsedReply, PyDateTime};
+use super::base::{self, BydModel, Fields, ParsedReply, Plan, PyDateTime};
 use crate::coerce::{self, IntEnum, ValidationError};
 use crate::parity::Outcome;
 use crate::pyjson;
@@ -81,7 +81,8 @@ impl BydModel for EmpowerRange {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, EMPOWER_RANGE_KEY_ALIASES)?;
+        static PLAN: Plan = Plan::new(EMPOWER_RANGE_KEY_ALIASES);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             code: fields.get("code", String::new(), coerce::string),
@@ -200,7 +201,8 @@ impl BydModel for Vehicle {
     }
 
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let mut model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),

@@ -6,7 +6,10 @@
 //!    its base's, and within a class the last defined runs first);
 //! 2. `BydBaseModel._clean_byd_values`: key aliases, sentinel stripping and
 //!    the `raw` copy ([`clean_byd_values`]);
-//! 3. one conversion per field, in declaration order ([`Fields`]);
+//! 3. one conversion per field, in declaration order ([`Fields`], which
+//!    a model builds with [`Fields::planned`] so that, after its first
+//!    successful parse, the reads follow the model's recorded [`Plan`]
+//!    instead of hashing every key);
 //! 4. the `mode="after"` validators, base first: `_normalise_sentinels`
 //!    ([`clear_if`]) and then the subclass's own.
 //!
@@ -26,6 +29,10 @@ use crate::coerce::{
     self, Failures, IntEnum, ValidationError, py_decimal, py_is_digit, py_is_space, py_strip,
 };
 use crate::parity::{Args, Outcome, ParityError};
+
+mod plan;
+
+pub use plan::Plan;
 
 /// Strings the BYD API uses for "not available"; matched after `str.strip()`.
 pub const SENTINELS: &[&str] = &["", "--", "NaN", "nan"];
@@ -963,6 +970,9 @@ pub struct Fields<'a> {
     /// Whether this reads the reply [`BydModel::parse_owned`] was given, so
     /// [`Fields::raw`] may leave `raw` for it to move in.
     owns_reply: bool,
+    /// Whether a read was skipped because an escaping error stopped the
+    /// reads, so this parse must not be recorded as the model's [`Plan`].
+    cut_short: bool,
 }
 
 /// The reply [`BydModel::parse_owned`] is parsing, by address, while it parses.
@@ -1024,6 +1034,15 @@ enum Keys<'a> {
     /// A dict with `_clean_byd_values` applied, as a table of borrowed
     /// entries; sentinels are still in it and read as absent.
     Cleaned(HashMap<&'a str, &'a Value, KeyHashing>),
+    /// [`Keys::Cleaned`] for a model whose [`Plan`] is not recorded yet:
+    /// the reads are kept, to become the plan if this parse succeeds.
+    Recording {
+        table: HashMap<&'a str, &'a Value, KeyHashing>,
+        plan: &'static Plan,
+        reads: RefCell<Vec<Field>>,
+    },
+    /// The same dict read through the model's recorded [`Plan`].
+    Planned(plan::Planned<'a>),
 }
 
 /// Whether `_clean_dict` drops the value: null, or a string that is a sentinel after `str.strip()`.
@@ -1114,6 +1133,7 @@ impl<'a> Fields<'a> {
                 camel_case: true,
                 failures: Failures::default(),
                 owns_reply: false,
+                cut_short: false,
             }),
             _ => Err(ValidationError::new("model_type")),
         }
@@ -1161,23 +1181,67 @@ impl<'a> Fields<'a> {
         }
     }
 
+    /// [`Fields::cleaned_with_changes`] for a model with a [`Plan`], which
+    /// holds the model's key aliases: the same answers, read through the
+    /// plan once the model's first parse has recorded it. `changes` is `&[]`
+    /// for a model whose before-validator adds no keys.
+    pub fn planned(
+        plan: &'static Plan,
+        values: &'a Value,
+        changes: &'a [(&'a str, Value)],
+    ) -> Result<Self, ValidationError> {
+        let Value::Object(entries) = values else {
+            return Err(ValidationError::new("model_type"));
+        };
+        let keys = match plan.recorded() {
+            Some(recorded) => Keys::Planned(plan::Planned::new(
+                recorded,
+                plan.aliases(),
+                entries,
+                changes,
+                values,
+            )),
+            None => Keys::Recording {
+                table: clean_table(entries, changes, values, plan.aliases()),
+                plan,
+                reads: RefCell::new(Vec::new()),
+            },
+        };
+        Ok(Self {
+            keys,
+            camel_case: true,
+            failures: Failures::default(),
+            owns_reply: claim(values),
+            cut_short: false,
+        })
+    }
+
     fn from_table(table: HashMap<&'a str, &'a Value, KeyHashing>, owns_reply: bool) -> Self {
         Self {
             keys: Keys::Cleaned(table),
             camel_case: true,
             failures: Failures::default(),
             owns_reply,
+            cut_short: false,
         }
     }
 
     fn lookup(&self, key: &str) -> Option<&'a Value> {
         match &self.keys {
             Keys::Plain(values) => values.get(key),
-            Keys::Cleaned(table) => table.get(key).copied().filter(|value| !is_sentinel(value)),
+            Keys::Cleaned(table) | Keys::Recording { table, .. } => {
+                table.get(key).copied().filter(|value| !is_sentinel(value))
+            }
+            Keys::Planned(planned) => planned.lookup(key),
         }
     }
 
     fn find(&self, field: Field) -> Option<&'a Value> {
+        match &self.keys {
+            Keys::Planned(planned) => return planned.find(field),
+            Keys::Recording { reads, .. } => reads.borrow_mut().push(field),
+            Keys::Plain(_) | Keys::Cleaned(_) => {}
+        }
         if field.aliases.is_empty() {
             if self.camel_case {
                 let camel = camel_alias(field.name);
@@ -1210,6 +1274,7 @@ impl<'a> Fields<'a> {
     ) -> T {
         let field = field.into();
         if self.stopped() {
+            self.cut_short = true;
             return default;
         }
         let Some(value) = self.find(field) else {
@@ -1240,11 +1305,23 @@ impl<'a> Fields<'a> {
         convert: impl FnOnce(&Value) -> Result<T, ValidationError>,
     ) -> T {
         let field = field.into();
-        if !self.stopped() && self.find(field).is_none() {
-            self.record(ValidationError::new("missing").at(field.name));
+        if self.stopped() {
+            self.cut_short = true;
             return T::default();
         }
-        self.get(field, T::default(), convert)
+        // One lookup whether the key is there or not, so the reads a
+        // [`Plan`] records do not depend on the data.
+        let Some(value) = self.find(field) else {
+            self.record(ValidationError::new("missing").at(field.name));
+            return T::default();
+        };
+        match convert(value) {
+            Ok(converted) => converted,
+            Err(error) => {
+                self.record(error.at(field.name));
+                T::default()
+            }
+        }
     }
 
     /// The `raw: dict[str, Any]` field every `BydBaseModel` has.
@@ -1265,12 +1342,35 @@ impl<'a> Fields<'a> {
                 return Map::new();
             }
         }
-        self.get("raw", Map::new(), coerce::any_dict)
+        // `self.get("raw", Map::new(), coerce::any_dict)`, without counting
+        // as a field read: whether `raw` is read depends on how the model is
+        // parsed (above), and a [`Plan`] needs the same reads every time.
+        if self.stopped() {
+            self.cut_short = true;
+            return Map::new();
+        }
+        match self.lookup("raw").map(coerce::any_dict) {
+            None => Map::new(),
+            Some(Ok(raw)) => raw,
+            Some(Err(error)) => {
+                self.record(error.at("raw"));
+                Map::new()
+            }
+        }
     }
 
-    /// The first error, if any field failed.
+    /// The first error, if any field failed. A parse that read every field
+    /// without an error records the model's [`Plan`] (if it has one and it
+    /// is not recorded yet).
     pub fn finish(self) -> Result<(), ValidationError> {
-        self.failures.finish()
+        let result = self.failures.finish();
+        if let Keys::Recording { plan, reads, .. } = self.keys
+            && result.is_ok()
+            && !self.cut_short
+        {
+            plan.record(&reads.into_inner());
+        }
+        result
     }
 }
 

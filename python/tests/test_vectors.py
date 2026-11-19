@@ -62,3 +62,16 @@ def test_built_in_tables_match_the_recorded_ones() -> None:
     import hashlib
 
     assert hashlib.sha256(openbyd.embedded_tables()).hexdigest() == VECTORS["tables_sha256"]
+
+
+def test_version_falls_back_when_the_package_is_not_installed(monkeypatch) -> None:
+    import importlib
+    import importlib.metadata
+
+    def missing(name: str) -> str:
+        raise importlib.metadata.PackageNotFoundError(name)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(importlib.metadata, "version", missing)
+        assert importlib.reload(openbyd).__version__ == "0+local"
+    assert importlib.reload(openbyd).__version__ != "0+local"

@@ -675,6 +675,12 @@ def _answer_ints(value: Any) -> Iterator[int]:
             yield from _answer_ints(item)
 
 
+def answer_is_representable(group: Group, call: str, args: dict[str, Any], bound: int = 2**63) -> bool:
+    """Whether every integer in pyBYD's answer to this case fits inside ``(-bound, bound)``."""
+    answer = group.answer(call, args)
+    return all(-bound < number < bound for number in _answer_ints(answer.get("ok")))
+
+
 def skip_unrepresentable_integers(group: Group, bound: int = 2**63) -> None:
     """Leave out the cases where pyBYD answers an integer outside ``(-bound, bound)``.
 
@@ -693,8 +699,7 @@ def skip_unrepresentable_integers(group: Group, bound: int = 2**63) -> None:
     """
 
     def keep(call: str, args: dict[str, Any]) -> bool:
-        answer = group.answer(call, args)
-        return all(-bound < number < bound for number in _answer_ints(answer.get("ok")))
+        return answer_is_representable(group, call, args, bound)
 
     def filtered(source: Callable[..., Iterable[Any]]) -> Callable[..., Iterable[Any]]:
         def wrapped(*arguments: Any) -> Iterable[Any]:

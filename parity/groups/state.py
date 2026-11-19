@@ -82,7 +82,8 @@ from pybyd.models.smart_charging import SmartChargingSchedule
 from pybyd.models.vehicle import Vehicle
 
 from parity.framework import ROOT, Group, random_text
-from parity.groups.models_energy import _representable as energy_representable
+from parity.groups.models_energy import group as energy_group
+from parity.models_support import answer_is_representable
 from parity.groups.models_hvac import cases as hvac_cases
 from parity.groups.models_realtime import CONTEXTS, ENERGY_CONTEXTS, energy, python_context
 from parity.groups.models_realtime import cases as realtime_cases
@@ -758,7 +759,7 @@ def random_payload(rng: random.Random, cases: ModelCases) -> Any:
 def random_energy(rng: random.Random) -> Any:
     while True:
         payload = random_payload(rng, energy_cases)
-        if energy_representable("models.energy.EnergyConsumption", {"raw": payload, "context": None}):
+        if answer_is_representable(energy_group, "models.energy.EnergyConsumption", {"raw": payload, "context": None}):
             return payload
 
 

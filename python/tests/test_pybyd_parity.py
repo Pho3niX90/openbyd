@@ -98,3 +98,40 @@ def test_accelerator_refuses_when_the_ciphers_disagree(python_codec, monkeypatch
     assert pybyd_accel.install() is False
     assert not pybyd_accel.is_installed()
     assert bangcle.encrypt_cbc is _bangcle_block.encrypt_cbc
+
+
+def test_accelerator_does_nothing_without_pybyd(python_codec, monkeypatch) -> None:
+    import pybyd._crypto
+
+    monkeypatch.delattr(pybyd._crypto, "bangcle")
+    monkeypatch.setitem(sys.modules, "pybyd._crypto.bangcle", None)  # makes the import fail
+    assert pybyd_accel.install() is False
+    assert not pybyd_accel.is_installed()
+
+
+def test_accelerator_leaves_an_unfamiliar_pybyd_alone(python_codec, monkeypatch) -> None:
+    monkeypatch.delattr(bangcle, "_load_tables_from_bin")
+    assert pybyd_accel.install() is False
+    assert bangcle.encrypt_cbc is _bangcle_block.encrypt_cbc
+
+
+def test_accelerator_refuses_when_the_tables_differ(python_codec, monkeypatch) -> None:
+    other = bytearray(openbyd.embedded_tables())
+    other[-20] ^= 0xFF
+    monkeypatch.setattr(openbyd._native, "embedded_tables", lambda: bytes(other))
+    assert pybyd_accel.install() is False
+    assert bangcle.encrypt_cbc is _bangcle_block.encrypt_cbc
+
+
+def test_custom_tables_decode_through_pybyd_too(python_codec, tmp_path) -> None:
+    table_file = bytearray(openbyd.embedded_tables())
+    for at in range(len(table_file) - 16 - 0x1000, len(table_file) - 16):
+        table_file[at] ^= 0xFF
+    path = tmp_path / "tables.bin"
+    path.write_bytes(table_file)
+    sealed = bytes(range(32))
+    expected = _bangcle_block.decrypt_cbc(bangcle.BangcleCodec(tables_path=path)._load_tables(), sealed, bytes(16))
+
+    assert pybyd_accel.install() is True
+    custom = bangcle.BangcleCodec(tables_path=path)._load_tables()
+    assert bangcle.decrypt_cbc(custom, sealed, bytes(16)) == expected

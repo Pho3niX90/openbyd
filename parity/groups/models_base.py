@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from functools import cache
 from typing import Any
 
 from pydantic import TypeAdapter
 from pydantic.alias_generators import to_camel as pydantic_to_camel
 from pybyd.models import _base
-from pybyd.models._base import BydBaseModel, BydTimestamp
+from pybyd.models._base import BydBaseModel, BydEnum, BydTimestamp
 
 from parity.framework import Group, random_text
 from parity.models_support import (
@@ -60,6 +61,19 @@ def to_camel(name: str) -> str:
     return pydantic_to_camel(name)
 
 
+@cache
+def _byd_enum(members: tuple[int, ...]) -> type[BydEnum]:
+    """A ``BydEnum`` subclass with these values: ``UNKNOWN`` for -1, ``M<index>`` for the rest."""
+    return BydEnum("Probe", [("UNKNOWN" if value == -1 else f"M{index}", value) for index, value in enumerate(members)])
+
+
+@group.oracle("models.base.BydEnum")
+def byd_enum(members: list[int], value: Any) -> dict[str, Any]:
+    """``Probe(value)``: the member equal to ``value``, else ``UNKNOWN``, else the first member."""
+    member = _byd_enum(tuple(members))(value)
+    return {"name": member.name, "value": int(member.value)}
+
+
 @group.oracle("models.base.clean_dict")
 def clean_dict(values: dict[str, Any], aliases: dict[str, str]) -> dict[str, Any]:
     return BydBaseModel._clean_dict(values, aliases)
@@ -110,8 +124,16 @@ def _timestamp_values():
     return [value for value in values if timestamp_safe(value)]
 
 
+ENUM_MEMBERS = [[-1], [0], [-1, 0, 1], [0, 1, 2], [1, 2, -1], [5, -1, 7, 9], [-1, 0, 1, 2, 3], [-2, 3]]
+ENUM_VALUES: list[Any] = [-1, 0, 1, 2, 3, 5, 7, 9, -2, 1.0, 2.0, 1.5, -0.0, True, False, None, "1", "", "x", [], {}, [1],
+                          {"a": 1}, 2**63 - 1, 2**64 - 1, -(2**63), 1e300]
+
+
 @group.recorded
 def recorded():
+    for members in ENUM_MEMBERS:
+        for value in ENUM_VALUES:
+            yield "models.base.BydEnum", {"members": members, "value": value}
     for value in _timestamp_values():
         yield "models.base.parse_byd_timestamp", {"value": value}
         yield "models.base.BydTimestamp", {"value": value}
@@ -134,6 +156,11 @@ def recorded():
 @group.fuzz
 def fuzz(rng):
     while True:
+        members = rng.sample(range(-3, 12), k=rng.randint(1, 6))
+        enum_value = rng.choice([rng.choice(members), rng.randint(-5, 14), rng.choice(ENUM_VALUES), random_json(rng),
+                                 rng.choice(members) + rng.choice([0.0, 0.5]), str(rng.choice(members))])
+        if json_safe(enum_value):
+            yield "models.base.BydEnum", {"members": members, "value": enum_value}
         value = rng.choice([
             lambda: random_iso_text(rng),
             lambda: random_numeric_text(rng),

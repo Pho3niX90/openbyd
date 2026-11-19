@@ -1013,9 +1013,40 @@ fn aliases_arg<'a>(args: &Args<'a>) -> Result<Vec<(&'a str, &'a str)>, ParityErr
         .collect()
 }
 
+/// `BydEnum(value)` for a class whose members have these values, as the index
+/// of the member `_missing_` and Python equality pick: the member equal to
+/// `value`, else `UNKNOWN` (`-1`), else the first member. `None` if there are
+/// no members (Python raises `StopIteration` there).
+pub fn byd_enum_member(members: &[i64], value: &Value) -> Option<usize> {
+    members
+        .iter()
+        .position(|member| py_equals_int(value, *member))
+        .or_else(|| members.iter().position(|member| *member == -1))
+        .or_else(|| (!members.is_empty()).then_some(0))
+}
+
+/// `models.base.BydEnum`: `members` are the values of a made-up subclass (the
+/// one at `-1` is named `UNKNOWN`, the rest `M<index>`), `value` is what it is called with.
+fn byd_enum_call(args: &Args<'_>) -> Outcome {
+    let members: Vec<i64> = args
+        .value("members")
+        .as_array()
+        .and_then(|items| items.iter().map(Value::as_i64).collect())
+        .ok_or_else(|| ParityError::bad_arguments("members must be an array of integers"))?;
+    let index = byd_enum_member(&members, args.value("value"))
+        .ok_or_else(|| ParityError::bad_arguments("members must not be empty"))?;
+    let name = if members[index] == -1 {
+        "UNKNOWN".to_owned()
+    } else {
+        format!("M{index}")
+    };
+    Ok(json!({"name": name, "value": members[index]}))
+}
+
 pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
     let args = Args(args);
     Some(match name {
+        "models.base.BydEnum" => byd_enum_call(&args),
         "models.base.normalize_unit" => {
             args.opt_str("text").map(|text| json!(normalize_unit(text)))
         }
@@ -1043,6 +1074,16 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn byd_enum_falls_back_to_unknown_then_the_first_member() {
+        assert_eq!(byd_enum_member(&[-1, 0, 1], &json!(1.0)), Some(2));
+        assert_eq!(byd_enum_member(&[-1, 0, 1], &json!("1")), Some(0));
+        assert_eq!(byd_enum_member(&[3, 4], &json!(null)), Some(0));
+        assert_eq!(byd_enum_member(&[3, -1, 4], &json!(true)), Some(1));
+        assert_eq!(byd_enum_member(&[], &json!(1)), None);
+        assert!(byd_enum_call(&Args(&json!({"members": [], "value": 1}))).is_err());
+    }
 
     fn datetime(text: &str) -> PyDateTime {
         parse_byd_timestamp(&json!(text)).unwrap().unwrap()

@@ -1,21 +1,26 @@
 //! Python bindings for openbyd. Imported as `openbyd._native`.
+//!
+//! - [`bridge`]: Rust futures as asyncio awaitables, on a shared tokio runtime.
+//! - [`convert`]: `serde_json::Value` to and from Python objects.
+//! - [`errors`]: openbyd errors as pyBYD's exception classes.
+//! - [`models`]: pyBYD's reply models by class name, and the shadow comparison.
+//! - [`lowlevel`]: single requests over HTTP through the bridge.
+//! - `testing` (cargo feature `testing`): the fake BYD server.
+//!
+//! The Python package (`python/openbyd`) wraps these in documented modules.
 
-use openbyd_crypto::{Error, Tables};
-use pyo3::create_exception;
+mod bridge;
+mod convert;
+mod errors;
+mod lowlevel;
+mod models;
+#[cfg(feature = "testing")]
+mod testing;
+
+use openbyd_crypto::Tables;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
-
-create_exception!(
-    openbyd,
-    BangcleError,
-    PyValueError,
-    "An envelope or cipher input could not be processed."
-);
-
-fn to_py_err(error: Error) -> PyErr {
-    BangcleError::new_err(error.to_string())
-}
 
 #[derive(FromPyObject)]
 enum Plaintext {
@@ -38,7 +43,7 @@ fn encode_envelope(py: Python<'_>, plaintext: Plaintext) -> String {
 fn decode_envelope<'py>(py: Python<'py>, envelope: &str) -> PyResult<Bound<'py, PyBytes>> {
     let plain = py
         .detach(|| openbyd_crypto::decode_envelope(envelope))
-        .map_err(to_py_err)?;
+        .map_err(|error| errors::crypto_to_py_err(py, &error))?;
     Ok(PyBytes::new(py, &plain))
 }
 
@@ -47,7 +52,7 @@ fn decode_envelope<'py>(py: Python<'py>, envelope: &str) -> PyResult<Bound<'py, 
 fn encrypt_cbc<'py>(py: Python<'py>, data: &[u8], iv: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
     let sealed = py
         .detach(|| openbyd_crypto::encrypt_cbc(Tables::embedded(), data, iv))
-        .map_err(to_py_err)?;
+        .map_err(|error| errors::crypto_to_py_err(py, &error))?;
     Ok(PyBytes::new(py, &sealed))
 }
 
@@ -56,7 +61,7 @@ fn encrypt_cbc<'py>(py: Python<'py>, data: &[u8], iv: &[u8]) -> PyResult<Bound<'
 fn decrypt_cbc<'py>(py: Python<'py>, data: &[u8], iv: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
     let plain = py
         .detach(|| openbyd_crypto::decrypt_cbc(Tables::embedded(), data, iv))
-        .map_err(to_py_err)?;
+        .map_err(|error| errors::crypto_to_py_err(py, &error))?;
     Ok(PyBytes::new(py, &plain))
 }
 
@@ -95,12 +100,46 @@ fn embedded_tables(py: Python<'_>) -> Bound<'_, PyBytes> {
 
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add("BangcleError", module.py().get_type::<BangcleError>())?;
+    let py = module.py();
+    // The cipher's errors are pyBYD's `BangcleError`, defined in Python.
+    module.add("BangcleError", errors::exception_class(py, "BangcleError")?)?;
     module.add_function(wrap_pyfunction!(encode_envelope, module)?)?;
     module.add_function(wrap_pyfunction!(decode_envelope, module)?)?;
     module.add_function(wrap_pyfunction!(encrypt_cbc, module)?)?;
     module.add_function(wrap_pyfunction!(decrypt_cbc, module)?)?;
     module.add_function(wrap_pyfunction!(embedded_tables, module)?)?;
     module.add_function(wrap_pyfunction!(parity_call, module)?)?;
+
+    module.add("DEFAULT_WORKER_THREADS", bridge::DEFAULT_WORKER_THREADS)?;
+    module.add_function(wrap_pyfunction!(bridge::configure, module)?)?;
+    module.add_function(wrap_pyfunction!(bridge::stats, module)?)?;
+    module.add_function(wrap_pyfunction!(bridge::sleep, module)?)?;
+    module.add_function(wrap_pyfunction!(bridge::shutdown, module)?)?;
+    module.add_function(wrap_pyfunction!(bridge::_fail, module)?)?;
+    module.add_function(wrap_pyfunction!(bridge::_panic, module)?)?;
+    module.add_class::<bridge::Dispatcher>()?;
+    module.add_class::<convert::HeldValue>()?;
+
+    module.add("SHADOW_ERROR", models::SHADOW_ERROR)?;
+    module.add("SHADOW_UNKNOWN_MODEL", models::SHADOW_UNKNOWN_MODEL)?;
+    module.add_function(wrap_pyfunction!(models::model_names, module)?)?;
+    module.add_function(wrap_pyfunction!(models::parse_model, module)?)?;
+    module.add_function(wrap_pyfunction!(models::model_properties, module)?)?;
+    module.add_function(wrap_pyfunction!(models::shadow_compare, module)?)?;
+
+    module.add_function(wrap_pyfunction!(lowlevel::login, module)?)?;
+    module.add_function(wrap_pyfunction!(lowlevel::post_token_json, module)?)?;
+
+    #[cfg(feature = "testing")]
+    {
+        module.add_class::<testing::PyFakeServer>()?;
+        module.add_class::<testing::PyReply>()?;
+    }
+    module.add("HAS_TESTING", cfg!(feature = "testing"))?;
+
+    // Stop the runtime before the interpreter is finalised, so no worker
+    // thread touches Python while it is being torn down.
+    py.import("atexit")?
+        .call_method1("register", (module.getattr("shutdown")?,))?;
     Ok(())
 }

@@ -623,8 +623,15 @@ async fn two_hundred_environments_share_one_pool() {
     // One after another, the environments reuse the pool's connections.
     // hyper finishes connects it started while waiting for a busy pool in
     // the background; let them land before counting.
-    tokio::time::sleep(Duration::from_millis(500)).await;
-    let before = server.connections();
+    let mut before = server.connections();
+    loop {
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let now = server.connections();
+        if now == before {
+            break;
+        }
+        before = now;
+    }
     for n in 0..50 {
         let config = config(&server, &format!("user{n}@example.com"), "p");
         let env = HttpEnv::for_config(&pool, &config);

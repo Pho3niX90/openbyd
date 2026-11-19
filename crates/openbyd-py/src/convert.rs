@@ -241,6 +241,103 @@ fn check_items<'py>(
     Ok(())
 }
 
+/// What `to_python(py, &to_value(object, Mode::Strict)?)` gives, built from
+/// `object` itself instead of through a JSON value.
+///
+/// Containers are always new (a `dict` or `list`, whatever the input's
+/// subclass; a tuple becomes a list), so the result shares no container with
+/// `object`. Leaves of the exact types `str`, `int`, `float` and `bool`, and
+/// `None`, are shared, since they cannot change. A subclass of a leaf type
+/// (an `IntEnum`, a `StrEnum`, a `float` subclass) becomes its base type, and
+/// a `str`-subclass key becomes a `str`; two keys with the same text then
+/// collapse as `serde_json::Map::insert` collapses them: the first position,
+/// the last value.
+///
+/// Call it only on an object [`to_value`] accepted in [`Mode::Strict`]; for
+/// anything else it fails where [`to_value`] fails.
+pub fn round_tripped<'py>(object: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    round_trip(object, 0)
+}
+
+/// Whether `object` is a leaf [`round_tripped`] may share: an exact `str`,
+/// `int`, `float` or `bool`, or `None`.
+fn shared_leaf(object: &Bound<'_, PyAny>) -> bool {
+    object.is_exact_instance_of::<PyString>()
+        || object.is_exact_instance_of::<PyInt>()
+        || object.is_exact_instance_of::<PyFloat>()
+        || object.is_exact_instance_of::<PyBool>()
+        || object.is_none()
+}
+
+fn round_trip<'py>(object: &Bound<'py, PyAny>, depth: usize) -> PyResult<Bound<'py, PyAny>> {
+    let py = object.py();
+    if depth > MAX_DEPTH {
+        return Err(PyValueError::new_err(format!(
+            "value nests deeper than {MAX_DEPTH} levels"
+        )));
+    }
+    if shared_leaf(object) {
+        return Ok(object.clone());
+    }
+    if let Ok(entries) = object.cast::<PyDict>() {
+        // The common case, a flat reply: `dict.copy()` shares the keys and
+        // values, which is right when all of them are shared leaves.
+        if object.is_exact_instance_of::<PyDict>()
+            && entries
+                .iter()
+                .all(|(key, item)| key.is_exact_instance_of::<PyString>() && shared_leaf(&item))
+        {
+            return Ok(entries.copy()?.into_any());
+        }
+        let dict = PyDict::new(py);
+        for (key, item) in entries.iter() {
+            let key = if key.is_exact_instance_of::<PyString>() {
+                key.cast_into::<PyString>()?
+            } else {
+                PyString::new(py, dict_key(&key)?)
+            };
+            // A later key with the same text replaces the value in place, as
+            // `Map::insert` does.
+            dict.set_item(key, round_trip(&item, depth + 1)?)?;
+        }
+        return Ok(dict.into_any());
+    }
+    if let Ok(items) = object.cast::<PyList>() {
+        return round_trip_items(py, items.iter(), depth);
+    }
+    if let Ok(items) = object.cast::<PyTuple>() {
+        return round_trip_items(py, items.iter(), depth);
+    }
+    // Leaf subclasses: through the same conversions `to_value` and
+    // `to_python` use, so the value and type come out the same.
+    if let Ok(flag) = object.cast::<PyBool>() {
+        return Ok(PyBool::new(py, flag.is_true()).to_owned().into_any());
+    }
+    if let Ok(text) = object.cast::<PyString>() {
+        return Ok(PyString::new(py, text.to_str()?).into_any());
+    }
+    if object.is_instance_of::<PyInt>() {
+        return to_python(py, &int(object, Mode::Strict)?);
+    }
+    if let Ok(number) = object.cast::<PyFloat>() {
+        return to_python(py, &float(number.value(), Mode::Strict)?);
+    }
+    // Not a JSON value: fail as `to_value` fails.
+    to_python(py, &to_value(object, Mode::Strict)?)
+}
+
+fn round_trip_items<'py>(
+    py: Python<'py>,
+    items: impl Iterator<Item = Bound<'py, PyAny>>,
+    depth: usize,
+) -> PyResult<Bound<'py, PyAny>> {
+    let list = PyList::empty(py);
+    for item in items {
+        list.append(round_trip(&item, depth + 1)?)?;
+    }
+    Ok(list.into_any())
+}
+
 /// Converts a JSON value to Python objects. See the module documentation.
 pub fn to_python<'py>(py: Python<'py>, value: &Value) -> PyResult<Bound<'py, PyAny>> {
     back(py, value, false)

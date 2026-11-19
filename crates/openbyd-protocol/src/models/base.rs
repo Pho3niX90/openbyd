@@ -1289,8 +1289,23 @@ pub trait BydModel: Serialize + Sized {
     /// the same model, without copying the reply where the model keeps it.
     ///
     /// A model whose `raw` is the whole reply takes the reply itself; see
-    /// [`Fields::raw`] and [`BydModel::raw_mut`].
+    /// [`Fields::raw`] and [`BydModel::raw_mut`]. This is
+    /// [`BydModel::parse_reply`] without the flag; override that one, not
+    /// this, so callers of either get the same model.
     fn parse_owned(raw: Value, context: &Value) -> Result<Self, ValidationError> {
+        Self::parse_reply(raw, context).map(|parsed| parsed.model)
+    }
+
+    /// [`BydModel::parse_owned`], also saying whether the model's `raw` is
+    /// the reply itself (moved in, so it holds exactly the reply given). The
+    /// Python bindings then build the dump's `raw` from the caller's own
+    /// objects instead of from the model.
+    ///
+    /// Override this in a model whose `parse` reads its own `raw` while the
+    /// model is built (`Vehicle`'s `_fill_missing_pics`): there `raw` cannot
+    /// be left empty for later, so parse by reference and report
+    /// `raw_is_reply: false`.
+    fn parse_reply(raw: Value, context: &Value) -> Result<ParsedReply<Self>, ValidationError> {
         let offer = Offer::new(&raw);
         let parsed = Self::parse(&raw, context);
         let taken = offer.taken();
@@ -1300,10 +1315,13 @@ pub trait BydModel: Serialize + Sized {
             match (model.raw_mut(), raw) {
                 (Some(slot), Value::Object(reply)) => *slot = reply,
                 // A model that cannot take it back is parsed again, copying.
-                (_, raw) => return Self::parse(&raw, context),
+                (_, raw) => return Self::parse(&raw, context).map(ParsedReply::copied),
             }
         }
-        Ok(model)
+        Ok(ParsedReply {
+            model,
+            raw_is_reply: taken,
+        })
     }
 
     /// The model's `raw` field, for [`BydModel::parse_owned`] and
@@ -1333,6 +1351,26 @@ pub trait BydModel: Serialize + Sized {
     /// `model_dump(mode="json")`.
     fn dump(&self) -> Value {
         serde_json::to_value(self).expect("models serialise to JSON")
+    }
+}
+
+/// A model from [`BydModel::parse_reply`], and where its `raw` came from.
+#[derive(Debug)]
+pub struct ParsedReply<M> {
+    /// The model, the same as [`BydModel::parse`] gives.
+    pub model: M,
+    /// Whether the model's `raw` is the reply itself, moved in: then the
+    /// dump's `raw` is exactly the reply that was parsed.
+    pub raw_is_reply: bool,
+}
+
+impl<M> ParsedReply<M> {
+    /// A model whose `raw` is not the reply itself (or that has none).
+    pub fn copied(model: M) -> Self {
+        Self {
+            model,
+            raw_is_reply: false,
+        }
     }
 }
 
@@ -1723,6 +1761,63 @@ mod tests {
             same_both_ways::<Probe<true>>(input);
             same_both_ways::<Probe<false>>(input);
         }
+    }
+
+    /// A model that reads its own `raw` while it is built, so it overrides
+    /// `parse_reply` to parse by reference (as `Vehicle` does).
+    #[derive(Debug, PartialEq, Serialize)]
+    struct ReadsRaw {
+        raw: Map<String, Value>,
+        keys: usize,
+    }
+
+    impl BydModel for ReadsRaw {
+        fn raw_mut(&mut self) -> Option<&mut Map<String, Value>> {
+            Some(&mut self.raw)
+        }
+
+        fn parse_reply(raw: Value, context: &Value) -> Result<ParsedReply<Self>, ValidationError> {
+            Self::parse(&raw, context).map(ParsedReply::copied)
+        }
+
+        fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
+            let mut fields = Fields::cleaned(raw, &[])?;
+            let raw = fields.raw();
+            fields.finish()?;
+            Ok(Self {
+                keys: raw.len(),
+                raw,
+            })
+        }
+    }
+
+    #[test]
+    fn parse_reply_says_whether_raw_is_the_reply() {
+        let reply = json!({"a": 1, "b": "--"});
+        // The whole reply is moved in.
+        let parsed = Probe::<true>::parse_reply(reply.clone(), &Value::Null).unwrap();
+        assert!(parsed.raw_is_reply);
+        assert_eq!(Value::Object(parsed.model.raw), reply);
+        // A model that cannot take it back copies, and says so.
+        let parsed = Probe::<false>::parse_reply(reply.clone(), &Value::Null).unwrap();
+        assert!(!parsed.raw_is_reply);
+        assert_eq!(Value::Object(parsed.model.raw), reply);
+        // The input's own `raw` key is not the reply.
+        let own = json!({"raw": {"own": 1}, "a": 2});
+        let parsed = Probe::<true>::parse_reply(own, &Value::Null).unwrap();
+        assert!(!parsed.raw_is_reply);
+        assert_eq!(Value::Object(parsed.model.raw), json!({"own": 1}));
+        let parsed = BydBaseModel::parse_reply(json!({"raw": "--"}), &Value::Null).unwrap();
+        assert!(!parsed.raw_is_reply && parsed.model.raw.is_empty());
+        // Failures stay failures.
+        assert!(Probe::<true>::parse_reply(json!([1]), &Value::Null).is_err());
+        // An override is what parse_owned uses too.
+        let parsed = ReadsRaw::parse_reply(reply.clone(), &Value::Null).unwrap();
+        assert!(!parsed.raw_is_reply);
+        assert_eq!(parsed.model.keys, 2);
+        let owned = ReadsRaw::parse_owned(reply.clone(), &Value::Null).unwrap();
+        assert_eq!(owned, ReadsRaw::parse(&reply, &Value::Null).unwrap());
+        assert_eq!(owned.keys, 2);
     }
 
     #[test]

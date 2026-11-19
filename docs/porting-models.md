@@ -53,9 +53,13 @@ two files first; most models are the same shape with more fields.
    map and `parse_owned` moves the reply into `raw_mut()` once `parse`
    returns, instead of copying it. So **`parse` must not read `model.raw`**
    (an after-validator that looks at `raw`, like `Vehicle`'s
-   `_fill_missing_pics`): such a model overrides `parse_owned` to call
-   `Self::parse(&raw, context)`. The parity call goes through `parse_owned`
-   and `into_dump`, so the recorded vectors catch a model that breaks this.
+   `_fill_missing_pics`): such a model overrides `parse_reply` (not
+   `parse_owned`, which is derived from it) to return
+   `Self::parse(&raw, context).map(ParsedReply::copied)`. `parse_reply` also
+   tells the Python bindings whether `raw` is the reply itself, so they can
+   build the dump's `raw` from the caller's own objects. The parity call goes
+   through `parse_owned` and `into_dump`, so the recorded vectors catch a
+   model that breaks this.
 4. **Properties:** one `pub fn` per `@property` with the same name, and list
    them all in `BydModel::properties` with `base::properties([...])`.
 5. **Parity:** add the arm `"models.<file>.<Class>" => base::model_call::<Class>(args)`

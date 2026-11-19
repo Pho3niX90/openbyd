@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields, PyDateTime};
+use super::base::{self, BydModel, Fields, ParsedReply, PyDateTime};
 use crate::coerce::{self, IntEnum, ValidationError};
 use crate::parity::Outcome;
 use crate::pyjson;
@@ -195,8 +195,8 @@ impl BydModel for Vehicle {
 
     /// By reference: `_fill_missing_pics` reads `raw` while the model is
     /// built, so `raw` cannot be left for later.
-    fn parse_owned(raw: Value, context: &Value) -> Result<Self, ValidationError> {
-        Self::parse(&raw, context)
+    fn parse_reply(raw: Value, context: &Value) -> Result<ParsedReply<Self>, ValidationError> {
+        Self::parse(&raw, context).map(ParsedReply::copied)
     }
 
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {

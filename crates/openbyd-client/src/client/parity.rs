@@ -360,7 +360,7 @@ async fn run_method(
         }
         "commands_enabled" => Ok(json!(client.commands_enabled())),
         "get_command_ack_diagnostics" => Ok(client.get_command_ack_diagnostics().dump()),
-        "on_mqtt_events" => Ok(Value::Null),
+        "_on_mqtt_event" => Ok(Value::Null),
         "get_vehicles" => client
             .get_vehicles()
             .await

@@ -614,7 +614,7 @@ async def _client_method(client: Any, method: str, args: dict) -> Any:  # noqa: 
         return client.commands_enabled
     if method == "get_command_ack_diagnostics":
         return jsonable(client.get_command_ack_diagnostics())
-    if method == "on_mqtt_events":
+    if method == "_on_mqtt_event":
         return None
     if method == "get_vehicles":
         return jsonable(await client.get_vehicles())
@@ -975,6 +975,235 @@ def client_case(
         "setup": list(setup),
         "args": args,
     }
+
+
+# ---------------------------------------------------------------------------
+# Client fuzzing
+# ---------------------------------------------------------------------------
+
+#: Serials the random triggers and MQTT events share, so they sometimes match.
+FUZZ_SERIALS = ["S1", "S1", "S2", "", None, 5, "S3"]
+#: Codes that drive the client: session expired, busy, unreachable, no GPS,
+#: rate limited, refused command, PIN errors, guest retries.
+CLIENT_CODES = ["1005", "1010", "1002", "1008", "6002", "6051", "6024", "1009", "1001", "8003", "5005", "5006", "5011", "9999"]
+#: Commands with their parameter models.
+COMMAND_PARAMS = {
+    "start_climate": [{}, {"temperature": 21.0}, {"temperature": 25.5, "time_span": 2}],
+    "schedule_climate": [{"booking_id": 1, "booking_time": 1700000000}, {}],
+    "set_seat_climate": [{"chair_type": "1", "main_heat": 3}, {"chair_type": "3", "lr_seat_heat_state": 2}, {}],
+    "set_battery_heat": [{"on": True}, {"on": False}],
+}
+SIMPLE_COMMANDS = sorted(_SIMPLE_COMMANDS)
+#: A latest config whose function numbers allow every command.
+ALL_FUNCTIONS_CONFIG = {
+    "cfFixedList": [
+        {"functionNo": no}
+        for no in [
+            "1001", "1005", "1006", "1007", "1008", "1012", "1015", "1020", "1021", "1026", "10030001",
+            "10030002", "10030004", "10030005", "10030006", "10030007", "10030008", "10030009", "10030010",
+            "10300001", "10300002", "10300003", "10300004",
+        ]
+    ]
+}
+#: The same, with the dedicated battery heat endpoint and without the generic one.
+DEDICATED_HEAT_CONFIG = {"cfFixedList": [{"functionNo": no} for no in ["1005", "10100001"]]}
+
+
+def _fuzz_serial(rng) -> Any:
+    return rng.choice(FUZZ_SERIALS)
+
+
+def _command_data(rng) -> Any:
+    """``respondData`` of a command trigger or poll."""
+    serial = _fuzz_serial(rng)
+    choices = [
+        {"requestSerial": serial},
+        {"requestSerial": serial, "controlState": rng.choice([0, 1, 2, "1", None])},
+        {"requestSerial": serial, "res": rng.choice([1, 2, 3, "2", 7])},
+        {"controlState": rng.choice([0, 1, 2])},
+        {"res": rng.choice([1, 2, 3])},
+        {"result": rng.choice(["ok", None, 1]), "requestSerial": serial},
+        {"message": "fail", "controlState": 2},
+        {},
+    ]
+    return rng.choice(choices)
+
+
+def _read_data(rng) -> Any:
+    """``respondData`` of a read: corpus payloads, serials, odd shapes."""
+    from parity.flow_cases import corpus
+
+    roll = rng.random()
+    if roll < 0.35:
+        name = rng.choice(["VehicleRealtimeData", "GpsInfo", "ChargingStatus", "HvacStatus", "Vehicle"])
+        payloads = [payload for payload in corpus(name) if isinstance(payload, dict)]
+        payload = dict(rng.choice(payloads)) if payloads else {}
+        if rng.random() < 0.5:
+            payload["requestSerial"] = _fuzz_serial(rng)
+        return payload
+    if roll < 0.75:
+        return _command_data(rng)
+    return rng.choice([[], "text", None, 0, {"onlineState": 1}, {"latitude": 52.0, "longitude": 4.0}])
+
+
+def _random_client_reply(rng, session: dict) -> dict:
+    roll = rng.random()
+    if roll < 0.12:
+        return login_reply(code=rng.choice(["0", "0", "0", "1002"]))
+    if roll < 0.18:
+        return broker_reply(session)
+    if roll < 0.62:
+        return ok_reply(session, _read_data(rng))
+    if roll < 0.9:
+        return error_reply(rng.choice(CLIENT_CODES))
+    if roll < 0.95:
+        return transport_error(rng.choice([None, 500]))
+    return raw_reply(rng.choice([[], "text", {"code": "0"}]))
+
+
+def _random_event(rng, at: float) -> dict:
+    roll = rng.random()
+    if roll < 0.1:
+        return {"at": at, "decrypt_error": True}
+    if roll < 0.2:
+        return {"at": at, "connack_refused": rng.choice([1, 2, 3, 4, 7])}
+    if roll < 0.27:
+        return {"at": at, "connected": True}
+    name = rng.choice(["vehicleInfo", "remoteControl", "remoteControl", "smartCharge", "energyConsumption", "other"])
+    vin = rng.choice([VIN, VIN, VIN, "OTHERVIN000000001", ""])
+    shape = rng.random()
+    if shape < 0.6:
+        data = {"respondData": _read_data(rng) if name != "remoteControl" else _command_data(rng)}
+        if rng.random() < 0.3 and isinstance(data["respondData"], dict):
+            data["respondData"]["time"] = rng.choice([1700000000000, "1700000000000", "x", None, 1.5])
+        uuid = rng.choice(["S1", "S1", "S2", "", None, 5])
+        if uuid is not None:
+            data["uuid"] = uuid
+    elif shape < 0.75:
+        data = {"code": rng.choice(["6051", "1001", 6051]), "uuid": rng.choice(["S1", "S2"])}
+    elif shape < 0.85:
+        data = rng.choice([None, "text", [], {"respondData": "text"}])
+    else:
+        payload = {"event": name, "vin": vin, "res": rng.choice([1, 2, 3]), "requestSerial": rng.choice(["S1", "S2"])}
+        return {"at": at, "event": {"event": name, "vin": vin or None, "topic": "t", "payload": payload}}
+    return {
+        "at": at,
+        "event": {"event": name, "vin": vin or None, "topic": "t", "payload": {"event": name, "vin": vin, "data": data}},
+    }
+
+
+def _method_args(rng, method: str) -> dict:  # noqa: PLR0911
+    vin = rng.choice([VIN, VIN, VIN, "TESTVIN0000000002"])
+    pwd = rng.choice([None, "123456", " 1234 ", "", "0123456789abcdef0123456789ABCDEF", "x" * 32])
+    polls = {}
+    if rng.random() < 0.7:
+        polls = {
+            "poll_attempts": rng.choice([0, 1, 2, 3]),
+            "poll_interval": rng.choice([0.0, 0.5, 1.5]),
+            "mqtt_timeout": rng.choice([None, 0.0, 2.0, 10.0]),
+        }
+    if method in ("get_vehicle_realtime", "get_gps_info"):
+        if rng.random() < 0.5:
+            polls["signal_retries"] = rng.choice([1, 2, 3])
+        return {"vin": vin, **polls}
+    if method in ("start_charging", "stop_charging"):
+        polls.pop("signal_retries", None)
+        return {"vin": vin, **polls}
+    if method == "save_charging_schedule":
+        return {
+            "vin": vin,
+            "start_charge_time": rng.choice(["22:00", "00:30"]),
+            "end_charge_time": rng.choice(["06:00", "full"]),
+            "charge_way": rng.choice(["s", "e", "0,1,2"]),
+            "enabled": rng.random() < 0.8,
+            **polls,
+        }
+    if method in COMMAND_PARAMS:
+        return {"vin": vin, "params": rng.choice(COMMAND_PARAMS[method]), "command_pwd": pwd}
+    if method in _SIMPLE_COMMANDS or method == "verify_command_access":
+        return {"vin": vin, "command_pwd": pwd}
+    if method == "get_latest_configs":
+        return {"vins": rng.choice([[VIN], [VIN, "TESTVIN0000000002"], []])}
+    if method == "get_vehicle_capabilities":
+        return {"vin": vin, "force_refresh": rng.random() < 0.3}
+    if method == "get_ac_current_limit":
+        return {"vin": vin, "energy_type": rng.choice([None, None, 0, 2, "1"])}
+    if method == "set_push_state":
+        return {"vin": vin, "enable": rng.random() < 0.5, "push_type": rng.choice([701, 702])}
+    if method == "get_notifications":
+        return {"category": rng.choice([None, 1, 2])}
+    if method == "rename_vehicle":
+        return {"vin": vin, "name": rng.choice(["Seal", "比亚迪", ""])}
+    if method == "toggle_smart_charging":
+        return {"vin": vin, "enable": rng.random() < 0.5}
+    return {"vin": vin}
+
+
+def random_client_case(rng, method: str) -> dict:
+    """Random ``client.<method>`` arguments: config, starting state, setup
+    calls, replies and an MQTT timeline, leaning on what drives the client
+    (expired sessions, serials that match, pushes that come or do not)."""
+    config = dict(SAMPLE_CONFIG)
+    if rng.random() < 0.25:
+        config["mqtt_timeout"] = rng.choice([0.0, 2.0, 30.0])
+    if rng.random() < 0.15:
+        config["mqtt_enabled"] = False
+    if rng.random() < 0.15:
+        config["session_ttl"] = rng.choice([0, 30, 3600])
+    if rng.random() < 0.15:
+        config["control_pin"] = rng.choice(["123456", " 9999 ", ""])
+    state: dict = {}
+    roll = rng.random()
+    if roll < 0.65:
+        state = logged_in(mqtt=rng.random() < 0.8, session=rng.choice([LIVE_SESSION, LIVE_SESSION, OLD_SESSION]))
+    elif roll < 0.75:
+        state = {"guest_vins": {VIN: rng.random() < 0.5}}
+    if state and rng.random() < 0.6:
+        energy = rng.choice(["0", "1", "2", "-1", "x"])
+        vehicle = {"vin": VIN, "energyType": energy, "modelName": "SEAL"}
+        if rng.random() < 0.3:
+            vehicle["vehicleFunLearnInfo"] = {"openWindowLearnInfo": rng.choice([0, 1, -1])}
+        if rng.random() < 0.2:
+            vehicle.update({"empowerType": -1, "empowerId": 7})
+        state["vehicles"] = [vehicle]
+    if state and rng.random() < 0.5:
+        state["capabilities"] = {VIN: rng.choice([ALL_FUNCTIONS_CONFIG, DEDICATED_HEAT_CONFIG, {"cfFixedList": []}])}
+    if state and rng.random() < 0.6:
+        state["commands_enabled"] = True
+    if state and rng.random() < 0.2:
+        state["guest_vins"] = {VIN: rng.random() < 0.5}
+    setup: list[dict] = []
+    if rng.random() < 0.2:
+        setup.append({"advance": rng.choice([1.0, 60.0, 50000.0])})
+    if rng.random() < 0.1:
+        setup.append({"method": rng.choice(["login", "invalidate_session", "get_vehicles"])})
+    replies = [_random_client_reply(rng, SAMPLE_SESSION) for _ in range(rng.choice([0, 1, 2, 3, 4, 5, 6, 8]))]
+    if rng.random() < 0.3:
+        replies.insert(rng.randint(0, len(replies)), login_reply())
+    times = sorted(rng.choice([0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 9.0, 12.0, 40.0]) for _ in range(rng.choice([0, 0, 1, 2, 3, 4])))
+    mqtt = [_random_event(rng, at) for at in times]
+    options: dict = {}
+    if rng.random() < 0.3:
+        options["command_retries"] = rng.choice([1, 2, 3])
+    if rng.random() < 0.2:
+        options["gate_bypass"] = rng.choice([["function_no_missing", "learn_info_missing"], ["function_no_missing"]])
+    if rng.random() < 0.2:
+        options["pin_passthrough"] = True
+    if rng.random() < 0.2:
+        options["command_ack_ttl_seconds"] = rng.choice([0, 1.0, 5.0])
+    return client_case(
+        config=config,
+        state=state,
+        setup=setup,
+        replies=replies,
+        mqtt=mqtt,
+        mqtt_starts=[rng.random() < 0.85 for _ in range(rng.choice([0, 1, 2]))],
+        options=options,
+        callbacks=rng.random() < 0.8,
+        now_ms=rng.choice([NOW_MS, NOW_MS, 0, rng.randint(0, 4_000_000_000_000)]),
+        seed=random_text(rng, 6),
+        **_method_args(rng, method),
+    )
 
 
 def client_oracle(group: Group, method: str) -> None:

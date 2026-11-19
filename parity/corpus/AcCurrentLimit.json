@@ -1,0 +1,26 @@
+[
+ {
+  "source": "tests/test_ac_current_limit.py",
+  "note": "live EU current-limit list with MAX selected",
+  "payload": {
+   "vin": "TESTVIN0000000001",
+   "currentLimitList": [
+    "6A",
+    "8A",
+    "10A",
+    "16A",
+    "MAX"
+   ],
+   "currentEvCurrentLimit": "MAX"
+  }
+ },
+ {
+  "source": "tests/test_ac_current_limit.py",
+  "note": "no limit data, sentinel values",
+  "payload": {
+   "vin": "TESTVIN0000000001",
+   "currentLimitList": null,
+   "currentEvCurrentLimit": "--"
+  }
+ }
+]

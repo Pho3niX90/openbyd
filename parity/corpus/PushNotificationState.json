@@ -1,0 +1,32 @@
+[
+ {
+  "source": "tests/test_push_switch_eu.py",
+  "note": "EU push switches, status push (701) on",
+  "payload": {
+   "vin": "TESTVIN0000000001",
+   "switches": [
+    {
+     "type": 701,
+     "state": 1
+    },
+    {
+     "type": 1,
+     "state": 0
+    }
+   ]
+  }
+ },
+ {
+  "source": "tests/test_push_switch_eu.py",
+  "note": "EU push switches, status push (701) off",
+  "payload": {
+   "vin": "TESTVIN0000000001",
+   "switches": [
+    {
+     "type": 701,
+     "state": 0
+    }
+   ]
+  }
+ }
+]

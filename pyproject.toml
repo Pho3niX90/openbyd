@@ -28,6 +28,11 @@ Upstream = "https://github.com/jkaberg/pyBYD"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-cov>=5"]
+# The benchmark suite in bench/. The pyBYD commit is the one in parity/UPSTREAM_COMMIT; change both together.
+bench = [
+    "psutil>=5.9",
+    "pybyd @ git+https://github.com/jkaberg/pyBYD@2c3d80648e8eeec50cd4f68f603abd3a01010fef",
+]
 
 [tool.maturin]
 manifest-path = "crates/openbyd-py/Cargo.toml"

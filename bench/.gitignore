@@ -1,0 +1,3 @@
+# Smoke-test results are not kept; the results of full runs are.
+results/*-quick.json
+__pycache__/

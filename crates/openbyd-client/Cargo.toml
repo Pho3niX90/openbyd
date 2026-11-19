@@ -54,3 +54,16 @@ tokio-rustls = { version = "0.26", default-features = false, features = ["ring",
 
 [lints]
 workspace = true
+
+# Benchmark helpers (see `bench/`): the fake server and the TLS test broker as processes of their
+# own, and the clients the benchmarks measure.
+[[example]]
+name = "fake_server"
+required-features = ["testing"]
+
+[[example]]
+name = "load"
+
+[[example]]
+name = "mqtt_idle"
+required-features = ["testing"]

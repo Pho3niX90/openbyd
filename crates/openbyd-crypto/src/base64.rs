@@ -191,6 +191,21 @@ mod tests {
     }
 
     #[test]
+    fn whole_groups_stop_at_the_first_group_with_anything_else() {
+        let consumed = |text: &[u8]| {
+            let mut out = Vec::new();
+            (decode_whole_groups(text, &mut out), out)
+        };
+        assert_eq!(consumed(b"Zm9vYmFy"), (8, b"foobar".to_vec()));
+        assert_eq!(consumed(b"Zm9v!YmFy"), (4, b"foo".to_vec()));
+        assert_eq!(consumed(b"Zm9vYg=="), (4, b"foo".to_vec()));
+        assert_eq!(consumed(b"Zm9vYmF"), (4, b"foo".to_vec()));
+        assert_eq!(consumed(b"=m9vYmFy"), (0, Vec::new()));
+        assert_eq!(consumed(b"Zm9\xffYmFy"), (0, Vec::new()));
+        assert_eq!(consumed(b""), (0, Vec::new()));
+    }
+
+    #[test]
     fn whole_groups_first_decodes_as_one_by_one() {
         // Mostly alphabet characters, with padding and skipped characters
         // (also bytes over 127) scattered at every offset within a group.

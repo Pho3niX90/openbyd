@@ -4,8 +4,8 @@
 //! bytes, one nibble at a time, by a chain of three 256-entry pages: page 0
 //! combines operands 0 and 1, page 1 its result and operand 2, page 2 that
 //! result and operand 3. Every page is an XOR of its two input nibbles
-//! under fixed nibble bijections. [`split_chain`] finds those bijections
-//! and writes a chain as
+//! under fixed maps of the nibbles (bijections, in the vendor's tables).
+//! [`split_chain`] finds those maps and writes a chain as
 //!
 //! ```text
 //! decode(chain(a0, a1, a2, a3)) = f0(a0) ^ f1(a1) ^ f2(a2) ^ f3(a3)
@@ -21,10 +21,12 @@
 //! they read the byte the vendor tables expect.
 //!
 //! Nothing is assumed about the tables. [`coordinates`] only proposes a
-//! `decode` for the last page of a chain; [`split_page`] then checks all 256
-//! entries of each of the three pages against the split it returns, and
-//! `decode` is inverted, which fails unless it is a bijection. A table file
-//! with a page that is not such an XOR makes `compile` return `None`, and
+//! `decode` for the last page of a chain; [`split_page`] then checks the
+//! identity above entry by entry, all 256 of each of the three pages (the
+//! low nibble of an entry, which is all the vendor's steps use), and
+//! `decode` is inverted, which fails unless it is a bijection. That is all
+//! the folding needs: the operand maps `f` may be anything. A table file
+//! with a page that breaks the identity makes `compile` return `None`, and
 //! the build fails instead of producing a different cipher.
 use std::array;
 

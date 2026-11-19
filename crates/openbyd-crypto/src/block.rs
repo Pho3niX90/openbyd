@@ -63,26 +63,38 @@ mod tests {
     #[test]
     fn cbc_matches_vendor_tables_at_every_length_through_64_blocks() {
         let tables = Tables::embedded();
-        // The same file parsed again is another value, so the cipher takes
-        // the vendor path for it (see `encrypt_block`); the assertion below
-        // makes sure this stays a comparison of two different paths.
-        let uncompiled = Tables::from_bytes(Tables::embedded_bytes()).unwrap();
-        assert!(!std::ptr::eq(tables, &uncompiled));
         let mut seed = 0xbb67_ae85_84ca_a73b;
         for blocks in 0..=64 {
             let iv = random_block(&mut seed);
             let input: Vec<u8> = (0..blocks).flat_map(|_| random_block(&mut seed)).collect();
             assert_eq!(
                 encrypt_cbc(tables, &input, &iv).unwrap(),
-                encrypt_cbc(&uncompiled, &input, &iv).unwrap(),
+                reference_cbc(tables, &input, iv, true),
                 "encrypt {blocks} blocks"
             );
             assert_eq!(
                 decrypt_cbc(tables, &input, &iv).unwrap(),
-                decrypt_cbc(&uncompiled, &input, &iv).unwrap(),
+                reference_cbc(tables, &input, iv, false),
                 "decrypt {blocks} blocks"
             );
         }
+    }
+
+    /// CBC over the vendor's block functions, whatever the cipher dispatches to.
+    fn reference_cbc(tables: &Tables<'_>, input: &[u8], iv: [u8; 16], encrypt: bool) -> Vec<u8> {
+        let xor = |block: [u8; 16], mask: [u8; 16]| std::array::from_fn(|i| block[i] ^ mask[i]);
+        let mut previous = iv;
+        let mut out = Vec::with_capacity(input.len());
+        for &block in input.as_chunks::<16>().0 {
+            if encrypt {
+                previous = reference::encrypt_block(tables, &xor(block, previous));
+                out.extend_from_slice(&previous);
+            } else {
+                out.extend_from_slice(&xor(reference::decrypt_block(tables, &block), previous));
+                previous = block;
+            }
+        }
+        out
     }
 
     #[test]

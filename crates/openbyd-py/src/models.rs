@@ -328,7 +328,12 @@ enum Part {
 
 /// Pauses Python's cyclic garbage collector while it lives, so no finalizer
 /// or weak reference callback can run between two reads of the same objects.
-/// Holds the GIL's lifetime: it must be dropped before the GIL is released.
+///
+/// The caller must hold the GIL for the guard's whole life and drop it
+/// before releasing the GIL (`Python::detach`): `'py` only says the GIL was
+/// held when the guard was made, and a guard kept across a release would
+/// leave the collector off for other threads' code and switch it back on
+/// from here.
 struct GcPaused<'py> {
     was_enabled: bool,
     _py: Python<'py>,
@@ -336,7 +341,7 @@ struct GcPaused<'py> {
 
 impl<'py> GcPaused<'py> {
     fn new(py: Python<'py>) -> Self {
-        // SAFETY: `PyGC_Disable` only needs the GIL, which `py` proves is held.
+        // SAFETY: `PyGC_Disable` only needs the GIL, which `py` shows is held here.
         let was_enabled = unsafe { pyo3::ffi::PyGC_Disable() } != 0;
         Self {
             was_enabled,
@@ -348,7 +353,8 @@ impl<'py> GcPaused<'py> {
 impl Drop for GcPaused<'_> {
     fn drop(&mut self) {
         if self.was_enabled {
-            // SAFETY: the GIL is held for `'py`, which outlives this guard.
+            // SAFETY: `PyGC_Enable` only needs the GIL; the guard is dropped
+            // while it is still held (see the type's documentation).
             unsafe { pyo3::ffi::PyGC_Enable() };
         }
     }
@@ -373,7 +379,8 @@ fn parse_part<'py>(
     // could still run in between is a garbage collection started by the
     // copy's allocations (Python 3.11 collects inside the allocation), whose
     // finalizers and weak reference callbacks are arbitrary code; the
-    // collector is paused until both are done.
+    // collector is paused until both are done. Nothing between here and
+    // `drop(paused)` releases the GIL.
     let paused = GcPaused::new(py);
     let raw = convert::to_value(input, Mode::Strict)?;
     // A reply with its own `raw` key never is the model's `raw`; that is

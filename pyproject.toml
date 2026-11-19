@@ -37,3 +37,4 @@ include = [{ path = "LICENSE", format = "sdist" }]
 
 [tool.pytest.ini_options]
 testpaths = ["python/tests"]
+pythonpath = ["."]

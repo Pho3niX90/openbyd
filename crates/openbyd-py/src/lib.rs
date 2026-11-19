@@ -60,6 +60,24 @@ fn decrypt_cbc<'py>(py: Python<'py>, data: &[u8], iv: &[u8]) -> PyResult<Bound<'
     Ok(PyBytes::new(py, &plain))
 }
 
+/// Run one parity call. Takes the arguments as JSON text and returns JSON
+/// text: `{"ok": value}` or `{"error": {"kind": ..., "message": ...}}`.
+///
+/// This is the hook the parity tests use to compare openbyd with pyBYD. It
+/// is not part of the public API.
+#[pyfunction]
+fn parity_call(py: Python<'_>, name: &str, args_json: &str) -> PyResult<String> {
+    let args: serde_json::Value = serde_json::from_str(args_json)
+        .map_err(|error| PyValueError::new_err(format!("arguments are not JSON: {error}")))?;
+    let reply = py.detach(|| match openbyd_protocol::parity::call(name, &args) {
+        Ok(value) => serde_json::json!({ "ok": value }),
+        Err(error) => {
+            serde_json::json!({ "error": { "kind": error.kind, "message": error.message } })
+        }
+    });
+    Ok(reply.to_string())
+}
+
 /// The built-in table file, in pyBYD's `bangcle_tables.bin` format.
 #[pyfunction]
 fn embedded_tables(py: Python<'_>) -> Bound<'_, PyBytes> {
@@ -74,5 +92,6 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(encrypt_cbc, module)?)?;
     module.add_function(wrap_pyfunction!(decrypt_cbc, module)?)?;
     module.add_function(wrap_pyfunction!(embedded_tables, module)?)?;
+    module.add_function(wrap_pyfunction!(parity_call, module)?)?;
     Ok(())
 }

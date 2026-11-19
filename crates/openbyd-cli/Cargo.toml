@@ -1,0 +1,19 @@
+[package]
+name = "openbyd-cli"
+description = "Command-line tool for the BYD overseas app API"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../README.md"
+
+[[bin]]
+name = "openbyd"
+path = "src/main.rs"
+
+[dependencies]
+openbyd-protocol.workspace = true
+openbyd-client.workspace = true
+
+[lints]
+workspace = true

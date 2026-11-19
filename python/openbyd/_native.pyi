@@ -15,3 +15,6 @@ def decrypt_cbc(data: bytes, iv: bytes) -> bytes:
 
 def embedded_tables() -> bytes:
     """The built-in table file, in pyBYD's ``bangcle_tables.bin`` format."""
+
+def parity_call(name: str, args_json: str) -> str:
+    """Run one parity call. For the test suite only; not part of the public API."""

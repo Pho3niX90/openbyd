@@ -1,0 +1,14 @@
+[package]
+name = "openbyd-client"
+description = "Async client for the BYD overseas app API"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../README.md"
+
+[dependencies]
+openbyd-protocol.workspace = true
+
+[lints]
+workspace = true

@@ -13,10 +13,12 @@ measured from outside like ``bench/load.py`` measures its clients:
   pushes sent and missed;
 * the database afterwards: the samples stored, and the drives and charges the worker detected.
 
-The correctness check: every variant must detect the same drives and charges from the same
-scenario. The detections are compared run against run with the tolerances in
-:data:`TOLERANCES`; every difference is listed. A second check compares a sample of the worker's
-stored polls with the scenario's state at that time (the replay round trip).
+Detection timing noise: the detections are compared run against run with the tolerances in
+:data:`TOLERANCES` and every difference is listed. Two runs never poll at the same instants, not
+even two runs of one variant, so this shows how far the worker's own timing moves a drive or a
+charge; whether variants detect the same is checked by ``bench/replay_detect.py``, which replays
+on a fixed schedule and compares exactly. A second check compares a sample of the worker's stored
+polls with the scenario's state at that time (the replay round trip).
 
 One run of a variant: fresh Postgres and Redis containers on tmpfs (``--local-store``: a SQLite
 file and the in-memory store), the replay server with ``--epoch now``, the backend's
@@ -756,40 +758,56 @@ def port_free(port: int) -> bool:
 
 
 class DockerStore:
-    """Postgres and Redis in fresh containers on tmpfs, on loopback ports. Their CPU is not measured."""
+    """Fresh loopback Postgres on tmpfs, with either tmpfs Redis or the in-memory store."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self, *, pg_name: str = PG_CONTAINER, pg_port: int = PG_PORT,
+        redis_name: str | None = REDIS_CONTAINER, redis_port: int = REDIS_PORT, replace_existing: bool = True,
+    ) -> None:
+        self.pg_name, self.pg_port = pg_name, pg_port
+        self.redis_name, self.redis_port = redis_name, redis_port
+        self.replace_existing = replace_existing
+        self.started: list[str] = []
         self.env = {
-            "DATABASE_URL": f"postgresql+asyncpg://replay:replay@127.0.0.1:{PG_PORT}/replay",
+            "DATABASE_URL": f"postgresql+asyncpg://replay:replay@127.0.0.1:{pg_port}/replay",
             "DATABASE_SSL": "disable",
-            "REDIS_URL": f"redis://127.0.0.1:{REDIS_PORT}/0",
+            "REDIS_URL": f"redis://127.0.0.1:{redis_port}/0" if redis_name is not None else "memory://",
         }
 
     def start(self) -> None:
         self.stop()
-        for port in (PG_PORT, REDIS_PORT):
+        if self.replace_existing:
+            names = (self.pg_name,) if self.redis_name is None else (self.pg_name, self.redis_name)
+            _docker("rm", "-f", *names, check=False)
+        ports = (self.pg_port,) if self.redis_name is None else (self.pg_port, self.redis_port)
+        for port in ports:
             if not port_free(port):
                 raise SystemExit(f"port {port} is in use; the replay containers need it")
-        _docker(
-            "run", "-d", "--rm", "--name", PG_CONTAINER, "-p", f"127.0.0.1:{PG_PORT}:5432",
+        pg = _docker(
+            "run", "-d", "--rm", "--name", self.pg_name, "-p", f"127.0.0.1:{self.pg_port}:5432",
             "--tmpfs", "/var/lib/postgresql/data:rw", "-e", "POSTGRES_USER=replay", "-e", "POSTGRES_PASSWORD=replay",
             "-e", "POSTGRES_DB=replay", PG_IMAGE,
         )  # fmt: skip
-        _docker(
-            "run", "-d", "--rm", "--name", REDIS_CONTAINER, "-p", f"127.0.0.1:{REDIS_PORT}:6379", "--tmpfs", "/data:rw",
-            REDIS_IMAGE, "redis-server", "--save", "", "--appendonly", "no",
-        )  # fmt: skip
+        self.started.append(pg.stdout.strip())
+        if self.redis_name is not None:
+            redis = _docker(
+                "run", "-d", "--rm", "--name", self.redis_name, "-p", f"127.0.0.1:{self.redis_port}:6379", "--tmpfs", "/data:rw",
+                REDIS_IMAGE, "redis-server", "--save", "", "--appendonly", "no",
+            )  # fmt: skip
+            self.started.append(redis.stdout.strip())
         deadline = time.monotonic() + 90
         while time.monotonic() < deadline:
-            ready = _docker("exec", PG_CONTAINER, "pg_isready", "-h", "127.0.0.1", "-U", "replay", check=False)
-            pong = _docker("exec", REDIS_CONTAINER, "redis-cli", "ping", check=False)
-            if ready.returncode == 0 and pong.stdout.strip() == "PONG":
+            ready = _docker("exec", self.pg_name, "pg_isready", "-h", "127.0.0.1", "-U", "replay", check=False)
+            redis_ready = self.redis_name is None or _docker("exec", self.redis_name, "redis-cli", "ping", check=False).stdout.strip() == "PONG"
+            if ready.returncode == 0 and redis_ready:
                 return
             time.sleep(1)
         raise RuntimeError("Postgres or Redis did not become ready in 90 s")
 
     def stop(self) -> None:
-        _docker("rm", "-f", PG_CONTAINER, REDIS_CONTAINER, check=False)
+        if self.started:
+            _docker("rm", "-f", *self.started, check=False)
+            self.started.clear()
 
 
 class LocalStore:
@@ -1430,14 +1448,23 @@ def merge_results(documents: list[dict[str, Any]], names: list[str]) -> dict[str
     }
 
 
+def private_directory(path: Path) -> Path:
+    """Resolve a private directory, which must be outside the repository."""
+    directory = path.resolve()
+    if common.ROOT.resolve() in (directory, *directory.parents):
+        raise ValueError(f"{directory} is inside the repository: give --private-dir a directory outside the repository")
+    return directory
+
+
 def write(results: dict[str, Any], args: argparse.Namespace, private_dir: Path) -> Path:
     """Write the results: complete for a synthetic scenario; otherwise the complete file goes to
     ``private_dir`` and ``bench/results`` gets :func:`publishable`."""
     if is_private(results):
         # The complete document is never written inside the repository, not even for a moment.
-        private_dir = private_dir.resolve()
-        if common.ROOT in (private_dir, *private_dir.parents):
-            raise SystemExit(f"{private_dir} is inside the repository: give --private-dir a directory outside it")
+        try:
+            private_dir = private_directory(private_dir)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from None
         private_dir.mkdir(parents=True, exist_ok=True)
         complete = common.write_results("replay_worker", args.quick, results, directory=private_dir)
         print(f"wrote {complete} (complete, private)")

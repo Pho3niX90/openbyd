@@ -103,6 +103,31 @@ jobs:
           path: coverage.xml
           if-no-files-found: ignore
 
+  oldest-python:
+    # The extension is one abi3 wheel for Python 3.11 and later, and 3.11
+    # differs where it matters to the bindings: its garbage collector runs
+    # inside an allocation, which later versions defer.
+    name: Tests on Python 3.11
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            parity/UPSTREAM_COMMIT
+      - name: Install openbyd and the pinned pyBYD
+        run: |
+          python -m pip install --upgrade pip
+          pip install maturin pytest pytest-cov pytest-asyncio "pybyd @ git+https://github.com/jkaberg/pyBYD@$(cat parity/UPSTREAM_COMMIT)"
+          python parity/dev_install.py
+      - name: Tests
+        run: pytest -v
+
   wheel:
     name: Linux wheel (${{ matrix.target }})
     runs-on: ubuntu-latest

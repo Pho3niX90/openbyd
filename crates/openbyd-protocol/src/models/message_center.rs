@@ -18,7 +18,7 @@ use std::borrow::Cow;
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields, PyDateTime, aliased};
+use super::base::{self, BydModel, Fields, Plan, PyDateTime, aliased};
 use crate::coerce::{self, IntOrStr, ValidationError};
 use crate::parity::{Args, Outcome, ParityError};
 
@@ -119,7 +119,8 @@ impl BydModel for VehicleMsgItemInfo {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             // `required` needs a `Default`; an error is reported by `finish`, so the 0 never escapes.
@@ -177,7 +178,8 @@ impl BydModel for VehicleMsgListResponse {
 
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
         let values = unwrap_list(raw);
-        let mut fields = Fields::cleaned(&values, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, &values, &[])?;
         let model = Self {
             raw: fields.raw(),
             messages: fields.get("messages", Vec::new(), |value| {

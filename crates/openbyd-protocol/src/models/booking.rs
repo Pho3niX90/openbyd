@@ -18,7 +18,7 @@
 use serde::Serialize;
 use serde_json::{Map, Value};
 
-use super::base::{self, BydModel, Fields, PyDateTime};
+use super::base::{self, BydModel, Fields, Plan, PyDateTime};
 use crate::coerce::{self, ValidationError};
 use crate::parity::Outcome;
 
@@ -57,7 +57,8 @@ impl BydModel for ClimateBooking {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             booking_id: fields.opt("booking_id", coerce::int),
@@ -100,7 +101,8 @@ impl BydModel for BookingList {
     }
 
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, KEY_ALIASES)?;
+        static PLAN: Plan = Plan::new(KEY_ALIASES);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),

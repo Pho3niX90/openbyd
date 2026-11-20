@@ -1,118 +1,118 @@
 //! The white-box AES block cipher.
 //!
-//! The working state holds the 4x4 block column by column, each column in
-//! its own 8-byte slot (only the first four bytes of a slot are used). That
-//! layout, and the table indexing below, follow the vendor library.
+//! The vendor path keeps each state column in an 8-byte slot and evaluates
+//! three nibble lookup steps per output nibble. For the embedded tables we
+//! fold those steps into the word lookups at build time, then XOR four words per
+//! output row. See [compiled] for the encoding and table layout.
 
-use crate::tables::{LAST_LEN, ROUND_LEN, Tables, XOR_LEN};
+use crate::tables::Tables;
 
-type State = [u8; 32];
-
-fn load(block: &[u8; 16]) -> State {
-    let mut state = [0u8; 32];
-    for col in 0..4 {
-        for row in 0..4 {
-            state[col * 8 + row] = block[col + row * 4];
-        }
-    }
-    state
-}
-
-fn store(state: &State) -> [u8; 16] {
-    let mut block = [0u8; 16];
-    for col in 0..4 {
-        for row in 0..4 {
-            block[col + row * 4] = state[col * 8 + row];
-        }
-    }
-    block
-}
-
-/// Looks up one 4-byte word per state byte.
-fn lookup(table: &[u8; ROUND_LEN], perm: &[u8; 8], state: &State, round: usize) -> [u8; 64] {
-    let mut words = [0u8; 64];
-    for i in 0..4 {
-        let shift = usize::from(perm[i * 2]);
-        for j in 0..4 {
-            let row = (shift + j) & 3;
-            let byte = usize::from(state[i * 8 + row]);
-            let at = (byte + (i + (round * 4 + row) * 4) * 256) * 4;
-            words[i * 16 + j * 4..][..4].copy_from_slice(&table[at..at + 4]);
-        }
-    }
-    words
-}
-
-/// Combines the four words of each column through the nibble XOR tables.
-fn combine(table: &[u8; XOR_LEN], words: &[u8; 64], round: usize, state: &mut State) {
-    for col in 0..4 {
-        for row in 0..4 {
-            let at = col + row * 4;
-            let first = words[at];
-            let mut low = first & 0x0F;
-            let mut high = first & 0xF0;
-            let page = row * 0x18 + round * 0x60 + col * 6;
-            for step in 0..3 {
-                let next = words[at + 0x10 * (step + 1)];
-                let low_pair = low | (next << 4);
-                let high_pair = (high >> 4) | (next & 0xF0);
-                low = table[(page + step * 2) * 0x100 + usize::from(low_pair)] & 0x0F;
-                high = (table[(page + step * 2 + 1) * 0x100 + usize::from(high_pair)] & 0x0F) << 4;
-            }
-            state[row + col * 8] = high | low;
-        }
-    }
-}
-
-/// The last table round, which also undoes or applies the row shift.
-fn finish(table: &[u8; LAST_LEN], shifts: [usize; 4], state: &mut State) {
-    let before = *state;
-    for row in 0..4 {
-        for (group, shift) in shifts.iter().enumerate() {
-            let from = (shift + row) & 3;
-            let byte = usize::from(before[group * 8 + from]);
-            state[group * 8 + row] = table[byte + from * 0x400 + group * 0x100];
-        }
-    }
-}
+#[path = "block/compiled.rs"]
+mod compiled;
+#[path = "block/vendor.rs"]
+mod vendor;
 
 pub(crate) fn encrypt_block(tables: &Tables<'_>, block: &[u8; 16]) -> [u8; 16] {
-    let mut state = load(block);
-    for round in 0..9 {
-        let words = lookup(tables.round, tables.perm_encrypt, &state, round);
-        combine(tables.xor, &words, round, &mut state);
+    if std::ptr::eq(tables, Tables::embedded()) {
+        return compiled::ENCRYPT.apply(block);
     }
-    finish(tables.last, [0, 1, 2, 3], &mut state);
-    store(&state)
+    vendor::encrypt_block(tables, block)
 }
 
 pub(crate) fn decrypt_block(tables: &Tables<'_>, block: &[u8; 16]) -> [u8; 16] {
-    let mut state = load(block);
-    for round in (1..=9).rev() {
-        let words = lookup(tables.inv_round, tables.perm_decrypt, &state, round);
-        combine(tables.inv_xor, &words, round, &mut state);
+    if std::ptr::eq(tables, Tables::embedded()) {
+        return compiled::DECRYPT.apply(block);
     }
-    finish(tables.inv_first, [0, 3, 2, 1], &mut state);
-    store(&state)
+    vendor::decrypt_block(tables, block)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::vendor as reference;
+    use super::{Tables, decrypt_block, encrypt_block};
+    use crate::{decrypt_cbc, encrypt_cbc};
+
+    fn random_block(seed: &mut u64) -> [u8; 16] {
+        std::array::from_fn(|_| {
+            *seed ^= *seed << 13;
+            *seed ^= *seed >> 7;
+            *seed ^= *seed << 17;
+            *seed as u8
+        })
+    }
 
     #[test]
-    fn decrypt_undoes_encrypt() {
+    fn blocks_match_vendor_tables() {
         let tables = Tables::embedded();
-        let mut block = [0u8; 16];
-        for seed in 0u8..=255 {
-            for (i, byte) in block.iter_mut().enumerate() {
-                *byte = seed
-                    .wrapping_mul(31)
-                    .wrapping_add((i as u8).wrapping_mul(17));
-            }
-            let sealed = encrypt_block(tables, &block);
-            assert_ne!(sealed, block);
-            assert_eq!(decrypt_block(tables, &sealed), block);
+        let mut seed = 0x6a09_e667_f3bc_c909;
+        for i in 0..100_000 {
+            let block = random_block(&mut seed);
+            assert_eq!(
+                encrypt_block(tables, &block),
+                reference::encrypt_block(tables, &block),
+                "encrypt block {i}"
+            );
+            assert_eq!(
+                decrypt_block(tables, &block),
+                reference::decrypt_block(tables, &block),
+                "decrypt block {i}"
+            );
         }
+    }
+
+    #[test]
+    fn cbc_matches_vendor_tables_at_every_length_through_64_blocks() {
+        let tables = Tables::embedded();
+        let mut seed = 0xbb67_ae85_84ca_a73b;
+        for blocks in 0..=64 {
+            let iv = random_block(&mut seed);
+            let input: Vec<u8> = (0..blocks).flat_map(|_| random_block(&mut seed)).collect();
+            assert_eq!(
+                encrypt_cbc(tables, &input, &iv).unwrap(),
+                reference_cbc(tables, &input, iv, true),
+                "encrypt {blocks} blocks"
+            );
+            assert_eq!(
+                decrypt_cbc(tables, &input, &iv).unwrap(),
+                reference_cbc(tables, &input, iv, false),
+                "decrypt {blocks} blocks"
+            );
+        }
+    }
+
+    /// CBC over the vendor's block functions, whatever the cipher dispatches to.
+    fn reference_cbc(tables: &Tables<'_>, input: &[u8], iv: [u8; 16], encrypt: bool) -> Vec<u8> {
+        let xor = |block: [u8; 16], mask: [u8; 16]| std::array::from_fn(|i| block[i] ^ mask[i]);
+        let mut previous = iv;
+        let mut out = Vec::with_capacity(input.len());
+        for &block in input.as_chunks::<16>().0 {
+            if encrypt {
+                previous = reference::encrypt_block(tables, &xor(block, previous));
+                out.extend_from_slice(&previous);
+            } else {
+                out.extend_from_slice(&xor(reference::decrypt_block(tables, &block), previous));
+                previous = block;
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn custom_tables_use_their_own_xor_pages() {
+        let mut data = Tables::embedded_bytes().to_vec();
+        // Override both XOR tables without changing table lengths or offsets.
+        for entry in [1, 4] {
+            let index = 8 + 8 * entry;
+            let start = u32::from_le_bytes(data[index..index + 4].try_into().unwrap()) as usize;
+            data[start..start + crate::tables::XOR_LEN].fill(0);
+        }
+        let tables = Tables::from_bytes(&data).unwrap();
+        let block = [42; 16];
+        let encrypted = encrypt_block(&tables, &block);
+        let decrypted = decrypt_block(&tables, &block);
+        assert_eq!(encrypted, reference::encrypt_block(&tables, &block));
+        assert_eq!(decrypted, reference::decrypt_block(&tables, &block));
+        assert_ne!(encrypted, encrypt_block(Tables::embedded(), &block));
+        assert_ne!(decrypted, decrypt_block(Tables::embedded(), &block));
     }
 }

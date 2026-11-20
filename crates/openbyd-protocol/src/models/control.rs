@@ -25,7 +25,7 @@ use indexmap::IndexMap;
 use serde::{Serialize, Serializer};
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields, aliased, py_truthy, to_camel};
+use super::base::{self, BydModel, Fields, Plan, aliased, py_truthy, to_camel};
 use super::hvac::HvacStatus;
 use super::realtime::{SeatHeatVentState, StearingWheelHeat, VehicleRealtimeData};
 use crate::coerce::{self, Failures, IntEnum, StrEnum, ValidationError, py_decimal};
@@ -425,7 +425,8 @@ impl BydModel for RemoteControlResult {
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let values = normalize_result_shapes(raw)?;
-        let mut fields = Fields::cleaned(&values, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, &values, &[])?;
         let model = Self {
             raw: fields.raw(),
             control_state: fields.get(
@@ -480,7 +481,8 @@ impl BydModel for CommandAck {
             }
             other => Cow::Borrowed(other),
         };
-        let mut fields = Fields::cleaned(&values, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, &values, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),
@@ -519,7 +521,8 @@ impl BydModel for ChargeChangeResult {
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         // `_capture_raw` stores a copy of the input as `raw` unless it has one,
         // which is what the base validator does anyway.
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),
@@ -614,7 +617,8 @@ impl BydModel for CommandAckEvent {
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let values = normalize_ack_event(raw)?;
-        let mut fields = Fields::cleaned(&values, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, &values, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),
@@ -689,7 +693,8 @@ impl BydModel for CommandLifecycleEvent {
 
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
         let values = normalize_lifecycle_event(raw)?;
-        let mut fields = Fields::cleaned(&values, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, &values, &[])?;
         let model = Self {
             raw: fields.raw(),
             status: fields.required("status", coerce::str_enum),
@@ -731,7 +736,8 @@ impl BydModel for CommandAckDiagnostics {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             pending: fields.get("pending", 0, coerce::int),
@@ -777,7 +783,8 @@ impl BydModel for VerifyControlPasswordResponse {
             }
             other => Cow::Borrowed(other),
         };
-        let mut fields = Fields::cleaned(&values, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, &values, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),

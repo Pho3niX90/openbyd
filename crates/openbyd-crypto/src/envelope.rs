@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::cbc::{BLOCK_SIZE, decrypt_cbc, encrypt_cbc};
 use crate::{Error, Tables, base64};
 
@@ -58,10 +60,14 @@ pub fn decode_envelope(envelope: &str) -> Result<Vec<u8>, Error> {
 /// Spaces, tabs and line breaks anywhere in the envelope are ignored, and
 /// the URL-safe base64 alphabet and missing `=` padding are accepted.
 pub fn decode_envelope_with(tables: &Tables<'_>, envelope: &str) -> Result<Vec<u8>, Error> {
-    let cleaned: String = envelope
-        .chars()
-        .filter(|ch| !matches!(ch, ' ' | '\t' | '\n' | '\r'))
-        .collect();
+    // An envelope usually has no whitespace in it: then it is read in place.
+    // (These four are ASCII, so looking for them byte by byte finds the same.)
+    let is_removed = |ch: char| matches!(ch, ' ' | '\t' | '\n' | '\r');
+    let cleaned: Cow<'_, str> = if envelope.bytes().any(|byte| is_removed(char::from(byte))) {
+        Cow::Owned(envelope.chars().filter(|&ch| !is_removed(ch)).collect())
+    } else {
+        Cow::Borrowed(envelope)
+    };
     let cleaned = cleaned.trim_matches(is_python_space);
 
     if cleaned.is_empty() {

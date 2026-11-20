@@ -3,7 +3,7 @@
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields, PyDateTime};
+use super::base::{self, BydModel, Fields, Plan, PyDateTime};
 use crate::coerce::{self, ValidationError};
 use crate::parity::Outcome;
 
@@ -73,7 +73,8 @@ impl BydModel for ChargingStatus {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, KEY_ALIASES)?;
+        static PLAN: Plan = Plan::new(KEY_ALIASES);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let mut model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),

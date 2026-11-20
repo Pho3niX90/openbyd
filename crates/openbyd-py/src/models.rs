@@ -16,6 +16,7 @@ use openbyd_protocol::models::{
 };
 use openbyd_protocol::mqtt;
 use pyo3::exceptions::PyKeyError;
+use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use serde_json::{Map, Value};
@@ -49,6 +50,15 @@ trait Parsed: Send {
     /// `model_dump(mode="json")` as Python objects.
     fn dump<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>>;
 
+    /// [`Parsed::dump`] with `raw` given as Python objects, for a model whose
+    /// `raw` is the reply itself ([`BydModel::parse_reply`]). The model's own
+    /// `raw` is left out of the dump instead of being converted.
+    fn dump_with_raw<'py>(
+        &mut self,
+        py: Python<'py>,
+        raw: Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>>;
+
     /// Every `@property` of the Python class, by name.
     fn properties(&self) -> Map<String, Value>;
 
@@ -60,6 +70,31 @@ trait Parsed: Send {
 impl<M: BydModel + Send> Parsed for M {
     fn dump<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         dump::to_python(py, self)
+    }
+
+    fn dump_with_raw<'py>(
+        &mut self,
+        py: Python<'py>,
+        raw: Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let Some(slot) = self.raw_mut() else {
+            return dump::to_python(py, &*self);
+        };
+        // Dump with `raw` empty, then put `raw` in its place: replacing the
+        // value of a key keeps the dict's keys and their order.
+        let own = std::mem::take(slot);
+        let dumped = dump::to_python(py, &*self)?;
+        if let Ok(fields) = dumped.cast::<PyDict>()
+            && fields.contains(intern!(py, "raw"))?
+        {
+            fields.set_item(intern!(py, "raw"), raw)?;
+            return Ok(dumped);
+        }
+        // No `raw` key in the dump: give the model its own back and dump that.
+        if let Some(slot) = self.raw_mut() {
+            *slot = own;
+        }
+        dump::to_python(py, &*self)
     }
 
     fn properties(&self) -> Map<String, Value> {
@@ -79,6 +114,14 @@ impl Parsed for Token {
         dump::to_python(py, &self.0)
     }
 
+    fn dump_with_raw<'py>(
+        &mut self,
+        py: Python<'py>,
+        _raw: Bound<'py, PyAny>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        self.dump(py)
+    }
+
     fn properties(&self) -> Map<String, Value> {
         Map::new()
     }
@@ -88,118 +131,192 @@ impl Parsed for Token {
     }
 }
 
-type Run = fn(Value, &Value) -> Result<Box<dyn Parsed>, Failure>;
+/// A parsed model, and whether its `raw` is the reply itself.
+type Run = fn(Value, &Value) -> Result<(Box<dyn Parsed>, bool), Failure>;
 
 fn run<M: BydModel + Send + 'static>(
     raw: Value,
     context: &Value,
-) -> Result<Box<dyn Parsed>, Failure> {
-    let model = M::parse_owned(raw, context).map_err(Failure::Validation)?;
-    Ok(Box::new(model))
+) -> Result<(Box<dyn Parsed>, bool), Failure> {
+    let parsed = M::parse_reply(raw, context).map_err(Failure::Validation)?;
+    Ok((Box::new(parsed.model), parsed.raw_is_reply))
 }
 
-fn run_auth_token(raw: Value, _context: &Value) -> Result<Box<dyn Parsed>, Failure> {
+fn run_auth_token(raw: Value, _context: &Value) -> Result<(Box<dyn Parsed>, bool), Failure> {
     let token = token::AuthToken::from_raw(&raw).map_err(Failure::Error)?;
-    Ok(Box::new(Token(token.to_dump())))
+    Ok((Box::new(Token(token.to_dump())), false))
 }
+
+/// Whether a model's `raw` can be the reply itself, so that copying the
+/// caller's objects for it before the parse may pay off. Only a speed hint:
+/// the copy is used only when [`BydModel::parse_reply`] says so.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Raw {
+    /// It can (it has a `raw` field filled by `Fields::raw`).
+    MayBeReply,
+    /// It never is: no `raw` field, a before-validator that always builds a
+    /// new dict (`RemoteControlResult` and the command events), a parse of
+    /// a cleaned copy (`BydBaseModel`) or a parse by reference (`Vehicle`).
+    NeverReply,
+}
+
+use Raw::{MayBeReply, NeverReply};
 
 /// Every model openbyd parses, by pyBYD class name, sorted.
-const MODELS: &[(&str, Run)] = &[
-    ("AcCurrentLimit", run::<smart_charging::AcCurrentLimit>),
-    ("AuthToken", run_auth_token),
-    ("BookingList", run::<booking::BookingList>),
-    ("BydBaseModel", run::<BydBaseModel>),
-    ("ChargeChangeResult", run::<control::ChargeChangeResult>),
-    ("ChargingStatus", run::<charging::ChargingStatus>),
-    ("ClimateBooking", run::<booking::ClimateBooking>),
-    ("CommandAck", run::<control::CommandAck>),
+const MODELS: &[(&str, Run, Raw)] = &[
+    (
+        "AcCurrentLimit",
+        run::<smart_charging::AcCurrentLimit>,
+        MayBeReply,
+    ),
+    ("AuthToken", run_auth_token, NeverReply),
+    ("BookingList", run::<booking::BookingList>, MayBeReply),
+    ("BydBaseModel", run::<BydBaseModel>, NeverReply),
+    (
+        "ChargeChangeResult",
+        run::<control::ChargeChangeResult>,
+        MayBeReply,
+    ),
+    (
+        "ChargingStatus",
+        run::<charging::ChargingStatus>,
+        MayBeReply,
+    ),
+    ("ClimateBooking", run::<booking::ClimateBooking>, MayBeReply),
+    ("CommandAck", run::<control::CommandAck>, MayBeReply),
     (
         "CommandAckDiagnostics",
         run::<control::CommandAckDiagnostics>,
+        MayBeReply,
     ),
-    ("CommandAckEvent", run::<control::CommandAckEvent>),
-    ("CommandGateRule", run::<command_gating::CommandGateRule>),
+    (
+        "CommandAckEvent",
+        run::<control::CommandAckEvent>,
+        NeverReply,
+    ),
+    (
+        "CommandGateRule",
+        run::<command_gating::CommandGateRule>,
+        MayBeReply,
+    ),
     (
         "CommandGateVerdict",
         run::<command_gating::CommandGateVerdict>,
+        MayBeReply,
     ),
     (
         "CommandLifecycleEvent",
         run::<control::CommandLifecycleEvent>,
+        NeverReply,
     ),
     (
         "CumulativeEnergyConsumption",
         run::<energy::CumulativeEnergyConsumption>,
+        MayBeReply,
     ),
-    ("EmpowerRange", run::<vehicle::EmpowerRange>),
-    ("EnergyConsumption", run::<energy::EnergyConsumption>),
+    ("EmpowerRange", run::<vehicle::EmpowerRange>, MayBeReply),
+    (
+        "EnergyConsumption",
+        run::<energy::EnergyConsumption>,
+        MayBeReply,
+    ),
     (
         "EnergyConsumptionGraph",
         run::<energy::EnergyConsumptionGraph>,
+        MayBeReply,
     ),
-    ("GpsInfo", run::<gps::GpsInfo>),
-    ("HvacStatus", run::<hvac::HvacStatus>),
+    ("GpsInfo", run::<gps::GpsInfo>, MayBeReply),
+    ("HvacStatus", run::<hvac::HvacStatus>, MayBeReply),
     (
         "LatestConfigFunction",
         run::<latest_config::LatestConfigFunction>,
+        MayBeReply,
     ),
-    ("MqttBootstrap", run::<mqtt::MqttBootstrap>),
-    ("MqttEvent", run::<mqtt::MqttEvent>),
+    ("MqttBootstrap", run::<mqtt::MqttBootstrap>, NeverReply),
+    ("MqttEvent", run::<mqtt::MqttEvent>, NeverReply),
     (
         "NearestEnergyConsumption",
         run::<energy::NearestEnergyConsumption>,
+        MayBeReply,
     ),
     (
         "PushNotificationState",
         run::<push_notification::PushNotificationState>,
+        MayBeReply,
     ),
-    ("PushSwitch", run::<push_notification::PushSwitch>),
-    ("RemoteControlResult", run::<control::RemoteControlResult>),
-    ("SmartChargeDto", run::<smart_charging::SmartChargeDto>),
+    (
+        "PushSwitch",
+        run::<push_notification::PushSwitch>,
+        MayBeReply,
+    ),
+    (
+        "RemoteControlResult",
+        run::<control::RemoteControlResult>,
+        NeverReply,
+    ),
+    (
+        "SmartChargeDto",
+        run::<smart_charging::SmartChargeDto>,
+        MayBeReply,
+    ),
     (
         "SmartChargingSchedule",
         run::<smart_charging::SmartChargingSchedule>,
+        MayBeReply,
     ),
-    ("SmartJourneyDto", run::<smart_charging::SmartJourneyDto>),
-    ("Vehicle", run::<vehicle::Vehicle>),
+    (
+        "SmartJourneyDto",
+        run::<smart_charging::SmartJourneyDto>,
+        MayBeReply,
+    ),
+    ("Vehicle", run::<vehicle::Vehicle>, NeverReply),
     (
         "VehicleCapabilities",
         run::<latest_config::VehicleCapabilities>,
+        MayBeReply,
     ),
     (
         "VehicleLatestConfig",
         run::<latest_config::VehicleLatestConfig>,
+        MayBeReply,
     ),
     (
         "VehicleMsgItemInfo",
         run::<message_center::VehicleMsgItemInfo>,
+        MayBeReply,
     ),
     (
         "VehicleMsgListResponse",
         run::<message_center::VehicleMsgListResponse>,
+        MayBeReply,
     ),
-    ("VehicleRealtimeData", run::<realtime::VehicleRealtimeData>),
+    (
+        "VehicleRealtimeData",
+        run::<realtime::VehicleRealtimeData>,
+        MayBeReply,
+    ),
     (
         "VerifyControlPasswordResponse",
         run::<control::VerifyControlPasswordResponse>,
+        MayBeReply,
     ),
 ];
 
-fn lookup(name: &str) -> Option<Run> {
+fn lookup(name: &str) -> Option<(Run, Raw)> {
     MODELS
-        .binary_search_by(|(known, _)| (*known).cmp(name))
+        .binary_search_by(|(known, _, _)| (*known).cmp(name))
         .ok()
-        .map(|index| MODELS[index].1)
+        .map(|index| (MODELS[index].1, MODELS[index].2))
 }
 
-fn require(name: &str) -> PyResult<Run> {
+fn require(name: &str) -> PyResult<(Run, Raw)> {
     lookup(name).ok_or_else(|| PyKeyError::new_err(format!("openbyd has no model named {name:?}")))
 }
 
 /// The pyBYD class names `parse_model` knows, sorted.
 #[pyfunction]
 pub fn model_names() -> Vec<&'static str> {
-    MODELS.iter().map(|(name, _)| *name).collect()
+    MODELS.iter().map(|(name, _, _)| *name).collect()
 }
 
 /// Which part of a parsed model a call returns.
@@ -209,6 +326,40 @@ enum Part {
     Properties,
 }
 
+/// Pauses Python's cyclic garbage collector while it lives, so no finalizer
+/// or weak reference callback can run between two reads of the same objects.
+///
+/// The caller must hold the GIL for the guard's whole life and drop it
+/// before releasing the GIL (`Python::detach`): `'py` only says the GIL was
+/// held when the guard was made, and a guard kept across a release would
+/// leave the collector off for other threads' code and switch it back on
+/// from here.
+struct GcPaused<'py> {
+    was_enabled: bool,
+    _py: Python<'py>,
+}
+
+impl<'py> GcPaused<'py> {
+    fn new(py: Python<'py>) -> Self {
+        // SAFETY: `PyGC_Disable` only needs the GIL, which `py` shows is held here.
+        let was_enabled = unsafe { pyo3::ffi::PyGC_Disable() } != 0;
+        Self {
+            was_enabled,
+            _py: py,
+        }
+    }
+}
+
+impl Drop for GcPaused<'_> {
+    fn drop(&mut self) {
+        if self.was_enabled {
+            // SAFETY: `PyGC_Enable` only needs the GIL; the guard is dropped
+            // while it is still held (see the type's documentation).
+            unsafe { pyo3::ffi::PyGC_Enable() };
+        }
+    }
+}
+
 fn parse_part<'py>(
     py: Python<'py>,
     name: &str,
@@ -216,18 +367,45 @@ fn parse_part<'py>(
     context: Option<&Bound<'py, PyAny>>,
     part: Part,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let run = require(name)?;
-    let raw = convert::to_value(raw, Mode::Strict)?;
+    let (run, keeps) = require(name)?;
+    let input = raw;
+    // The dump's `raw` for a model that keeps the reply itself is built from
+    // the caller's objects: cheaper than converting the parsed reply back.
+    // It must be the snapshot the parse sees, so it is taken straight after
+    // `to_value`, with the GIL held and before `detach` lets other threads
+    // run. Neither conversion calls the input's own Python code (dicts are
+    // read with `PyDict_Next`, numbers and text through the C API, never
+    // `__iter__`, `__index__`, `__hash__` or `__eq__`). The one thing that
+    // could still run in between is a garbage collection started by the
+    // copy's allocations (Python 3.11 collects inside the allocation), whose
+    // finalizers and weak reference callbacks are arbitrary code; the
+    // collector is paused until both are done. Nothing between here and
+    // `drop(paused)` releases the GIL.
+    let paused = GcPaused::new(py);
+    let raw = convert::to_value(input, Mode::Strict)?;
+    // A reply with its own `raw` key never is the model's `raw`; that is
+    // read from the converted value, so no Python code runs here either.
+    let own_raw = raw
+        .as_object()
+        .is_some_and(|reply| reply.contains_key("raw"));
+    let copy = match (part, keeps) {
+        (Part::Dump, MayBeReply) if !own_raw && input.is_instance_of::<PyDict>() => {
+            Some(convert::round_tripped(input)?)
+        }
+        _ => None,
+    };
+    drop(paused);
     let context = match context {
         Some(context) => convert::to_value(context, Mode::Strict)?,
         None => Value::Null,
     };
-    let parsed = py
+    let (mut parsed, raw_is_reply) = py
         .detach(|| run(raw, &context))
         .map_err(|failure| failure.into_py_err(py))?;
-    match part {
-        Part::Dump => parsed.dump(py),
-        Part::Properties => dump::to_python(py, &parsed.properties()),
+    match (part, copy) {
+        (Part::Dump, Some(copy)) if raw_is_reply => parsed.dump_with_raw(py, copy),
+        (Part::Dump, _) => parsed.dump(py),
+        (Part::Properties, _) => dump::to_python(py, &parsed.properties()),
     }
 }
 
@@ -280,7 +458,7 @@ pub fn shadow_compare(
     expected: &Bound<'_, PyAny>,
     context: Option<&Bound<'_, PyAny>>,
 ) -> Vec<String> {
-    let Some(run) = lookup(name) else {
+    let Some((run, _)) = lookup(name) else {
         return vec![SHADOW_UNKNOWN_MODEL.to_owned()];
     };
     let error = || vec![SHADOW_ERROR.to_owned()];
@@ -297,7 +475,9 @@ pub fn shadow_compare(
     };
     let ours = py.detach(|| {
         catch_unwind(AssertUnwindSafe(|| {
-            run(raw, &context).ok().and_then(|model| model.fields())
+            run(raw, &context)
+                .ok()
+                .and_then(|(model, _)| model.fields())
         }))
         .ok()
         .flatten()

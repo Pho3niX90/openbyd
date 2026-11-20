@@ -6,7 +6,11 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 readme = "../../README.md"
-include = ["src/**", "data/bangcle_tables.bin", "tests/**", "Cargo.toml"]
+include = ["src/**", "data/bangcle_tables.bin", "tests/**", "benches/**", "build.rs", "build/**", "Cargo.toml"]
+
+[[bench]]
+name = "cipher"
+harness = false
 
 [dependencies]
 

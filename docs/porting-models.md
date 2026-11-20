@@ -20,7 +20,8 @@ two files first; most models are the same shape with more fields.
    ```rust
    fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
        let values = own_before_validator(raw);                    // only if the class has one
-       let mut fields = Fields::cleaned(&values, KEY_ALIASES)?;    // BydBaseModel's before-validator; non-dict input fails here
+       static PLAN: Plan = Plan::new(KEY_ALIASES);                // the class's _KEY_ALIASES; &[] if none
+       let mut fields = Fields::planned(&PLAN, &values, &[])?;    // BydBaseModel's before-validator; non-dict input fails here
        let mut model = Self {
            raw: fields.raw(),
            soc: fields.opt("soc", coerce::int),
@@ -34,14 +35,22 @@ two files first; most models are the same shape with more fields.
        Ok(model)
    }
    ```
-   `Fields::cleaned(values, aliases)` reads the same as
-   `Fields::new(&base::clean_byd_values(values, aliases))` but borrows the
-   input instead of copying it (twice). Without a before-validator pass
-   `raw` itself. A before-validator should return the input unchanged when it
-   has nothing to do (a `Cow`, or `raw` itself) rather than a clone; one that
-   only adds or replaces keys and stashes its input as `raw`, like
-   `VehicleRealtimeData`'s, returns just those keys and uses
-   `Fields::cleaned_with_changes(raw, &changes, KEY_ALIASES)`.
+   `Fields::planned(&PLAN, values, &[])` reads the same as
+   `Fields::new(&base::clean_byd_values(values, KEY_ALIASES))` but borrows
+   the input instead of copying it (twice), and faster: the model's first
+   successful parse records which keys its fields read (`base::Plan`), and
+   later parses fill those from one pass over the input instead of building
+   a hash table of it. So **read every field unconditionally, in the same
+   order every time**, as the struct literal above does: a read that depends
+   on the data still gives the right answer, but slowly (the plan tests in
+   `models/base/plan.rs` count such reads; add the model to their list).
+   `Fields::cleaned(values, aliases)` does the same without a plan.
+   Without a before-validator pass `raw` itself. A before-validator should
+   return the input unchanged when it has nothing to do (a `Cow`, or `raw`
+   itself) rather than a clone; one that only adds or replaces keys and
+   stashes its input as `raw`, like `VehicleRealtimeData`'s, returns just
+   those keys and passes them as the third argument:
+   `Fields::planned(&PLAN, raw, &changes)`.
    Then give the struct its `raw` field back for the owned parse:
    ```rust
    fn raw_mut(&mut self) -> Option<&mut serde_json::Map<String, Value>> {
@@ -53,9 +62,13 @@ two files first; most models are the same shape with more fields.
    map and `parse_owned` moves the reply into `raw_mut()` once `parse`
    returns, instead of copying it. So **`parse` must not read `model.raw`**
    (an after-validator that looks at `raw`, like `Vehicle`'s
-   `_fill_missing_pics`): such a model overrides `parse_owned` to call
-   `Self::parse(&raw, context)`. The parity call goes through `parse_owned`
-   and `into_dump`, so the recorded vectors catch a model that breaks this.
+   `_fill_missing_pics`): such a model overrides `parse_reply` (not
+   `parse_owned`, which is derived from it) to return
+   `Self::parse(&raw, context).map(ParsedReply::copied)`. `parse_reply` also
+   tells the Python bindings whether `raw` is the reply itself, so they can
+   build the dump's `raw` from the caller's own objects. The parity call goes
+   through `parse_owned` and `into_dump`, so the recorded vectors catch a
+   model that breaks this.
 4. **Properties:** one `pub fn` per `@property` with the same name, and list
    them all in `BydModel::properties` with `base::properties([...])`.
 5. **Parity:** add the arm `"models.<file>.<Class>" => base::model_call::<Class>(args)`

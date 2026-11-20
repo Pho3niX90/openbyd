@@ -409,8 +409,12 @@ def main(argv: list[str] | None = None) -> int:
         report = guard.report()
         report["exit_code"] = code
         if report_path:
-            with open(report_path, "w", encoding="utf-8") as handle:
+            # Written whole and then renamed: a harness that kills this process mid-write
+            # (after a failed command) finds no report rather than half of one.
+            partial = f"{report_path}.partial"
+            with open(partial, "w", encoding="utf-8") as handle:
                 json.dump(report, handle)
+            os.replace(partial, report_path)
         print("GUARD_REPORT " + json.dumps(report), flush=True)
     return code
 

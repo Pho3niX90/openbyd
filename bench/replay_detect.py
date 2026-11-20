@@ -1020,7 +1020,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         if (path := getattr(args, key)) is not None:
             setattr(args, key, path.resolve())
     if args.backend_python.is_file() or args.backend_python.parent != Path("."):
-        args.backend_python = args.backend_python.resolve()
+        # absolute(), not resolve(): a virtual environment's python is a symlink to the base
+        # interpreter, and following it would run the driver outside the environment.
+        args.backend_python = args.backend_python.absolute()
     return args
 
 

@@ -2,10 +2,13 @@
 //! runtime and of whole clients (feature `testing`).
 //!
 //! It speaks just enough MQTT v5 for the runtime (CONNECT, SUBSCRIBE,
-//! PUBLISH, PINGREQ, DISCONNECT), records everything it is sent, and can
-//! refuse connections, publish to subscribers, drop every connection and
-//! restart. Its certificate is made for the test run; clients trust it
-//! through [`client_tls`] (or [`runtime_options`]).
+//! PUBLISH, PINGREQ, DISCONNECT), records everything it is sent (unless told
+//! not to, [`TestBroker::set_recording`]), counts connections and
+//! subscriptions ([`TestBroker::stats`]), and can refuse connections, publish
+//! to subscribers, drop every connection and restart. Its certificate is made
+//! for the test run, with `127.0.0.1` as an IP subject alternative name;
+//! clients of this process trust it through [`client_tls`] (or
+//! [`runtime_options`]), others through its PEM ([`certificate_pem`]).
 //!
 //! ```no_run
 //! # async fn demo() {
@@ -18,7 +21,7 @@
 //! ```
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -43,6 +46,7 @@ pub const WAIT: Duration = Duration::from_secs(10);
 struct TestTls {
     server: TlsAcceptor,
     client: Arc<rustls::ClientConfig>,
+    pem: String,
 }
 
 fn tls() -> &'static TestTls {
@@ -51,6 +55,7 @@ fn tls() -> &'static TestTls {
         let certified =
             rcgen::generate_simple_self_signed(vec!["127.0.0.1".to_owned()]).expect("certificate");
         let cert = certified.cert.der().clone();
+        let pem = certified.cert.pem();
         let key =
             rustls::pki_types::PrivateKeyDer::Pkcs8(certified.signing_key.serialize_der().into());
         let provider = Arc::new(rustls::crypto::ring::default_provider());
@@ -65,8 +70,15 @@ fn tls() -> &'static TestTls {
         TestTls {
             server: TlsAcceptor::from(Arc::new(server)),
             client: client_config(roots).expect("client config"),
+            pem,
         }
     })
+}
+
+/// The brokers' certificate (the same for every broker of this process) as
+/// PEM, for a client in another process or language to trust.
+pub fn certificate_pem() -> String {
+    tls().pem.clone()
 }
 
 /// A TLS client configuration that trusts the brokers of this process.
@@ -141,9 +153,24 @@ struct Peer {
     commands: mpsc::UnboundedSender<Command>,
 }
 
+/// The broker's counters ([`TestBroker::stats`]).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BrokerStats {
+    /// Connections open now.
+    pub open: u64,
+    /// CONNECTs received since the last reset.
+    pub connects: u64,
+    /// Topic filters subscribed since the last reset.
+    pub subscriptions: u64,
+}
+
 #[derive(Default)]
 struct BrokerState {
     seen: Mutex<Vec<Seen>>,
+    /// Whether `seen` is not kept (recording switched off).
+    not_recording: AtomicBool,
+    connects: AtomicU64,
+    subscriptions: AtomicU64,
     peers: Mutex<HashMap<u64, Peer>>,
     next_conn: AtomicU64,
     /// How many of the next CONNECTs to refuse.
@@ -176,15 +203,42 @@ impl TestBroker {
     /// Starts a broker on an ephemeral port of 127.0.0.1, on the current
     /// tokio runtime.
     pub async fn start() -> Arc<Self> {
-        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
-        let port = listener.local_addr().expect("address").port();
+        Self::start_on(0).await.expect("bind")
+    }
+
+    /// Starts a broker on `127.0.0.1:<port>` (0 for an ephemeral port), on
+    /// the current tokio runtime.
+    pub async fn start_on(port: u16) -> std::io::Result<Arc<Self>> {
+        let listener = super::listen(port)?;
+        let port = listener.local_addr()?.port();
         let broker = Arc::new(Self {
             port,
             state: Arc::new(BrokerState::default()),
             acceptor: Mutex::new(None),
         });
         broker.listen(listener);
-        broker
+        Ok(broker)
+    }
+
+    /// Switches the recording of what the broker sees ([`TestBroker::seen`])
+    /// on (the default) or off. The counters are kept either way.
+    pub fn set_recording(&self, on: bool) {
+        self.state.not_recording.store(!on, Ordering::SeqCst);
+    }
+
+    /// The counters since the start or the last [`TestBroker::reset_stats`].
+    pub fn stats(&self) -> BrokerStats {
+        BrokerStats {
+            open: self.open() as u64,
+            connects: self.state.connects.load(Ordering::SeqCst),
+            subscriptions: self.state.subscriptions.load(Ordering::SeqCst),
+        }
+    }
+
+    /// Zeroes the counters of [`TestBroker::stats`] (not `open`).
+    pub fn reset_stats(&self) {
+        self.state.connects.store(0, Ordering::SeqCst);
+        self.state.subscriptions.store(0, Ordering::SeqCst);
     }
 
     /// The port it listens on.
@@ -224,9 +278,7 @@ impl TestBroker {
         }
         self.drop_all();
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let listener = TcpListener::bind(("127.0.0.1", self.port))
-            .await
-            .expect("rebind");
+        let listener = super::listen(self.port).expect("rebind");
         self.listen(listener);
     }
 
@@ -331,7 +383,16 @@ async fn serve(
 ) {
     let conn = state.next_conn.fetch_add(1, Ordering::SeqCst);
     state.open.fetch_add(1, Ordering::SeqCst);
-    let record = |seen: Seen| lock(&state.seen).push(seen);
+    let record = |seen: Seen| {
+        match seen {
+            Seen::Connect { .. } => state.connects.fetch_add(1, Ordering::SeqCst),
+            Seen::Subscribe { .. } => state.subscriptions.fetch_add(1, Ordering::SeqCst),
+            _ => 0,
+        };
+        if !state.not_recording.load(Ordering::SeqCst) {
+            lock(&state.seen).push(seen);
+        }
+    };
     let (commands, mut inbox) = mpsc::unbounded_channel();
     let mut buffer = BytesMut::with_capacity(1024);
     let mut chunk = [0u8; 4096];

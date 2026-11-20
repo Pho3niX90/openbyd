@@ -1,9 +1,14 @@
-//! The fake BYD server for Python tests and benchmarks (`openbyd.testing`, cargo feature `testing`).
+//! The fake BYD server, the test broker and the replay server for Python tests and
+//! benchmarks (`openbyd.testing`, cargo feature `testing`).
 
+use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::Duration;
 
-use openbyd_client::testing::broker::{Seen, TestBroker};
+use openbyd_client::testing::broker::TestBroker;
+use openbyd_client::testing::replay::{
+    Epoch, ReplayOptions, ReplayServer, Scenario, default_corpus,
+};
 use openbyd_client::testing::{Account, FakeBydServer, Reply, Request};
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -391,15 +396,18 @@ impl PyTestBroker {
         Ok(())
     }
 
-    /// How many CONNECTs the broker has seen.
+    /// How many CONNECTs the broker has seen (its always-on counter, so it
+    /// counts whether or not recording is on).
     #[getter]
-    fn connects(&self) -> PyResult<usize> {
-        Ok(self
-            .broker()?
-            .seen()
-            .iter()
-            .filter(|seen| matches!(seen, Seen::Connect { .. }))
-            .count())
+    fn connects(&self) -> PyResult<u64> {
+        Ok(self.broker()?.stats().connects)
+    }
+
+    /// Switches the recording of every packet on (the default) or off, as a
+    /// long run does; the counters are kept either way.
+    fn set_recording(&self, on: bool) -> PyResult<()> {
+        self.broker()?.set_recording(on);
+        Ok(())
     }
 
     /// Stops the broker. Calling it again does nothing.
@@ -428,6 +436,199 @@ impl PyTestBroker {
         _traceback: &Bound<'_, PyAny>,
     ) -> bool {
         self.stop();
+        false
+    }
+}
+
+/// A replay of a scenario file (`openbyd.testing.ReplayServer`): the fake
+/// server and the broker answering every scenario account from its cars'
+/// state at the replay clock's time, on the extension's shared runtime.
+#[pyclass(frozen, module = "openbyd._native", name = "ReplayServer")]
+pub struct PyReplayServer {
+    replay: Mutex<Option<ReplayServer>>,
+    url: String,
+    broker_address: String,
+}
+
+impl PyReplayServer {
+    fn with<T>(&self, action: impl FnOnce(&ReplayServer) -> T) -> PyResult<T> {
+        let guard = self.replay.lock().unwrap_or_else(PoisonError::into_inner);
+        match guard.as_ref() {
+            Some(replay) => Ok(action(replay)),
+            None => Err(PyRuntimeError::new_err(
+                "the replay server has been stopped",
+            )),
+        }
+    }
+}
+
+#[pymethods]
+impl PyReplayServer {
+    /// Loads `scenario` (a `.jsonl` path) and starts the server and the
+    /// broker. `manual=True` gives a clock that moves only with `set_time`
+    /// and `advance`; otherwise it follows wall time at `speed` from
+    /// `start()`. `corpus` is the template directory (default: the
+    /// repository's `parity/corpus`); `epoch` is `"scenario"` or `"now"`.
+    #[new]
+    #[pyo3(signature = (scenario, corpus = None, speed = 1.0, manual = true, epoch = "scenario", start_at = 0.0, delay_ms = 0, record = false))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        py: Python<'_>,
+        scenario: PathBuf,
+        corpus: Option<PathBuf>,
+        speed: f64,
+        manual: bool,
+        epoch: &str,
+        start_at: f64,
+        delay_ms: u64,
+        record: bool,
+    ) -> PyResult<Self> {
+        let epoch = Epoch::parse(epoch)
+            .ok_or_else(|| PyValueError::new_err("epoch must be \"scenario\" or \"now\""))?;
+        if !(speed.is_finite() && speed > 0.0) {
+            return Err(PyValueError::new_err("speed must be a positive number"));
+        }
+        let scenario = py
+            .detach(|| Scenario::load(&scenario))
+            .map_err(|error| PyValueError::new_err(error.to_string()))?;
+        let options = ReplayOptions {
+            corpus: Some(corpus.unwrap_or_else(default_corpus)),
+            speed,
+            start_at,
+            epoch,
+            delay: Duration::from_millis(delay_ms),
+            manual,
+            record,
+            ..ReplayOptions::default()
+        };
+        let runtime = crate::bridge::handle()?;
+        let replay = py
+            .detach(|| runtime.block_on(ReplayServer::start(scenario, options)))
+            .map_err(|error| {
+                PyRuntimeError::new_err(format!("cannot start the replay server: {error}"))
+            })?;
+        Ok(Self {
+            url: replay.url(),
+            broker_address: replay.broker_address(),
+            replay: Mutex::new(Some(replay)),
+        })
+    }
+
+    /// The base URL to give a client: `http://127.0.0.1:<port>`.
+    #[getter]
+    fn url(&self) -> &str {
+        &self.url
+    }
+
+    /// The broker's address as BYD's broker lookup gives it: `127.0.0.1:<port>`.
+    #[getter]
+    fn broker_address(&self) -> &str {
+        &self.broker_address
+    }
+
+    /// The broker's certificate as PEM, for a client to trust (it names
+    /// `127.0.0.1` as an IP subject alternative name).
+    #[getter]
+    fn ca_pem(&self) -> String {
+        openbyd_client::testing::broker::certificate_pem()
+    }
+
+    /// Starts the clock and returns `{"wall_unix_ms", "start_at", "speed",
+    /// "epoch_unix_ms"}`; a second call returns the same.
+    fn start<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let started = self.with(|replay| replay.start_clock().to_json())?;
+        convert::to_python(py, &started)
+    }
+
+    /// Sets a manual clock to `t` scenario seconds; pushes and session
+    /// expiries due by then have happened when it returns.
+    fn set_time(&self, py: Python<'_>, t: f64) -> PyResult<()> {
+        py.detach(|| self.with(|replay| replay.set_time(t)))?
+            .map_err(PyValueError::new_err)
+    }
+
+    /// Moves a manual clock on by `seconds`, as `set_time`.
+    fn advance(&self, py: Python<'_>, seconds: f64) -> PyResult<()> {
+        py.detach(|| self.with(|replay| replay.advance(seconds)))?
+            .map_err(PyValueError::new_err)
+    }
+
+    /// The scenario time now, in seconds.
+    fn now(&self) -> PyResult<f64> {
+        self.with(|replay| replay.clock().now())
+    }
+
+    /// `{"t", "started", "speed", "wall_unix_ms", "finished"}`.
+    fn clock<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let clock = self.with(ReplayServer::clock_json)?;
+        convert::to_python(py, &clock)
+    }
+
+    /// The epoch reply timestamps count from, in milliseconds.
+    #[getter]
+    fn epoch_ms(&self) -> PyResult<i64> {
+        self.with(ReplayServer::epoch_ms)
+    }
+
+    /// Every counter, as the replay server's `stats` command prints them.
+    fn stats<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let stats = self.with(|replay| replay.stats().to_json())?;
+        convert::to_python(py, &stats)
+    }
+
+    /// Zeroes every counter (not the clock).
+    fn reset_stats(&self) -> PyResult<()> {
+        self.with(ReplayServer::reset_stats)
+    }
+
+    /// The requests received (with `record=True`), as `FakeServer.requests`.
+    #[pyo3(signature = (endpoint = None))]
+    fn requests<'py>(
+        &self,
+        py: Python<'py>,
+        endpoint: Option<&str>,
+    ) -> PyResult<Bound<'py, PyList>> {
+        let requests = self.with(|replay| match endpoint {
+            Some(endpoint) => replay.server().requests_to(endpoint),
+            None => replay.server().requests(),
+        })?;
+        PyList::new(
+            py,
+            requests
+                .iter()
+                .map(|request| request_to_python(py, request))
+                .collect::<PyResult<Vec<_>>>()?,
+        )
+    }
+
+    /// Stops the server and the broker. Calling it again does nothing.
+    fn stop(&self, py: Python<'_>) {
+        let replay = self
+            .replay
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
+        if let Some(replay) = replay
+            && let Ok(runtime) = crate::bridge::handle()
+        {
+            py.detach(|| runtime.block_on(replay.shutdown()));
+        }
+    }
+
+    /// Returns the replay server, for `with`.
+    fn __enter__(slf: Py<Self>) -> Py<Self> {
+        slf
+    }
+
+    /// Stops the replay server.
+    fn __exit__(
+        &self,
+        py: Python<'_>,
+        _kind: &Bound<'_, PyAny>,
+        _value: &Bound<'_, PyAny>,
+        _traceback: &Bound<'_, PyAny>,
+    ) -> bool {
+        self.stop(py);
         false
     }
 }

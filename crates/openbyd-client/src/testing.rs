@@ -11,7 +11,12 @@
 //! What a token endpoint answers is up to the test: a handler per endpoint
 //! ([`FakeBydServer::on`], [`FakeBydServer::reply`]) or a script of
 //! replies used one per request ([`FakeBydServer::script`]). Every request
-//! is recorded with its decoded payloads ([`FakeBydServer::requests`]).
+//! is recorded with its decoded payloads ([`FakeBydServer::requests`]),
+//! unless recording is switched off ([`FakeBydServer::set_recording`]) for a
+//! long run; the counters of [`FakeBydServer::stats`] are always kept.
+//!
+//! [`replay`] builds a whole simulated fleet on top of it: every account's
+//! cars answered from a scenario file on a shared replay clock.
 //!
 //! ```no_run
 //! # async fn demo() -> std::io::Result<()> {
@@ -30,12 +35,13 @@
 #![cfg(feature = "testing")]
 
 pub mod broker;
+pub mod replay;
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 use std::time::Duration;
 
 use http_body_util::{BodyExt, Full};
@@ -222,6 +228,24 @@ impl Request {
 }
 
 type Handler = Arc<dyn Fn(&Request) -> Reply + Send + Sync>;
+type Hook = Arc<dyn Fn() + Send + Sync>;
+
+/// The server's always-on counters ([`FakeBydServer::stats`]), kept whether
+/// or not requests are recorded.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ServerStats {
+    /// Requests answered (or dropped) since the last reset.
+    pub requests: u64,
+    /// Requests by path.
+    pub by_endpoint: BTreeMap<String, u64>,
+    /// Requests by the API code answered; `"none"` for an HTTP-level reply
+    /// or a dropped connection.
+    pub by_code: BTreeMap<String, u64>,
+    /// TCP connections accepted since the last reset.
+    pub connections: u64,
+    /// Logins answered with code `"0"`.
+    pub logins: u64,
+}
 
 struct Tokens {
     sign_key: String,
@@ -238,17 +262,35 @@ struct AccountState {
 #[derive(Default)]
 struct State {
     accounts: Vec<AccountState>,
+    /// The first account with each username, by index into `accounts`.
+    by_username: HashMap<String, usize>,
+    /// The first account with each user id, by index into `accounts`.
+    by_user_id: HashMap<String, usize>,
     handlers: HashMap<String, Handler>,
     scripts: HashMap<String, VecDeque<Reply>>,
     requests: Vec<Request>,
+    /// Whether `requests` is not kept (recording switched off).
+    not_recording: bool,
+    stats: ServerStats,
+    before_each: Option<Hook>,
     cookies: Vec<String>,
     issued: u64,
+}
+
+impl State {
+    fn account_by_username(&self, username: &str) -> Option<&AccountState> {
+        self.by_username
+            .get(username)
+            .map(|&index| &self.accounts[index])
+    }
 }
 
 #[derive(Default)]
 struct Shared {
     state: Mutex<State>,
     connections: AtomicUsize,
+    /// Connections since the last [`FakeBydServer::reset_stats`].
+    connections_counted: AtomicU64,
 }
 
 impl Shared {
@@ -289,8 +331,17 @@ impl FakeBydServer {
 
     /// Starts a server for `accounts` on the current tokio runtime.
     pub async fn start(accounts: impl IntoIterator<Item = Account>) -> std::io::Result<Self> {
+        Self::start_on(0, accounts).await
+    }
+
+    /// Starts a server for `accounts` on `127.0.0.1:<port>` (0 for an
+    /// ephemeral port) on the current tokio runtime.
+    pub async fn start_on(
+        port: u16,
+        accounts: impl IntoIterator<Item = Account>,
+    ) -> std::io::Result<Self> {
         let shared = Self::prepare(accounts);
-        let listener = TcpListener::bind(("127.0.0.1", 0)).await?;
+        let listener = listen(port)?;
         let addr = listener.local_addr()?;
         let (stop, stopped) = oneshot::channel();
         let task = tokio::spawn(serve(listener, shared.clone(), stopped));
@@ -342,12 +393,44 @@ impl FakeBydServer {
 
     /// The user id logins for `username` receive.
     pub fn user_id(&self, username: &str) -> Option<String> {
-        self.shared
-            .state()
-            .accounts
-            .iter()
-            .find(|state| state.account.username == username)
-            .map(|state| state.user_id.clone())
+        self.shared.user_id(username)
+    }
+
+    /// The content key (hex) of the newest session issued to `username`,
+    /// expired or not: the key BYD seals that account's pushes with.
+    pub fn newest_content_key(&self, username: &str) -> Option<String> {
+        self.shared.newest_content_key(username)
+    }
+
+    /// A handle that reaches this server's accounts and sessions without
+    /// keeping the server alive, for code the server itself owns (handlers).
+    pub fn handle(&self) -> ServerHandle {
+        ServerHandle(Arc::downgrade(&self.shared))
+    }
+
+    /// Runs `hook` at the start of every request, before the request is
+    /// verified (so it can expire sessions the request is checked against).
+    pub fn before_each(&self, hook: impl Fn() + Send + Sync + 'static) {
+        self.shared.state().before_each = Some(Arc::new(hook));
+    }
+
+    /// Switches the recording of every request ([`FakeBydServer::requests`])
+    /// on (the default) or off. The counters are kept either way.
+    pub fn set_recording(&self, on: bool) {
+        self.shared.state().not_recording = !on;
+    }
+
+    /// The counters since the start or the last [`FakeBydServer::reset_stats`].
+    pub fn stats(&self) -> ServerStats {
+        let mut stats = self.shared.state().stats.clone();
+        stats.connections = self.shared.connections_counted.load(Ordering::SeqCst);
+        stats
+    }
+
+    /// Zeroes the counters of [`FakeBydServer::stats`].
+    pub fn reset_stats(&self) {
+        self.shared.state().stats = ServerStats::default();
+        self.shared.connections_counted.store(0, Ordering::SeqCst);
     }
 
     /// Answers every verified request to `endpoint` with what `handler`
@@ -383,14 +466,7 @@ impl FakeBydServer {
     /// Expires every session of `username`: its token requests are
     /// answered [`codes::SESSION_EXPIRED`] until it logs in again.
     pub fn expire_sessions(&self, username: &str) {
-        let mut state = self.shared.state();
-        for account in &mut state.accounts {
-            if account.account.username == username {
-                for tokens in &mut account.tokens {
-                    tokens.expired = true;
-                }
-            }
-        }
+        self.shared.expire_sessions(username);
     }
 
     /// Every request received so far, in order.
@@ -456,6 +532,21 @@ impl Drop for FakeBydServer {
     }
 }
 
+/// How many connections may wait to be accepted: enough for a thousand
+/// clients connecting at once (the system may lower it).
+const BACKLOG: u32 = 4096;
+
+/// A listener on `127.0.0.1:<port>` with a long accept queue, for the fake
+/// server and the broker. Like tokio's own `bind`, it lets a port be bound
+/// again at once outside Windows (the broker's restart does).
+fn listen(port: u16) -> std::io::Result<TcpListener> {
+    let socket = tokio::net::TcpSocket::new_v4()?;
+    #[cfg(not(windows))]
+    socket.set_reuseaddr(true)?;
+    socket.bind(SocketAddr::from(([127, 0, 0, 1], port)))?;
+    socket.listen(BACKLOG)
+}
+
 async fn serve(listener: TcpListener, shared: Arc<Shared>, mut stopped: oneshot::Receiver<()>) {
     // Dropping the set when the loop ends aborts every open connection.
     let mut connections = JoinSet::new();
@@ -465,6 +556,7 @@ async fn serve(listener: TcpListener, shared: Arc<Shared>, mut stopped: oneshot:
             accepted = listener.accept() => {
                 let Ok((stream, _)) = accepted else { continue };
                 shared.connections.fetch_add(1, Ordering::SeqCst);
+                shared.connections_counted.fetch_add(1, Ordering::SeqCst);
                 let shared = shared.clone();
                 connections.spawn(async move {
                     let service = service_fn(move |request| handle(shared.clone(), request));
@@ -537,6 +629,37 @@ fn decrypt_inner(outer: &Map<String, Value>, key: &str) -> Option<Map<String, Va
     }
 }
 
+/// A weak handle on a [`FakeBydServer`]'s accounts and sessions
+/// ([`FakeBydServer::handle`]). Every method does nothing (or answers
+/// `None`) once the server is gone.
+#[derive(Clone)]
+pub struct ServerHandle(Weak<Shared>);
+
+impl fmt::Debug for ServerHandle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ServerHandle").finish_non_exhaustive()
+    }
+}
+
+impl ServerHandle {
+    /// [`FakeBydServer::user_id`].
+    pub fn user_id(&self, username: &str) -> Option<String> {
+        self.0.upgrade()?.user_id(username)
+    }
+
+    /// [`FakeBydServer::newest_content_key`].
+    pub fn newest_content_key(&self, username: &str) -> Option<String> {
+        self.0.upgrade()?.newest_content_key(username)
+    }
+
+    /// [`FakeBydServer::expire_sessions`].
+    pub fn expire_sessions(&self, username: &str) {
+        if let Some(shared) = self.0.upgrade() {
+            shared.expire_sessions(username);
+        }
+    }
+}
+
 impl Shared {
     fn add_account(&self, account: Account) {
         let mut state = self.state();
@@ -544,6 +667,12 @@ impl Shared {
             .user_id
             .clone()
             .unwrap_or_else(|| (10_001 + state.accounts.len()).to_string());
+        let index = state.accounts.len();
+        state
+            .by_username
+            .entry(account.username.clone())
+            .or_insert(index);
+        state.by_user_id.entry(user_id.clone()).or_insert(index);
         state.accounts.push(AccountState {
             account,
             user_id,
@@ -551,13 +680,35 @@ impl Shared {
         });
     }
 
+    fn user_id(&self, username: &str) -> Option<String> {
+        self.state()
+            .account_by_username(username)
+            .map(|state| state.user_id.clone())
+    }
+
+    fn newest_content_key(&self, username: &str) -> Option<String> {
+        self.state()
+            .account_by_username(username)
+            .and_then(|state| state.tokens.last())
+            .map(|tokens| tokens.content_key.clone())
+    }
+
+    fn expire_sessions(&self, username: &str) {
+        let mut state = self.state();
+        for account in &mut state.accounts {
+            if account.account.username == username {
+                for tokens in &mut account.tokens {
+                    tokens.expired = true;
+                }
+            }
+        }
+    }
+
     fn verify_login(&self, outer: &Map<String, Value>, request: &mut Request) -> Checked {
         let state = self.state();
         let identifier = text_of(outer.get("identifier"));
         let account = state
-            .accounts
-            .iter()
-            .find(|state| state.account.username == identifier)
+            .account_by_username(&identifier)
             .ok_or_else(|| refuse(codes::LOGIN_FAILED, "unknown account"))?;
         let password = &account.account.password;
         let key = pwd_login_key(password);
@@ -587,9 +738,9 @@ impl Shared {
         let state = self.state();
         let identifier = text_of(outer.get("identifier"));
         let account = state
-            .accounts
-            .iter()
-            .find(|state| state.user_id == identifier)
+            .by_user_id
+            .get(&identifier)
+            .map(|&index| &state.accounts[index])
             .ok_or_else(|| refuse(codes::SESSION_EXPIRED, "unknown user"))?;
         let mut decrypted = false;
         let signed = [
@@ -649,11 +800,11 @@ impl Shared {
         let mut state = self.state();
         state.issued += 1;
         let serial = state.issued;
-        let account = state
-            .accounts
-            .iter_mut()
-            .find(|state| state.account.username == username)
+        let index = *state
+            .by_username
+            .get(username)
             .expect("a verified login names a known account");
+        let account = &mut state.accounts[index];
         let sign_token = format!("sign-{}-{serial}", account.user_id);
         let encry_token = format!("encry-{}-{serial}", account.user_id);
         account.tokens.push(Tokens {
@@ -746,6 +897,10 @@ async fn handle(
         code: None,
         status: None,
     };
+    let hook = shared.state().before_each.clone();
+    if let Some(hook) = hook {
+        hook();
+    }
     let (delay, cookies, answer) = decide(&shared, &mut request);
     request.code = match &answer {
         Answer::Outer(outer) => Some(text_of(outer.get("code"))),
@@ -756,7 +911,23 @@ async fn handle(
         Answer::Http(status, _) => Some(*status),
         Answer::Drop => None,
     };
-    shared.state().requests.push(request);
+    {
+        let mut state = shared.state();
+        let stats = &mut state.stats;
+        stats.requests += 1;
+        *stats
+            .by_endpoint
+            .entry(request.endpoint.clone())
+            .or_default() += 1;
+        let code = request.code.as_deref().unwrap_or("none");
+        *stats.by_code.entry(code.to_owned()).or_default() += 1;
+        if request.endpoint == LOGIN_ENDPOINT && request.code.as_deref() == Some("0") {
+            stats.logins += 1;
+        }
+        if !state.not_recording {
+            state.requests.push(request);
+        }
+    }
     if !delay.is_zero() {
         tokio::time::sleep(delay).await;
     }

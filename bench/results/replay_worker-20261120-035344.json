@@ -1,0 +1,4045 @@
+{
+ "benchmark": "replay_worker",
+ "quick": false,
+ "date": "2026-11-20T03:53:44+02:00",
+ "machine": {
+  "cpu": "AMD Ryzen 9 5900X 12-Core Processor",
+  "cores_logical": 24,
+  "cores_physical": 12,
+  "memory_gib": 63.9,
+  "os": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.13",
+  "python_implementation": "CPython",
+  "rust": "rustc 1.100.0 (0ef1bc386 2026-11-09)"
+ },
+ "versions": {
+  "openbyd_commit": "0d052c016d5b06275767a8d5f0cb1532563a72d8",
+  "openbyd_branch": "feat/replay",
+  "openbyd_dirty": true,
+  "openbyd_package_version": "0.1.1",
+  "pybyd_commit_pinned": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
+  "pybyd_commit_installed": "2c3d80648e8eeec50cd4f68f603abd3a01010fef"
+ },
+ "settings": {
+  "variants": [
+   "python_cipher",
+   "rust_cipher",
+   "rust_cipher_shadow"
+  ],
+  "variant_table": {
+   "python_cipher": {
+    "label": "pyBYD cipher (worker as on main)",
+    "command": [
+     "{python}",
+     "{launcher}",
+     "--guard-report",
+     "{guard_report}",
+     "--stdin-stop",
+     "-m",
+     "app.mqtt_worker"
+    ],
+    "env": {
+     "BYD_NATIVE_CIPHER": "false",
+     "BYD_SHADOW_SAMPLE_RATE": "0"
+    }
+   },
+   "rust_cipher": {
+    "label": "openbyd cipher",
+    "command": [
+     "{python}",
+     "{launcher}",
+     "--guard-report",
+     "{guard_report}",
+     "--stdin-stop",
+     "-m",
+     "app.mqtt_worker"
+    ],
+    "env": {
+     "BYD_NATIVE_CIPHER": "true",
+     "BYD_SHADOW_SAMPLE_RATE": "0"
+    }
+   },
+   "rust_cipher_shadow": {
+    "label": "openbyd cipher + shadow parsing (PR #271)",
+    "command": [
+     "{python}",
+     "{launcher}",
+     "--guard-report",
+     "{guard_report}",
+     "--stdin-stop",
+     "-m",
+     "app.mqtt_worker"
+    ],
+    "env": {
+     "BYD_NATIVE_CIPHER": "true",
+     "BYD_SHADOW_SAMPLE_RATE": "1"
+    }
+   }
+  },
+  "repeats": 3,
+  "minutes": 30.0,
+  "speed": 1.0,
+  "start_at": 1104600,
+  "server_delay_ms": null,
+  "corpus": "corpus-rt/parity/corpus",
+  "store": "docker (postgres:16-alpine, redis:7-alpine, tmpfs)",
+  "start_when_claimed": true,
+  "scrape_seconds": 5.0,
+  "tolerances": {
+   "start": 300.0,
+   "end": 90.0,
+   "km": 0.05,
+   "start_odo": 0.05,
+   "end_odo": 0.05,
+   "start_soc": 0.5,
+   "end_soc": 0.5,
+   "energy_kwh": 0.05
+  },
+  "roundtrip_window_s": 15.0,
+  "poll_sample": 2000,
+  "repeats_by_variant": {
+   "python_cipher": 3,
+   "rust_cipher": 3,
+   "rust_cipher_shadow": 2
+  },
+  "run_dates": [
+   "2026-11-20T00:31:01+02:00",
+   "2026-11-20T01:38:34+02:00",
+   "2026-11-20T02:46:10+02:00",
+   "2026-11-20T03:53:31+02:00"
+  ]
+ },
+ "scenario": {
+  "file": "production export (not published)",
+  "header": {
+   "version": 1,
+   "source": "export",
+   "duration_s": 1123200,
+   "accounts": 100,
+   "cars": 100
+  },
+  "counts": {
+   "account": 100,
+   "car": 100,
+   "state": 231832,
+   "push": 577289,
+   "error": 55217
+  }
+ },
+ "backend": {
+  "backend_commit": "a5ae63a1e535d81162258ab0558aee74db38661e",
+  "backend_branch": "bench/replay-worker",
+  "backend_dirty": false,
+  "packages": {
+   "pybyd": "0.0.85",
+   "openbyd": "0.1.1",
+   "paho-mqtt": "2.1.0",
+   "aiohttp": "3.14.5",
+   "sqlalchemy": "2.1.9"
+  },
+  "backend_python": "3.12.13"
+ },
+ "rows": [
+  {
+   "variant": "python_cipher",
+   "label": "pyBYD cipher (worker as on main)",
+   "repeat": 1,
+   "accounts": 100,
+   "cars": 100,
+   "minutes": 30.0,
+   "origin": {
+    "wall_unix_ms": 1795123641710,
+    "start_at": 1104600.0,
+    "speed": 1.0,
+    "epoch_unix_ms": 1794019041710
+   },
+   "measured": {
+    "wall_s": 1800.6391750000184,
+    "cpu_s": 592.15625,
+    "cpu_user_s": 560.234375,
+    "cpu_system_s": 31.921875,
+    "cpu_total_s": 663.984375,
+    "cpu_before_start_s": 71.828125,
+    "rss_ready_mib": 132.75390625,
+    "rss_start_mib": 299.6328125,
+    "rss_end_mib": 304.23046875,
+    "rss_peak_mib": 350.47265625,
+    "rss_peak_source": "os",
+    "threads_start": 108,
+    "threads_peak": 110,
+    "samples": 6665,
+    "system_cpu_percent": 10.9,
+    "health_after_s": 2.5469999999913853,
+    "slots_full_after_s": 194.17199999999139,
+    "stop_s": 0.6410000000032596,
+    "stopped_cleanly": true
+   },
+   "derived": {
+    "cpu_s_per_account": 5.9215625,
+    "cpu_ms_per_account_minute": 197.3153505337883,
+    "cpu_utilisation": 0.3288589175563138,
+    "memory_per_account_kib": 3588.84,
+    "memory_growth_per_account_kib": 2229.44
+   },
+   "metrics": {
+    "loop_lag_s": {
+     "count": 1760.0,
+     "mean": 0.02393409090924582,
+     "p50": 0.013206521739130435,
+     "p99": 0.27058823529411896,
+     "max_bound": [
+      "<=",
+      1.0
+     ]
+    },
+    "hydrate_seconds": {
+     "all": {
+      "count": 1220.0,
+      "mean": 4.4611074650001985,
+      "p50": 3.3710407239819005,
+      "p99": 18.838095238095235,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "charging": {
+      "count": 115.0,
+      "mean": 3.0499575773937346,
+      "p50": 3.145161290322581,
+      "p99": 4.962903225806452,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "forced": {
+      "count": 47.0,
+      "mean": 4.239063931915146,
+      "p50": 3.6395348837209305,
+      "p99": 15.300000000000011,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "moving": {
+      "count": 128.0,
+      "mean": 1.7630195031244966,
+      "p50": 0.4507042253521127,
+      "p99": 6.799999999999997,
+      "max_bound": [
+       "<=",
+       10.0
+      ]
+     },
+     "open_session": {
+      "count": 103.0,
+      "mean": 2.153982783495098,
+      "p50": 2.3,
+      "p99": 7.424999999999997,
+      "max_bound": [
+       "<=",
+       10.0
+      ]
+     },
+     "parked": {
+      "count": 827.0,
+      "mean": 5.374901158403893,
+      "p50": 3.6293103448275863,
+      "p99": 19.204807692307696,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     }
+    },
+    "hydrate_gap_seconds": {
+     "all": {
+      "count": 1213.0,
+      "mean": 139.6741582852437,
+      "p50": 102.8330658105939,
+      "p99": 801.6486486486477,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "charging": {
+      "count": 115.0,
+      "mean": 61.293034782609396,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "forced": {
+      "count": 37.0,
+      "mean": 601.7579729729733,
+      "p50": 750.0,
+      "p99": 897.0,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "moving": {
+      "count": 127.0,
+      "mean": 68.5352283464582,
+      "p50": 67.87190082644628,
+      "p99": 343.80000000000024,
+      "max_bound": [
+       "<=",
+       450.0
+      ]
+     },
+     "open_session": {
+      "count": 104.0,
+      "mean": 61.53896153846234,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "parked": {
+      "count": 830.0,
+      "mean": 150.6108240963858,
+      "p50": 110.01607717041801,
+      "p99": 526.7647058823534,
+      "max_bound": [
+       "<=",
+       600.0
+      ]
+     }
+    },
+    "gauges_end": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 4.0,
+     "bydconnect_worker_due_backlog": 3.0
+    },
+    "gauges_peak": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 4.0,
+     "bydconnect_worker_due_backlog": 13.0
+    },
+    "native_cipher": 0.0,
+    "shadow": {},
+    "shadow_field_mismatches": 0,
+    "scrapes": 358
+   },
+   "replay": {
+    "stats": {
+     "requests": 11486,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 108,
+      "/app/account/login": 103,
+      "/app/emqAuth/getEmqBrokerIp": 103,
+      "/control/getGpsInfo": 1114,
+      "/control/getGpsInfoResult": 1113,
+      "/control/getStatusNow": 1112,
+      "/control/smartCharge/homePage": 2226,
+      "/vehicle/vehicleswitch/getLatestConfig": 1112,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1114,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1229,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 2152
+     },
+     "by_code": {
+      "0": 11373,
+      "1001": 52,
+      "1005": 4,
+      "1008": 5,
+      "8003": 52
+     },
+     "connections": 1383,
+     "logins": 103,
+     "mqtt": {
+      "open": 0,
+      "connects": 103,
+      "subscriptions": 103,
+      "pushes_sent": 997,
+      "pushes_missed": 0
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 52,
+       "1008": 5
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "window": {
+     "requests": 10213,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 7,
+      "/app/account/login": 3,
+      "/app/emqAuth/getEmqBrokerIp": 3,
+      "/control/getGpsInfo": 1011,
+      "/control/getGpsInfoResult": 1014,
+      "/control/getStatusNow": 1013,
+      "/control/smartCharge/homePage": 2024,
+      "/vehicle/vehicleswitch/getLatestConfig": 1013,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1011,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1119,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 1995
+     },
+     "by_code": {
+      "0": 10107,
+      "1001": 49,
+      "1005": 4,
+      "1008": 4,
+      "8003": 49
+     },
+     "connections": 1076,
+     "logins": 3,
+     "mqtt": {
+      "open": 0,
+      "connects": 3,
+      "subscriptions": 3,
+      "pushes_sent": 996,
+      "pushes_missed": 0
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 49,
+       "1008": 4
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "clock": {
+     "t": 1106401.3299596,
+     "started": true,
+     "speed": 1.0,
+     "wall_unix_ms": 1795125443101,
+     "finished": false
+    }
+   },
+   "seed": {
+    "accounts": 100,
+    "users_created": 100,
+    "users_updated": 0,
+    "cars": 100
+   },
+   "store": {
+    "kind": "docker",
+    "ingest": [
+     {
+      "source": "mqtt",
+      "kind": "remoteControl",
+      "detail": "received",
+      "count": 474
+     },
+     {
+      "source": "mqtt",
+      "kind": "vehicleInfo",
+      "detail": "received",
+      "count": 523
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1001",
+      "count": 52
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1008",
+      "count": 5
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "session_expired",
+      "count": 1
+     },
+     {
+      "source": "poll",
+      "kind": "ok",
+      "detail": null,
+      "count": 1113
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "busy",
+      "count": 13
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "min_gap",
+      "count": 139
+     }
+    ],
+    "polls_ok": 1113,
+    "mqtt_rows": 997,
+    "open_at_end": {
+     "drives": 7,
+     "charges": 5
+    }
+   },
+   "detections": {
+    "drives": {},
+    "charges": {}
+   },
+   "detection_counts": {
+    "drives": 10,
+    "charges": 3
+   },
+   "roundtrip": {
+    "polls": 1113,
+    "polls_checked": 1113,
+    "polls_skipped": 0,
+    "values_checked": 5120,
+    "values_matched": 5103,
+    "match_rate": 0.9966796875,
+    "by_field": {
+     "online": {
+      "checked": 1113,
+      "matched": 1113,
+      "endpoint": "realtime"
+     },
+     "currentSoc": {
+      "checked": 1002,
+      "matched": 995,
+      "endpoint": "realtime"
+     },
+     "odometer": {
+      "checked": 1002,
+      "matched": 998,
+      "endpoint": "realtime"
+     },
+     "speed": {
+      "checked": 1001,
+      "matched": 995,
+      "endpoint": "realtime"
+     },
+     "charging.isCharging": {
+      "checked": 1002,
+      "matched": 1002,
+      "endpoint": "charging"
+     }
+    },
+    "mismatches": [],
+    "window_s": 15.0,
+    "mismatches_listed": 17
+   },
+   "guard": {
+    "installed": [
+     "aiodns/pycares disabled",
+     "socket lookups",
+     "socket.connect/connect_ex/sendto",
+     "IocpProactor.connect/sendto"
+    ],
+    "blocked_total": 78,
+    "blocked": [
+     {
+      "via": "getaddrinfo",
+      "host": "nominatim.openstreetmap.org",
+      "port": "443",
+      "count": 78
+     }
+    ],
+    "exit_code": 0
+   },
+   "problems": [],
+   "cars_with_detections": {
+    "drives": 10,
+    "charges": 3
+   }
+  },
+  {
+   "variant": "rust_cipher",
+   "label": "openbyd cipher",
+   "repeat": 1,
+   "accounts": 100,
+   "cars": 100,
+   "minutes": 30.0,
+   "origin": {
+    "wall_unix_ms": 1795125653794,
+    "start_at": 1104600.0,
+    "speed": 1.0,
+    "epoch_unix_ms": 1794021053794
+   },
+   "measured": {
+    "wall_s": 1803.2145840000012,
+    "cpu_s": 118.890625,
+    "cpu_user_s": 86.40625,
+    "cpu_system_s": 32.484375,
+    "cpu_total_s": 130.9375,
+    "cpu_before_start_s": 12.046875,
+    "rss_ready_mib": 133.37890625,
+    "rss_start_mib": 214.8046875,
+    "rss_end_mib": 220.2578125,
+    "rss_peak_mib": 220.27734375,
+    "rss_peak_source": "os",
+    "threads_start": 110,
+    "threads_peak": 121,
+    "samples": 6646,
+    "system_cpu_percent": 12.0,
+    "health_after_s": 2.5,
+    "slots_full_after_s": 192.89000000001397,
+    "stop_s": 0.7030000000086147,
+    "stopped_cleanly": true
+   },
+   "derived": {
+    "cpu_s_per_account": 1.18890625,
+    "cpu_ms_per_account_minute": 39.55955970684405,
+    "cpu_utilisation": 0.06593259951140674,
+    "memory_per_account_kib": 2255.64,
+    "memory_growth_per_account_kib": 889.84
+   },
+   "metrics": {
+    "loop_lag_s": {
+     "count": 1792.0,
+     "mean": 0.007314732143088675,
+     "p50": 0.004671532846715329,
+     "p99": 0.04913949579831933,
+     "max_bound": [
+      "<=",
+      0.05
+     ]
+    },
+    "hydrate_seconds": {
+     "all": {
+      "count": 1279.0,
+      "mean": 3.635189887646619,
+      "p50": 3.255932203389831,
+      "p99": 18.793396226415098,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "charging": {
+      "count": 122.0,
+      "mean": 2.2347093155747375,
+      "p50": 2.9204545454545454,
+      "p99": 4.958409090909091,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "forced": {
+      "count": 34.0,
+      "mean": 3.912962247056866,
+      "p50": 3.59375,
+      "p99": 18.299999999999983,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "moving": {
+      "count": 134.0,
+      "mean": 0.8260048485079557,
+      "p50": 0.3383838383838384,
+      "p99": 4.885142857142856,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "open_session": {
+      "count": 106.0,
+      "mean": 1.3348446792455055,
+      "p50": 0.42063492063492064,
+      "p99": 4.926046511627907,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "parked": {
+      "count": 883.0,
+      "mean": 4.520446690486845,
+      "p50": 3.609170305676856,
+      "p99": 19.150961538461534,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     }
+    },
+    "hydrate_gap_seconds": {
+     "all": {
+      "count": 1271.0,
+      "mean": 135.94436113296635,
+      "p50": 102.84073506891271,
+      "p99": 741.1249999999995,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "charging": {
+      "count": 122.0,
+      "mean": 60.77844262295059,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "forced": {
+      "count": 24.0,
+      "mean": 600.8593333333387,
+      "p50": 750.0,
+      "p99": 897.0,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "moving": {
+      "count": 134.0,
+      "mean": 69.32487313432985,
+      "p50": 67.91338582677166,
+      "p99": 339.5999999999998,
+      "max_bound": [
+       "<=",
+       450.0
+      ]
+     },
+     "open_session": {
+      "count": 106.0,
+      "mean": 60.804273584906184,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "parked": {
+      "count": 885.0,
+      "mean": 152.78520112994337,
+      "p50": 110.3292496171516,
+      "p99": 530.1315789473682,
+      "max_bound": [
+       "<=",
+       600.0
+      ]
+     }
+    },
+    "gauges_end": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 3.0,
+     "bydconnect_worker_due_backlog": 0.0
+    },
+    "gauges_peak": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 4.0,
+     "bydconnect_worker_due_backlog": 7.0
+    },
+    "native_cipher": 1.0,
+    "shadow": {},
+    "shadow_field_mismatches": 0,
+    "scrapes": 360
+   },
+   "replay": {
+    "stats": {
+     "requests": 11400,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 109,
+      "/app/account/login": 103,
+      "/app/emqAuth/getEmqBrokerIp": 103,
+      "/control/getGpsInfo": 1103,
+      "/control/getGpsInfoResult": 1103,
+      "/control/getStatusNow": 1103,
+      "/control/smartCharge/homePage": 2206,
+      "/vehicle/vehicleswitch/getLatestConfig": 1103,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1103,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1228,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 2136
+     },
+     "by_code": {
+      "0": 11277,
+      "1001": 57,
+      "1005": 3,
+      "1008": 6,
+      "8003": 57
+     },
+     "connections": 1377,
+     "logins": 103,
+     "mqtt": {
+      "open": 0,
+      "connects": 103,
+      "subscriptions": 103,
+      "pushes_sent": 997,
+      "pushes_missed": 0
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 57,
+       "1008": 6
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "window": {
+     "requests": 10202,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 8,
+      "/app/account/login": 3,
+      "/app/emqAuth/getEmqBrokerIp": 3,
+      "/control/getGpsInfo": 1007,
+      "/control/getGpsInfoResult": 1010,
+      "/control/getStatusNow": 1010,
+      "/control/smartCharge/homePage": 2017,
+      "/vehicle/vehicleswitch/getLatestConfig": 1010,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1007,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1124,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 2003
+     },
+     "by_code": {
+      "0": 10086,
+      "1001": 54,
+      "1005": 3,
+      "1008": 5,
+      "8003": 54
+     },
+     "connections": 1076,
+     "logins": 3,
+     "mqtt": {
+      "open": 0,
+      "connects": 3,
+      "subscriptions": 3,
+      "pushes_sent": 996,
+      "pushes_missed": 0
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 54,
+       "1008": 5
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "clock": {
+     "t": 1106404.0410375,
+     "started": true,
+     "speed": 1.0,
+     "wall_unix_ms": 1795127457889,
+     "finished": false
+    }
+   },
+   "seed": {
+    "accounts": 100,
+    "users_created": 100,
+    "users_updated": 0,
+    "cars": 100
+   },
+   "store": {
+    "kind": "docker",
+    "ingest": [
+     {
+      "source": "mqtt",
+      "kind": "remoteControl",
+      "detail": "received",
+      "count": 474
+     },
+     {
+      "source": "mqtt",
+      "kind": "vehicleInfo",
+      "detail": "received",
+      "count": 523
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1001",
+      "count": 57
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1008",
+      "count": 6
+     },
+     {
+      "source": "poll",
+      "kind": "ok",
+      "detail": null,
+      "count": 1103
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "busy",
+      "count": 14
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "min_gap",
+      "count": 196
+     }
+    ],
+    "polls_ok": 1103,
+    "mqtt_rows": 997,
+    "open_at_end": {
+     "drives": 6,
+     "charges": 5
+    }
+   },
+   "detections": {
+    "drives": {},
+    "charges": {}
+   },
+   "detection_counts": {
+    "drives": 11,
+    "charges": 3
+   },
+   "roundtrip": {
+    "polls": 1103,
+    "polls_checked": 1103,
+    "polls_skipped": 0,
+    "values_checked": 5078,
+    "values_matched": 5065,
+    "match_rate": 0.9974399369830642,
+    "by_field": {
+     "online": {
+      "checked": 1103,
+      "matched": 1103,
+      "endpoint": "realtime"
+     },
+     "currentSoc": {
+      "checked": 994,
+      "matched": 988,
+      "endpoint": "realtime"
+     },
+     "odometer": {
+      "checked": 994,
+      "matched": 991,
+      "endpoint": "realtime"
+     },
+     "speed": {
+      "checked": 993,
+      "matched": 989,
+      "endpoint": "realtime"
+     },
+     "charging.isCharging": {
+      "checked": 994,
+      "matched": 994,
+      "endpoint": "charging"
+     }
+    },
+    "mismatches": [],
+    "window_s": 15.0,
+    "mismatches_listed": 13
+   },
+   "guard": {
+    "installed": [
+     "aiodns/pycares disabled",
+     "socket lookups",
+     "socket.connect/connect_ex/sendto",
+     "IocpProactor.connect/sendto"
+    ],
+    "blocked_total": 66,
+    "blocked": [
+     {
+      "via": "getaddrinfo",
+      "host": "nominatim.openstreetmap.org",
+      "port": "443",
+      "count": 66
+     }
+    ],
+    "exit_code": 0
+   },
+   "problems": [],
+   "cars_with_detections": {
+    "drives": 11,
+    "charges": 3
+   }
+  },
+  {
+   "variant": "python_cipher",
+   "label": "pyBYD cipher (worker as on main)",
+   "repeat": 2,
+   "accounts": 100,
+   "cars": 100,
+   "minutes": 30.0,
+   "origin": {
+    "wall_unix_ms": 1795127686604,
+    "start_at": 1104600.0,
+    "speed": 1.0,
+    "epoch_unix_ms": 1794023086604
+   },
+   "measured": {
+    "wall_s": 1803.8864264999866,
+    "cpu_s": 531.09375,
+    "cpu_user_s": 480.1875,
+    "cpu_system_s": 50.90625,
+    "cpu_total_s": 585.875,
+    "cpu_before_start_s": 54.78125,
+    "rss_ready_mib": 129.98828125,
+    "rss_start_mib": 300.61328125,
+    "rss_end_mib": 344.3984375,
+    "rss_peak_mib": 351.56640625,
+    "rss_peak_source": "os",
+    "threads_start": 109,
+    "threads_peak": 111,
+    "samples": 6680,
+    "system_cpu_percent": 12.4,
+    "health_after_s": 2.5309999999881256,
+    "slots_full_after_s": 190.07800000000861,
+    "stop_s": 0.75,
+    "stopped_cleanly": true
+   },
+   "derived": {
+    "cpu_s_per_account": 5.3109375,
+    "cpu_ms_per_account_minute": 176.64984076535063,
+    "cpu_utilisation": 0.2944164012755844,
+    "memory_per_account_kib": 3600.04,
+    "memory_growth_per_account_kib": 2268.96
+   },
+   "metrics": {
+    "loop_lag_s": {
+     "count": 1774.0,
+     "mean": 0.017896279594395704,
+     "p50": 0.011481481481481481,
+     "p99": 0.22777966101694913,
+     "max_bound": [
+      "<=",
+      0.5
+     ]
+    },
+    "hydrate_seconds": {
+     "all": {
+      "count": 1228.0,
+      "mean": 4.289897086238289,
+      "p50": 3.313364055299539,
+      "p99": 18.830476190476194,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "charging": {
+      "count": 117.0,
+      "mean": 2.7218343521369834,
+      "p50": 2.9593023255813953,
+      "p99": 4.959186046511628,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "forced": {
+      "count": 45.0,
+      "mean": 4.100696795555995,
+      "p50": 3.5,
+      "p99": 15.499999999999972,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "moving": {
+      "count": 134.0,
+      "mean": 1.4763489514923787,
+      "p50": 0.40853658536585363,
+      "p99": 4.98,
+      "max_bound": [
+       "<=",
+       10.0
+      ]
+     },
+     "open_session": {
+      "count": 103.0,
+      "mean": 1.8473445883504505,
+      "p50": 0.4858490566037736,
+      "p99": 4.9382,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "parked": {
+      "count": 829.0,
+      "mean": 5.279735096261155,
+      "p50": 3.634012539184953,
+      "p99": 19.20288461538462,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     }
+    },
+    "hydrate_gap_seconds": {
+     "all": {
+      "count": 1218.0,
+      "mean": 140.30789737274202,
+      "p50": 102.65175718849841,
+      "p99": 795.5999999999995,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "charging": {
+      "count": 117.0,
+      "mean": 61.09566666666716,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "forced": {
+      "count": 35.0,
+      "mean": 601.6308857142842,
+      "p50": 750.0,
+      "p99": 897.0,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "moving": {
+      "count": 133.0,
+      "mean": 75.44468421052727,
+      "p50": 67.98,
+      "p99": 420.2999999999989,
+      "max_bound": [
+       "<=",
+       600.0
+      ]
+     },
+     "open_session": {
+      "count": 103.0,
+      "mean": 61.37131067961132,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "parked": {
+      "count": 830.0,
+      "mean": 152.2100686746984,
+      "p50": 109.88817891373802,
+      "p99": 548.1250000000002,
+      "max_bound": [
+       "<=",
+       600.0
+      ]
+     }
+    },
+    "gauges_end": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 1.0,
+     "bydconnect_worker_due_backlog": 0.0
+    },
+    "gauges_peak": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 4.0,
+     "bydconnect_worker_due_backlog": 10.0
+    },
+    "native_cipher": 0.0,
+    "shadow": {},
+    "shadow_field_mismatches": 0,
+    "scrapes": 359
+   },
+   "replay": {
+    "stats": {
+     "requests": 11275,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 108,
+      "/app/account/login": 103,
+      "/app/emqAuth/getEmqBrokerIp": 103,
+      "/control/getGpsInfo": 1091,
+      "/control/getGpsInfoResult": 1090,
+      "/control/getStatusNow": 1090,
+      "/control/smartCharge/homePage": 2181,
+      "/vehicle/vehicleswitch/getLatestConfig": 1090,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1091,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1207,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 2121
+     },
+     "by_code": {
+      "0": 11159,
+      "1001": 54,
+      "1005": 3,
+      "1008": 5,
+      "8003": 54
+     },
+     "connections": 1359,
+     "logins": 103,
+     "mqtt": {
+      "open": 0,
+      "connects": 103,
+      "subscriptions": 103,
+      "pushes_sent": 997,
+      "pushes_missed": 1
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 54,
+       "1008": 5
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "window": {
+     "requests": 10049,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 8,
+      "/app/account/login": 3,
+      "/app/emqAuth/getEmqBrokerIp": 3,
+      "/control/getGpsInfo": 995,
+      "/control/getGpsInfoResult": 994,
+      "/control/getStatusNow": 994,
+      "/control/smartCharge/homePage": 1989,
+      "/vehicle/vehicleswitch/getLatestConfig": 994,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 992,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1101,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 1976
+     },
+     "by_code": {
+      "0": 9939,
+      "1001": 51,
+      "1005": 3,
+      "1008": 5,
+      "8003": 51
+     },
+     "connections": 1056,
+     "logins": 3,
+     "mqtt": {
+      "open": 0,
+      "connects": 3,
+      "subscriptions": 3,
+      "pushes_sent": 996,
+      "pushes_missed": 1
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 51,
+       "1008": 5
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "clock": {
+     "t": 1106405.063225,
+     "started": true,
+     "speed": 1.0,
+     "wall_unix_ms": 1795129491699,
+     "finished": false
+    }
+   },
+   "seed": {
+    "accounts": 100,
+    "users_created": 100,
+    "users_updated": 0,
+    "cars": 100
+   },
+   "store": {
+    "kind": "docker",
+    "ingest": [
+     {
+      "source": "mqtt",
+      "kind": "remoteControl",
+      "detail": "received",
+      "count": 474
+     },
+     {
+      "source": "mqtt",
+      "kind": "vehicleInfo",
+      "detail": "received",
+      "count": 523
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1001",
+      "count": 54
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1008",
+      "count": 5
+     },
+     {
+      "source": "poll",
+      "kind": "ok",
+      "detail": null,
+      "count": 1090
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "busy",
+      "count": 12
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "min_gap",
+      "count": 166
+     }
+    ],
+    "polls_ok": 1090,
+    "mqtt_rows": 997,
+    "open_at_end": {
+     "drives": 6,
+     "charges": 5
+    }
+   },
+   "detections": {
+    "drives": {},
+    "charges": {}
+   },
+   "detection_counts": {
+    "drives": 11,
+    "charges": 3
+   },
+   "roundtrip": {
+    "polls": 1090,
+    "polls_checked": 1090,
+    "polls_skipped": 0,
+    "values_checked": 5009,
+    "values_matched": 4995,
+    "match_rate": 0.9972050309443002,
+    "by_field": {
+     "online": {
+      "checked": 1090,
+      "matched": 1090,
+      "endpoint": "realtime"
+     },
+     "currentSoc": {
+      "checked": 980,
+      "matched": 976,
+      "endpoint": "realtime"
+     },
+     "odometer": {
+      "checked": 980,
+      "matched": 975,
+      "endpoint": "realtime"
+     },
+     "speed": {
+      "checked": 979,
+      "matched": 974,
+      "endpoint": "realtime"
+     },
+     "charging.isCharging": {
+      "checked": 980,
+      "matched": 980,
+      "endpoint": "charging"
+     }
+    },
+    "mismatches": [],
+    "window_s": 15.0,
+    "mismatches_listed": 14
+   },
+   "guard": {
+    "installed": [
+     "aiodns/pycares disabled",
+     "socket lookups",
+     "socket.connect/connect_ex/sendto",
+     "IocpProactor.connect/sendto"
+    ],
+    "blocked_total": 70,
+    "blocked": [
+     {
+      "via": "getaddrinfo",
+      "host": "nominatim.openstreetmap.org",
+      "port": "443",
+      "count": 70
+     }
+    ],
+    "exit_code": 0
+   },
+   "problems": [],
+   "cars_with_detections": {
+    "drives": 11,
+    "charges": 3
+   }
+  },
+  {
+   "variant": "rust_cipher",
+   "label": "openbyd cipher",
+   "repeat": 2,
+   "accounts": 100,
+   "cars": 100,
+   "minutes": 30.0,
+   "origin": {
+    "wall_unix_ms": 1795129702288,
+    "start_at": 1104600.0,
+    "speed": 1.0,
+    "epoch_unix_ms": 1794025102288
+   },
+   "measured": {
+    "wall_s": 1803.567150900024,
+    "cpu_s": 120.34375,
+    "cpu_user_s": 89.15625,
+    "cpu_system_s": 31.1875,
+    "cpu_total_s": 132.796875,
+    "cpu_before_start_s": 12.453125,
+    "rss_ready_mib": 133.71484375,
+    "rss_start_mib": 215.12109375,
+    "rss_end_mib": 219.23828125,
+    "rss_peak_mib": 219.25390625,
+    "rss_peak_source": "os",
+    "threads_start": 110,
+    "threads_peak": 125,
+    "samples": 6686,
+    "system_cpu_percent": 8.6,
+    "health_after_s": 2.5,
+    "slots_full_after_s": 192.85899999999674,
+    "stop_s": 4.719000000011874,
+    "stopped_cleanly": true
+   },
+   "derived": {
+    "cpu_s_per_account": 1.2034375,
+    "cpu_ms_per_account_minute": 40.03524346956936,
+    "cpu_utilisation": 0.0667254057826156,
+    "memory_per_account_kib": 2245.16,
+    "memory_growth_per_account_kib": 875.92
+   },
+   "metrics": {
+    "loop_lag_s": {
+     "count": 1792.0,
+     "mean": 0.007205915178799062,
+     "p50": 0.004623323013415893,
+     "p99": 0.04912904009720534,
+     "max_bound": [
+      "<=",
+      0.05
+     ]
+    },
+    "hydrate_seconds": {
+     "all": {
+      "count": 1281.0,
+      "mean": 3.7013406493368834,
+      "p50": 3.2888513513513513,
+      "p99": 18.813888888888894,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "charging": {
+      "count": 112.0,
+      "mean": 2.3504921598230015,
+      "p50": 3.023529411764706,
+      "p99": 4.960470588235294,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "forced": {
+      "count": 23.0,
+      "mean": 3.3036257826087936,
+      "p50": 3.5681818181818183,
+      "p99": 8.849999999999998,
+      "max_bound": [
+       "<=",
+       10.0
+      ]
+     },
+     "moving": {
+      "count": 135.0,
+      "mean": 0.9654490955559865,
+      "p50": 0.35904255319148937,
+      "p99": 4.901219512195123,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "open_session": {
+      "count": 111.0,
+      "mean": 1.3130739846852553,
+      "p50": 0.40808823529411764,
+      "p99": 4.992142857142857,
+      "max_bound": [
+       "<=",
+       10.0
+      ]
+     },
+     "parked": {
+      "count": 900.0,
+      "mean": 4.584546685222498,
+      "p50": 3.63323782234957,
+      "p99": 19.166666666666664,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     }
+    },
+    "hydrate_gap_seconds": {
+     "all": {
+      "count": 1277.0,
+      "mean": 135.00988958496453,
+      "p50": 103.08219178082192,
+      "p99": 674.6470588235297,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "charging": {
+      "count": 113.0,
+      "mean": 60.526115044246765,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "forced": {
+      "count": 17.0,
+      "mean": 600.7040588235267,
+      "p50": 750.0,
+      "p99": 897.0,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "moving": {
+      "count": 135.0,
+      "mean": 69.41770370370273,
+      "p50": 67.91015625,
+      "p99": 339.00000000000034,
+      "max_bound": [
+       "<=",
+       450.0
+      ]
+     },
+     "open_session": {
+      "count": 111.0,
+      "mean": 60.597873873872835,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "parked": {
+      "count": 901.0,
+      "mean": 154.55988346281922,
+      "p50": 110.63358778625954,
+      "p99": 520.5000000000001,
+      "max_bound": [
+       "<=",
+       600.0
+      ]
+     }
+    },
+    "gauges_end": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 2.0,
+     "bydconnect_worker_due_backlog": 0.0
+    },
+    "gauges_peak": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 4.0,
+     "bydconnect_worker_due_backlog": 7.0
+    },
+    "native_cipher": 1.0,
+    "shadow": {},
+    "shadow_field_mismatches": 0,
+    "scrapes": 360
+   },
+   "replay": {
+    "stats": {
+     "requests": 11602,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 108,
+      "/app/account/login": 103,
+      "/app/emqAuth/getEmqBrokerIp": 103,
+      "/control/getGpsInfo": 1120,
+      "/control/getGpsInfoResult": 1120,
+      "/control/getStatusNow": 1119,
+      "/control/smartCharge/homePage": 2239,
+      "/vehicle/vehicleswitch/getLatestConfig": 1119,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1120,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1242,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 2209
+     },
+     "by_code": {
+      "0": 11481,
+      "1001": 56,
+      "1005": 4,
+      "1008": 5,
+      "8003": 56
+     },
+     "connections": 1392,
+     "logins": 103,
+     "mqtt": {
+      "open": 0,
+      "connects": 103,
+      "subscriptions": 103,
+      "pushes_sent": 997,
+      "pushes_missed": 2
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 56,
+       "1008": 5
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "window": {
+     "requests": 10354,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 7,
+      "/app/account/login": 3,
+      "/app/emqAuth/getEmqBrokerIp": 3,
+      "/control/getGpsInfo": 1022,
+      "/control/getGpsInfoResult": 1022,
+      "/control/getStatusNow": 1021,
+      "/control/smartCharge/homePage": 2043,
+      "/vehicle/vehicleswitch/getLatestConfig": 1021,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1022,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1133,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 2057
+     },
+     "by_code": {
+      "0": 10240,
+      "1001": 53,
+      "1005": 4,
+      "1008": 4,
+      "8003": 53
+     },
+     "connections": 1086,
+     "logins": 3,
+     "mqtt": {
+      "open": 0,
+      "connects": 3,
+      "subscriptions": 3,
+      "pushes_sent": 996,
+      "pushes_missed": 2
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 53,
+       "1008": 4
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "clock": {
+     "t": 1106408.3331137,
+     "started": true,
+     "speed": 1.0,
+     "wall_unix_ms": 1795131510653,
+     "finished": false
+    }
+   },
+   "seed": {
+    "accounts": 100,
+    "users_created": 100,
+    "users_updated": 0,
+    "cars": 100
+   },
+   "store": {
+    "kind": "docker",
+    "ingest": [
+     {
+      "source": "mqtt",
+      "kind": "remoteControl",
+      "detail": "received",
+      "count": 474
+     },
+     {
+      "source": "mqtt",
+      "kind": "vehicleInfo",
+      "detail": "received",
+      "count": 523
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1001",
+      "count": 56
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1008",
+      "count": 5
+     },
+     {
+      "source": "poll",
+      "kind": "ok",
+      "detail": null,
+      "count": 1120
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "busy",
+      "count": 13
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "min_gap",
+      "count": 189
+     }
+    ],
+    "polls_ok": 1120,
+    "mqtt_rows": 997,
+    "open_at_end": {
+     "drives": 6,
+     "charges": 5
+    }
+   },
+   "detections": {
+    "drives": {},
+    "charges": {}
+   },
+   "detection_counts": {
+    "drives": 11,
+    "charges": 3
+   },
+   "roundtrip": {
+    "polls": 1120,
+    "polls_checked": 1120,
+    "polls_skipped": 0,
+    "values_checked": 5143,
+    "values_matched": 5128,
+    "match_rate": 0.9970834143496013,
+    "by_field": {
+     "online": {
+      "checked": 1120,
+      "matched": 1120,
+      "endpoint": "realtime"
+     },
+     "currentSoc": {
+      "checked": 1006,
+      "matched": 999,
+      "endpoint": "realtime"
+     },
+     "odometer": {
+      "checked": 1006,
+      "matched": 1002,
+      "endpoint": "realtime"
+     },
+     "speed": {
+      "checked": 1005,
+      "matched": 1001,
+      "endpoint": "realtime"
+     },
+     "charging.isCharging": {
+      "checked": 1006,
+      "matched": 1006,
+      "endpoint": "charging"
+     }
+    },
+    "mismatches": [],
+    "window_s": 15.0,
+    "mismatches_listed": 15
+   },
+   "guard": {
+    "installed": [
+     "aiodns/pycares disabled",
+     "socket lookups",
+     "socket.connect/connect_ex/sendto",
+     "IocpProactor.connect/sendto"
+    ],
+    "blocked_total": 67,
+    "blocked": [
+     {
+      "via": "getaddrinfo",
+      "host": "nominatim.openstreetmap.org",
+      "port": "443",
+      "count": 67
+     }
+    ],
+    "exit_code": 0
+   },
+   "problems": [],
+   "cars_with_detections": {
+    "drives": 11,
+    "charges": 3
+   }
+  },
+  {
+   "variant": "python_cipher",
+   "label": "pyBYD cipher (worker as on main)",
+   "repeat": 3,
+   "accounts": 100,
+   "cars": 100,
+   "minutes": 30.0,
+   "origin": {
+    "wall_unix_ms": 1795131747310,
+    "start_at": 1104600.0,
+    "speed": 1.0,
+    "epoch_unix_ms": 1794027147310
+   },
+   "measured": {
+    "wall_s": 1803.6882595999923,
+    "cpu_s": 478.140625,
+    "cpu_user_s": 438.84375,
+    "cpu_system_s": 39.296875,
+    "cpu_total_s": 534.109375,
+    "cpu_before_start_s": 55.96875,
+    "rss_ready_mib": 132.78515625,
+    "rss_start_mib": 293.984375,
+    "rss_end_mib": 346.23828125,
+    "rss_peak_mib": 347.0078125,
+    "rss_peak_source": "os",
+    "threads_start": 109,
+    "threads_peak": 111,
+    "samples": 6691,
+    "system_cpu_percent": 7.6,
+    "health_after_s": 2.547000000020489,
+    "slots_full_after_s": 190.18799999999464,
+    "stop_s": 0.625,
+    "stopped_cleanly": true
+   },
+   "derived": {
+    "cpu_s_per_account": 4.78140625,
+    "cpu_ms_per_account_minute": 159.05430080452092,
+    "cpu_utilisation": 0.2650905013408682,
+    "memory_per_account_kib": 3553.36,
+    "memory_growth_per_account_kib": 2193.64
+   },
+   "metrics": {
+    "loop_lag_s": {
+     "count": 1781.0,
+     "mean": 0.013893879843076481,
+     "p50": 0.004839673913043478,
+     "p99": 0.19550000000000028,
+     "max_bound": [
+      "<=",
+      0.5
+     ]
+    },
+    "hydrate_seconds": {
+     "all": {
+      "count": 1224.0,
+      "mean": 4.122712792402251,
+      "p50": 3.273781902552204,
+      "p99": 18.788118811881187,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "charging": {
+      "count": 117.0,
+      "mean": 2.5458020213673,
+      "p50": 2.8855421686746987,
+      "p99": 4.957710843373494,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "forced": {
+      "count": 42.0,
+      "mean": 4.010297788096414,
+      "p50": 3.5384615384615383,
+      "p99": 15.799999999999983,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "moving": {
+      "count": 136.0,
+      "mean": 1.6928235257364577,
+      "p50": 0.4473684210526316,
+      "p99": 6.599999999999966,
+      "max_bound": [
+       "<=",
+       10.0
+      ]
+     },
+     "open_session": {
+      "count": 94.0,
+      "mean": 2.0210201074471423,
+      "p50": 2.18,
+      "p99": 4.9436,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "parked": {
+      "count": 835.0,
+      "mean": 4.981687694251667,
+      "p50": 3.5498417721518987,
+      "p99": 19.165,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     }
+    },
+    "hydrate_gap_seconds": {
+     "all": {
+      "count": 1217.0,
+      "mean": 140.57988824979503,
+      "p50": 102.81948881789137,
+      "p99": 785.9062499999993,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "charging": {
+      "count": 117.0,
+      "mean": 61.13206837607053,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "forced": {
+      "count": 32.0,
+      "mean": 601.3647499999997,
+      "p50": 750.0,
+      "p99": 897.0,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "moving": {
+      "count": 136.0,
+      "mean": 72.3234926470605,
+      "p50": 67.79527559055119,
+      "p99": 339.5999999999998,
+      "max_bound": [
+       "<=",
+       360.0
+      ]
+     },
+     "open_session": {
+      "count": 95.0,
+      "mean": 61.237557894738366,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "parked": {
+      "count": 837.0,
+      "mean": 154.16491875746706,
+      "p50": 110.05591054313099,
+      "p99": 549.78,
+      "max_bound": [
+       "<=",
+       600.0
+      ]
+     }
+    },
+    "gauges_end": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 4.0,
+     "bydconnect_worker_due_backlog": 6.0
+    },
+    "gauges_peak": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 4.0,
+     "bydconnect_worker_due_backlog": 11.0
+    },
+    "native_cipher": 0.0,
+    "shadow": {},
+    "shadow_field_mismatches": 0,
+    "scrapes": 359
+   },
+   "replay": {
+    "stats": {
+     "requests": 11066,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 108,
+      "/app/account/login": 103,
+      "/app/emqAuth/getEmqBrokerIp": 103,
+      "/control/getGpsInfo": 1072,
+      "/control/getGpsInfoResult": 1072,
+      "/control/getStatusNow": 1072,
+      "/control/smartCharge/homePage": 2144,
+      "/vehicle/vehicleswitch/getLatestConfig": 1072,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1072,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1187,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 2061
+     },
+     "by_code": {
+      "0": 10954,
+      "1001": 52,
+      "1005": 3,
+      "1008": 5,
+      "8003": 52
+     },
+     "connections": 1341,
+     "logins": 103,
+     "mqtt": {
+      "open": 0,
+      "connects": 103,
+      "subscriptions": 103,
+      "pushes_sent": 997,
+      "pushes_missed": 0
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 52,
+       "1008": 5
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "window": {
+     "requests": 9838,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 7,
+      "/app/account/login": 3,
+      "/app/emqAuth/getEmqBrokerIp": 3,
+      "/control/getGpsInfo": 974,
+      "/control/getGpsInfoResult": 978,
+      "/control/getStatusNow": 978,
+      "/control/smartCharge/homePage": 1952,
+      "/vehicle/vehicleswitch/getLatestConfig": 978,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 974,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1082,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 1909
+     },
+     "by_code": {
+      "0": 9733,
+      "1001": 49,
+      "1005": 3,
+      "1008": 4,
+      "8003": 49
+     },
+     "connections": 1039,
+     "logins": 3,
+     "mqtt": {
+      "open": 0,
+      "connects": 3,
+      "subscriptions": 3,
+      "pushes_sent": 996,
+      "pushes_missed": 0
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 49,
+       "1008": 4
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "clock": {
+     "t": 1106404.3601493,
+     "started": true,
+     "speed": 1.0,
+     "wall_unix_ms": 1795133551702,
+     "finished": false
+    }
+   },
+   "seed": {
+    "accounts": 100,
+    "users_created": 100,
+    "users_updated": 0,
+    "cars": 100
+   },
+   "store": {
+    "kind": "docker",
+    "ingest": [
+     {
+      "source": "mqtt",
+      "kind": "remoteControl",
+      "detail": "received",
+      "count": 474
+     },
+     {
+      "source": "mqtt",
+      "kind": "vehicleInfo",
+      "detail": "received",
+      "count": 523
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1001",
+      "count": 52
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1008",
+      "count": 5
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "other",
+      "count": 32
+     },
+     {
+      "source": "poll",
+      "kind": "ok",
+      "detail": null,
+      "count": 1072
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "busy",
+      "count": 13
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "min_gap",
+      "count": 148
+     }
+    ],
+    "polls_ok": 1072,
+    "mqtt_rows": 997,
+    "open_at_end": {
+     "drives": 7,
+     "charges": 5
+    }
+   },
+   "detections": {
+    "drives": {},
+    "charges": {}
+   },
+   "detection_counts": {
+    "drives": 10,
+    "charges": 3
+   },
+   "roundtrip": {
+    "polls": 1072,
+    "polls_checked": 1072,
+    "polls_skipped": 0,
+    "values_checked": 4939,
+    "values_matched": 4924,
+    "match_rate": 0.9969629479651752,
+    "by_field": {
+     "online": {
+      "checked": 1072,
+      "matched": 1072,
+      "endpoint": "realtime"
+     },
+     "currentSoc": {
+      "checked": 967,
+      "matched": 959,
+      "endpoint": "realtime"
+     },
+     "odometer": {
+      "checked": 967,
+      "matched": 964,
+      "endpoint": "realtime"
+     },
+     "speed": {
+      "checked": 966,
+      "matched": 962,
+      "endpoint": "realtime"
+     },
+     "charging.isCharging": {
+      "checked": 967,
+      "matched": 967,
+      "endpoint": "charging"
+     }
+    },
+    "mismatches": [],
+    "window_s": 15.0,
+    "mismatches_listed": 15
+   },
+   "guard": {
+    "installed": [
+     "aiodns/pycares disabled",
+     "socket lookups",
+     "socket.connect/connect_ex/sendto",
+     "IocpProactor.connect/sendto"
+    ],
+    "blocked_total": 81,
+    "blocked": [
+     {
+      "via": "getaddrinfo",
+      "host": "nominatim.openstreetmap.org",
+      "port": "443",
+      "count": 81
+     }
+    ],
+    "exit_code": 0
+   },
+   "problems": [],
+   "cars_with_detections": {
+    "drives": 10,
+    "charges": 3
+   }
+  },
+  {
+   "variant": "rust_cipher",
+   "label": "openbyd cipher",
+   "repeat": 3,
+   "accounts": 100,
+   "cars": 100,
+   "minutes": 30.0,
+   "origin": {
+    "wall_unix_ms": 1795133762131,
+    "start_at": 1104600.0,
+    "speed": 1.0,
+    "epoch_unix_ms": 1794029162131
+   },
+   "measured": {
+    "wall_s": 1803.3799920999736,
+    "cpu_s": 107.984375,
+    "cpu_user_s": 79.21875,
+    "cpu_system_s": 28.765625,
+    "cpu_total_s": 118.84375,
+    "cpu_before_start_s": 10.859375,
+    "rss_ready_mib": 133.91796875,
+    "rss_start_mib": 215.0546875,
+    "rss_end_mib": 219.578125,
+    "rss_peak_mib": 219.59375,
+    "rss_peak_source": "os",
+    "threads_start": 109,
+    "threads_peak": 113,
+    "samples": 6693,
+    "system_cpu_percent": 4.8,
+    "health_after_s": 2.5160000000032596,
+    "slots_full_after_s": 192.85899999999674,
+    "stop_s": 0.625,
+    "stopped_cleanly": true
+   },
+   "derived": {
+    "cpu_s_per_account": 1.07984375,
+    "cpu_ms_per_account_minute": 35.92732828567847,
+    "cpu_utilisation": 0.05987888047613078,
+    "memory_per_account_kib": 2248.64,
+    "memory_growth_per_account_kib": 877.32
+   },
+   "metrics": {
+    "loop_lag_s": {
+     "count": 1792.0,
+     "mean": 0.007156249999947509,
+     "p50": 0.004557477110885046,
+     "p99": 0.04916237623762376,
+     "max_bound": [
+      "<=",
+      0.1
+     ]
+    },
+    "hydrate_seconds": {
+     "all": {
+      "count": 1272.0,
+      "mean": 3.732210853538306,
+      "p50": 3.305803571428571,
+      "p99": 18.83302752293578,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "charging": {
+      "count": 117.0,
+      "mean": 2.2167529632490623,
+      "p50": 2.9107142857142856,
+      "p99": 4.958214285714286,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "forced": {
+      "count": 24.0,
+      "mean": 3.96414235000096,
+      "p50": 3.7142857142857144,
+      "p99": 17.59999999999998,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "moving": {
+      "count": 132.0,
+      "mean": 0.9748595234861679,
+      "p50": 0.358695652173913,
+      "p99": 4.901000000000001,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "open_session": {
+      "count": 103.0,
+      "mean": 1.6616377980576589,
+      "p50": 2.0849056603773586,
+      "p99": 4.941698113207547,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "parked": {
+      "count": 896.0,
+      "mean": 4.568127837388894,
+      "p50": 3.6203438395415475,
+      "p99": 19.170370370370367,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     }
+    },
+    "hydrate_gap_seconds": {
+     "all": {
+      "count": 1268.0,
+      "mean": 136.5610410094637,
+      "p50": 103.27718223583462,
+      "p99": 688.6666666666656,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "charging": {
+      "count": 117.0,
+      "mean": 60.73293162393259,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "forced": {
+      "count": 18.0,
+      "mean": 601.1667222222233,
+      "p50": 750.0,
+      "p99": 897.0,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "moving": {
+      "count": 132.0,
+      "mean": 69.12196212121246,
+      "p50": 67.92,
+      "p99": 287.2000000000003,
+      "max_bound": [
+       "<=",
+       360.0
+      ]
+     },
+     "open_session": {
+      "count": 103.0,
+      "mean": 60.9197087378639,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "parked": {
+      "count": 898.0,
+      "mean": 155.71694543429822,
+      "p50": 110.62787136294028,
+      "p99": 541.4347826086955,
+      "max_bound": [
+       "<=",
+       600.0
+      ]
+     }
+    },
+    "gauges_end": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 3.0,
+     "bydconnect_worker_due_backlog": 0.0
+    },
+    "gauges_peak": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 4.0,
+     "bydconnect_worker_due_backlog": 7.0
+    },
+    "native_cipher": 1.0,
+    "shadow": {},
+    "shadow_field_mismatches": 0,
+    "scrapes": 360
+   },
+   "replay": {
+    "stats": {
+     "requests": 11640,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 109,
+      "/app/account/login": 103,
+      "/app/emqAuth/getEmqBrokerIp": 103,
+      "/control/getGpsInfo": 1124,
+      "/control/getGpsInfoResult": 1124,
+      "/control/getStatusNow": 1124,
+      "/control/smartCharge/homePage": 2248,
+      "/vehicle/vehicleswitch/getLatestConfig": 1124,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1124,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1246,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 2211
+     },
+     "by_code": {
+      "0": 11519,
+      "1001": 56,
+      "1005": 3,
+      "1008": 6,
+      "8003": 56
+     },
+     "connections": 1396,
+     "logins": 103,
+     "mqtt": {
+      "open": 0,
+      "connects": 103,
+      "subscriptions": 103,
+      "pushes_sent": 997,
+      "pushes_missed": 0
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 56,
+       "1008": 6
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "window": {
+     "requests": 10410,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 8,
+      "/app/account/login": 3,
+      "/app/emqAuth/getEmqBrokerIp": 3,
+      "/control/getGpsInfo": 1027,
+      "/control/getGpsInfoResult": 1027,
+      "/control/getStatusNow": 1027,
+      "/control/smartCharge/homePage": 2054,
+      "/vehicle/vehicleswitch/getLatestConfig": 1027,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1027,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1138,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 2069
+     },
+     "by_code": {
+      "0": 10296,
+      "1001": 53,
+      "1005": 3,
+      "1008": 5,
+      "8003": 53
+     },
+     "connections": 1091,
+     "logins": 3,
+     "mqtt": {
+      "open": 0,
+      "connects": 3,
+      "subscriptions": 3,
+      "pushes_sent": 996,
+      "pushes_missed": 0
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 53,
+       "1008": 5
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "clock": {
+     "t": 1106404.0523806,
+     "started": true,
+     "speed": 1.0,
+     "wall_unix_ms": 1795135566215,
+     "finished": false
+    }
+   },
+   "seed": {
+    "accounts": 100,
+    "users_created": 100,
+    "users_updated": 0,
+    "cars": 100
+   },
+   "store": {
+    "kind": "docker",
+    "ingest": [
+     {
+      "source": "mqtt",
+      "kind": "remoteControl",
+      "detail": "received",
+      "count": 474
+     },
+     {
+      "source": "mqtt",
+      "kind": "vehicleInfo",
+      "detail": "received",
+      "count": 523
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1001",
+      "count": 56
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1008",
+      "count": 6
+     },
+     {
+      "source": "poll",
+      "kind": "ok",
+      "detail": null,
+      "count": 1124
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "busy",
+      "count": 13
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "min_gap",
+      "count": 175
+     }
+    ],
+    "polls_ok": 1124,
+    "mqtt_rows": 997,
+    "open_at_end": {
+     "drives": 6,
+     "charges": 5
+    }
+   },
+   "detections": {
+    "drives": {},
+    "charges": {}
+   },
+   "detection_counts": {
+    "drives": 11,
+    "charges": 3
+   },
+   "roundtrip": {
+    "polls": 1124,
+    "polls_checked": 1124,
+    "polls_skipped": 0,
+    "values_checked": 5166,
+    "values_matched": 5156,
+    "match_rate": 0.9980642663569493,
+    "by_field": {
+     "online": {
+      "checked": 1124,
+      "matched": 1124,
+      "endpoint": "realtime"
+     },
+     "currentSoc": {
+      "checked": 1011,
+      "matched": 1006,
+      "endpoint": "realtime"
+     },
+     "odometer": {
+      "checked": 1011,
+      "matched": 1009,
+      "endpoint": "realtime"
+     },
+     "speed": {
+      "checked": 1009,
+      "matched": 1006,
+      "endpoint": "realtime"
+     },
+     "charging.isCharging": {
+      "checked": 1011,
+      "matched": 1011,
+      "endpoint": "charging"
+     }
+    },
+    "mismatches": [],
+    "window_s": 15.0,
+    "mismatches_listed": 10
+   },
+   "guard": {
+    "installed": [
+     "aiodns/pycares disabled",
+     "socket lookups",
+     "socket.connect/connect_ex/sendto",
+     "IocpProactor.connect/sendto"
+    ],
+    "blocked_total": 73,
+    "blocked": [
+     {
+      "via": "getaddrinfo",
+      "host": "nominatim.openstreetmap.org",
+      "port": "443",
+      "count": 73
+     }
+    ],
+    "exit_code": 0
+   },
+   "problems": [],
+   "cars_with_detections": {
+    "drives": 11,
+    "charges": 3
+   }
+  },
+  {
+   "variant": "rust_cipher_shadow",
+   "label": "openbyd cipher + shadow parsing (PR #271)",
+   "repeat": 1,
+   "accounts": 100,
+   "cars": 100,
+   "minutes": 30.0,
+   "origin": {
+    "wall_unix_ms": 1795135791555,
+    "start_at": 1104600.0,
+    "speed": 1.0,
+    "epoch_unix_ms": 1794031191555
+   },
+   "measured": {
+    "wall_s": 1804.383615300001,
+    "cpu_s": 114.375,
+    "cpu_user_s": 84.65625,
+    "cpu_system_s": 29.71875,
+    "cpu_total_s": 126.5,
+    "cpu_before_start_s": 12.125,
+    "rss_ready_mib": 134.38671875,
+    "rss_start_mib": 216.1328125,
+    "rss_end_mib": 220.27734375,
+    "rss_peak_mib": 220.29296875,
+    "rss_peak_source": "os",
+    "threads_start": 110,
+    "threads_peak": 117,
+    "samples": 6705,
+    "system_cpu_percent": 8.6,
+    "health_after_s": 2.5460000000020955,
+    "slots_full_after_s": 188.07800000000861,
+    "stop_s": 0.5940000000118744,
+    "stopped_cleanly": true
+   },
+   "derived": {
+    "cpu_s_per_account": 1.14375,
+    "cpu_ms_per_account_minute": 38.03237815844955,
+    "cpu_utilisation": 0.06338729693074925,
+    "memory_per_account_kib": 2255.8,
+    "memory_growth_per_account_kib": 879.68
+   },
+   "metrics": {
+    "loop_lag_s": {
+     "count": 1794.0,
+     "mean": 0.006928093645616809,
+     "p50": 0.004485,
+     "p99": 0.04909622166246851,
+     "max_bound": [
+      "<=",
+      0.05
+     ]
+    },
+    "hydrate_seconds": {
+     "all": {
+      "count": 1261.0,
+      "mean": 3.755053033068585,
+      "p50": 3.3125,
+      "p99": 18.853636363636372,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "charging": {
+      "count": 112.0,
+      "mean": 2.426586894643281,
+      "p50": 3.090909090909091,
+      "p99": 4.961818181818181,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "forced": {
+      "count": 29.0,
+      "mean": 4.126692348275261,
+      "p50": 3.6730769230769234,
+      "p99": 18.550000000000004,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "moving": {
+      "count": 135.0,
+      "mean": 1.1749850607397363,
+      "p50": 0.39705882352941174,
+      "p99": 4.9190000000000005,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "open_session": {
+      "count": 105.0,
+      "mean": 1.5434209457127421,
+      "p50": 0.4772727272727273,
+      "p99": 4.937,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "parked": {
+      "count": 880.0,
+      "mean": 4.571577138522446,
+      "p50": 3.604347826086957,
+      "p99": 19.18518518518519,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     }
+    },
+    "hydrate_gap_seconds": {
+     "all": {
+      "count": 1250.0,
+      "mean": 136.7920487999996,
+      "p50": 103.06976744186046,
+      "p99": 679.4117647058823,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "charging": {
+      "count": 111.0,
+      "mean": 60.7053603603589,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "forced": {
+      "count": 17.0,
+      "mean": 601.4356470588228,
+      "p50": 750.0,
+      "p99": 897.0,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "moving": {
+      "count": 135.0,
+      "mean": 70.56679999999857,
+      "p50": 67.91015625,
+      "p99": 349.50000000000017,
+      "max_bound": [
+       "<=",
+       450.0
+      ]
+     },
+     "open_session": {
+      "count": 105.0,
+      "mean": 60.786609523809084,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "parked": {
+      "count": 882.0,
+      "mean": 156.5966530612244,
+      "p50": 110.51162790697674,
+      "p99": 542.4782608695649,
+      "max_bound": [
+       "<=",
+       600.0
+      ]
+     }
+    },
+    "gauges_end": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 2.0,
+     "bydconnect_worker_due_backlog": 0.0
+    },
+    "gauges_peak": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 4.0,
+     "bydconnect_worker_due_backlog": 10.0
+    },
+    "native_cipher": 1.0,
+    "shadow": {
+     "match": 7762.0,
+     "mismatch": 1241.0
+    },
+    "shadow_field_mismatches": 49487.0,
+    "scrapes": 360
+   },
+   "replay": {
+    "stats": {
+     "requests": 11599,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 108,
+      "/app/account/login": 103,
+      "/app/emqAuth/getEmqBrokerIp": 103,
+      "/control/getGpsInfo": 1122,
+      "/control/getGpsInfoResult": 1122,
+      "/control/getStatusNow": 1122,
+      "/control/smartCharge/homePage": 2244,
+      "/vehicle/vehicleswitch/getLatestConfig": 1122,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1122,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1246,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 2185
+     },
+     "by_code": {
+      "0": 11477,
+      "1001": 57,
+      "1005": 3,
+      "1008": 5,
+      "8003": 57
+     },
+     "connections": 1395,
+     "logins": 103,
+     "mqtt": {
+      "open": 0,
+      "connects": 103,
+      "subscriptions": 103,
+      "pushes_sent": 997,
+      "pushes_missed": 1
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 57,
+       "1008": 5
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "window": {
+     "requests": 10368,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 7,
+      "/app/account/login": 3,
+      "/app/emqAuth/getEmqBrokerIp": 3,
+      "/control/getGpsInfo": 1025,
+      "/control/getGpsInfoResult": 1026,
+      "/control/getStatusNow": 1026,
+      "/control/smartCharge/homePage": 2051,
+      "/vehicle/vehicleswitch/getLatestConfig": 1026,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1025,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1141,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 2035
+     },
+     "by_code": {
+      "0": 10253,
+      "1001": 54,
+      "1005": 3,
+      "1008": 4,
+      "8003": 54
+     },
+     "connections": 1093,
+     "logins": 3,
+     "mqtt": {
+      "open": 0,
+      "connects": 3,
+      "subscriptions": 3,
+      "pushes_sent": 996,
+      "pushes_missed": 1
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 54,
+       "1008": 4
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "clock": {
+     "t": 1106405.0478078,
+     "started": true,
+     "speed": 1.0,
+     "wall_unix_ms": 1795137596635,
+     "finished": false
+    }
+   },
+   "seed": {
+    "accounts": 100,
+    "users_created": 100,
+    "users_updated": 0,
+    "cars": 100
+   },
+   "store": {
+    "kind": "docker",
+    "ingest": [
+     {
+      "source": "mqtt",
+      "kind": "remoteControl",
+      "detail": "received",
+      "count": 474
+     },
+     {
+      "source": "mqtt",
+      "kind": "vehicleInfo",
+      "detail": "received",
+      "count": 523
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1001",
+      "count": 57
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1008",
+      "count": 5
+     },
+     {
+      "source": "poll",
+      "kind": "ok",
+      "detail": null,
+      "count": 1122
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "busy",
+      "count": 13
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "min_gap",
+      "count": 164
+     }
+    ],
+    "polls_ok": 1122,
+    "mqtt_rows": 997,
+    "open_at_end": {
+     "drives": 6,
+     "charges": 5
+    }
+   },
+   "detections": {
+    "drives": {},
+    "charges": {}
+   },
+   "detection_counts": {
+    "drives": 11,
+    "charges": 3
+   },
+   "roundtrip": {
+    "polls": 1122,
+    "polls_checked": 1122,
+    "polls_skipped": 0,
+    "values_checked": 5153,
+    "values_matched": 5139,
+    "match_rate": 0.9972831360372598,
+    "by_field": {
+     "online": {
+      "checked": 1122,
+      "matched": 1122,
+      "endpoint": "realtime"
+     },
+     "currentSoc": {
+      "checked": 1008,
+      "matched": 1001,
+      "endpoint": "realtime"
+     },
+     "odometer": {
+      "checked": 1008,
+      "matched": 1005,
+      "endpoint": "realtime"
+     },
+     "speed": {
+      "checked": 1007,
+      "matched": 1003,
+      "endpoint": "realtime"
+     },
+     "charging.isCharging": {
+      "checked": 1008,
+      "matched": 1008,
+      "endpoint": "charging"
+     }
+    },
+    "mismatches": [],
+    "window_s": 15.0,
+    "mismatches_listed": 14
+   },
+   "guard": {
+    "installed": [
+     "aiodns/pycares disabled",
+     "socket lookups",
+     "socket.connect/connect_ex/sendto",
+     "IocpProactor.connect/sendto"
+    ],
+    "blocked_total": 66,
+    "blocked": [
+     {
+      "via": "getaddrinfo",
+      "host": "nominatim.openstreetmap.org",
+      "port": "443",
+      "count": 66
+     }
+    ],
+    "exit_code": 0
+   },
+   "problems": [],
+   "cars_with_detections": {
+    "drives": 11,
+    "charges": 3
+   }
+  },
+  {
+   "variant": "rust_cipher_shadow",
+   "label": "openbyd cipher + shadow parsing (PR #271)",
+   "repeat": 2,
+   "accounts": 100,
+   "cars": 100,
+   "minutes": 30.0,
+   "origin": {
+    "wall_unix_ms": 1795137802681,
+    "start_at": 1104600.0,
+    "speed": 1.0,
+    "epoch_unix_ms": 1794033202681
+   },
+   "measured": {
+    "wall_s": 1803.6365587000037,
+    "cpu_s": 108.734375,
+    "cpu_user_s": 79.578125,
+    "cpu_system_s": 29.15625,
+    "cpu_total_s": 119.71875,
+    "cpu_before_start_s": 10.984375,
+    "rss_ready_mib": 133.90234375,
+    "rss_start_mib": 215.7578125,
+    "rss_end_mib": 220.40234375,
+    "rss_peak_mib": 220.41796875,
+    "rss_peak_source": "os",
+    "threads_start": 109,
+    "threads_peak": 115,
+    "samples": 6695,
+    "system_cpu_percent": 6.2,
+    "health_after_s": 2.5310000000172295,
+    "slots_full_after_s": 187.95300000000861,
+    "stop_s": 0.7809999999881256,
+    "stopped_cleanly": true
+   },
+   "derived": {
+    "cpu_s_per_account": 1.08734375,
+    "cpu_ms_per_account_minute": 36.17171357794116,
+    "cpu_utilisation": 0.06028618929656861,
+    "memory_per_account_kib": 2257.08,
+    "memory_growth_per_account_kib": 885.92
+   },
+   "metrics": {
+    "loop_lag_s": {
+     "count": 1793.0,
+     "mean": 0.007049637479287906,
+     "p50": 0.004541540020263425,
+     "p99": 0.04911017369727047,
+     "max_bound": [
+      "<=",
+      0.05
+     ]
+    },
+    "hydrate_seconds": {
+     "all": {
+      "count": 1268.0,
+      "mean": 3.6934673165610907,
+      "p50": 3.2905027932960893,
+      "p99": 18.81495327102803,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "charging": {
+      "count": 113.0,
+      "mean": 2.326271697346727,
+      "p50": 3.0058823529411764,
+      "p99": 4.960117647058824,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "forced": {
+      "count": 33.0,
+      "mean": 3.495407372728082,
+      "p50": 3.546875,
+      "p99": 16.700000000000017,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     },
+     "moving": {
+      "count": 135.0,
+      "mean": 0.9823327103685761,
+      "p50": 0.3629032258064516,
+      "p99": 4.9035714285714285,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "open_session": {
+      "count": 105.0,
+      "mean": 1.4591652142862412,
+      "p50": 0.4525862068965517,
+      "p99": 4.932978723404256,
+      "max_bound": [
+       "<=",
+       5.0
+      ]
+     },
+     "parked": {
+      "count": 882.0,
+      "mean": 4.556997901246534,
+      "p50": 3.6153846153846154,
+      "p99": 19.16792452830188,
+      "max_bound": [
+       "<=",
+       20.0
+      ]
+     }
+    },
+    "hydrate_gap_seconds": {
+     "all": {
+      "count": 1263.0,
+      "mean": 136.56802771179696,
+      "p50": 103.13650306748467,
+      "p99": 742.1249999999986,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "charging": {
+      "count": 113.0,
+      "mean": 60.65802654867144,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "forced": {
+      "count": 24.0,
+      "mean": 601.731749999999,
+      "p50": 750.0,
+      "p99": 897.0,
+      "max_bound": [
+       "<=",
+       900.0
+      ]
+     },
+     "moving": {
+      "count": 135.0,
+      "mean": 68.98943703703742,
+      "p50": 67.91015625,
+      "p99": 319.50000000000017,
+      "max_bound": [
+       "<=",
+       360.0
+      ]
+     },
+     "open_session": {
+      "count": 105.0,
+      "mean": 61.0036666666662,
+      "p50": 67.5,
+      "p99": 74.85,
+      "max_bound": [
+       "<=",
+       75.0
+      ]
+     },
+     "parked": {
+      "count": 886.0,
+      "mean": 152.90128781038342,
+      "p50": 110.44615384615385,
+      "p99": 530.0526315789473,
+      "max_bound": [
+       "<=",
+       600.0
+      ]
+     }
+    },
+    "gauges_end": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 4.0,
+     "bydconnect_worker_due_backlog": 2.0
+    },
+    "gauges_peak": {
+     "bydconnect_worker_slots": 100.0,
+     "bydconnect_worker_hydrates_in_flight": 4.0,
+     "bydconnect_worker_due_backlog": 7.0
+    },
+    "native_cipher": 1.0,
+    "shadow": {
+     "match": 7742.0,
+     "mismatch": 1239.0
+    },
+    "shadow_field_mismatches": 49313.0,
+    "scrapes": 360
+   },
+   "replay": {
+    "stats": {
+     "requests": 11562,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 109,
+      "/app/account/login": 103,
+      "/app/emqAuth/getEmqBrokerIp": 103,
+      "/control/getGpsInfo": 1120,
+      "/control/getGpsInfoResult": 1118,
+      "/control/getStatusNow": 1118,
+      "/control/smartCharge/homePage": 2238,
+      "/vehicle/vehicleswitch/getLatestConfig": 1118,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1120,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1241,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 2174
+     },
+     "by_code": {
+      "0": 11443,
+      "1001": 55,
+      "1005": 3,
+      "1008": 6,
+      "8003": 55
+     },
+     "connections": 1392,
+     "logins": 103,
+     "mqtt": {
+      "open": 0,
+      "connects": 103,
+      "subscriptions": 103,
+      "pushes_sent": 997,
+      "pushes_missed": 0
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 55,
+       "1008": 6
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "window": {
+     "requests": 10315,
+     "by_endpoint": {
+      "/app/account/getAllListByUserId": 8,
+      "/app/account/login": 3,
+      "/app/emqAuth/getEmqBrokerIp": 3,
+      "/control/getGpsInfo": 1021,
+      "/control/getGpsInfoResult": 1019,
+      "/control/getStatusNow": 1019,
+      "/control/smartCharge/homePage": 2040,
+      "/vehicle/vehicleswitch/getLatestConfig": 1019,
+      "/vehicleInfo/vehicle/getEnergyConsumption": 1021,
+      "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1132,
+      "/vehicleInfo/vehicle/vehicleRealTimeResult": 2030
+     },
+     "by_code": {
+      "0": 10203,
+      "1001": 52,
+      "1005": 3,
+      "1008": 5,
+      "8003": 52
+     },
+     "connections": 1086,
+     "logins": 3,
+     "mqtt": {
+      "open": 0,
+      "connects": 3,
+      "subscriptions": 3,
+      "pushes_sent": 996,
+      "pushes_missed": 0
+     },
+     "replay": {
+      "errors_by_code": {
+       "1001": 52,
+       "1008": 5
+      },
+      "sessions_expired": 4,
+      "accounts": 100,
+      "cars": 100
+     }
+    },
+    "clock": {
+     "t": 1106404.4907784,
+     "started": true,
+     "speed": 1.0,
+     "wall_unix_ms": 1795139607204,
+     "finished": false
+    }
+   },
+   "seed": {
+    "accounts": 100,
+    "users_created": 100,
+    "users_updated": 0,
+    "cars": 100
+   },
+   "store": {
+    "kind": "docker",
+    "ingest": [
+     {
+      "source": "mqtt",
+      "kind": "remoteControl",
+      "detail": "received",
+      "count": 474
+     },
+     {
+      "source": "mqtt",
+      "kind": "vehicleInfo",
+      "detail": "received",
+      "count": 523
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1001",
+      "count": 55
+     },
+     {
+      "source": "poll",
+      "kind": "error",
+      "detail": "1008",
+      "count": 6
+     },
+     {
+      "source": "poll",
+      "kind": "ok",
+      "detail": null,
+      "count": 1118
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "busy",
+      "count": 13
+     },
+     {
+      "source": "poll",
+      "kind": "skip",
+      "detail": "min_gap",
+      "count": 179
+     }
+    ],
+    "polls_ok": 1118,
+    "mqtt_rows": 997,
+    "open_at_end": {
+     "drives": 6,
+     "charges": 5
+    }
+   },
+   "detections": {
+    "drives": {},
+    "charges": {}
+   },
+   "detection_counts": {
+    "drives": 11,
+    "charges": 3
+   },
+   "roundtrip": {
+    "polls": 1118,
+    "polls_checked": 1118,
+    "polls_skipped": 0,
+    "values_checked": 5141,
+    "values_matched": 5126,
+    "match_rate": 0.9970822797121183,
+    "by_field": {
+     "online": {
+      "checked": 1118,
+      "matched": 1118,
+      "endpoint": "realtime"
+     },
+     "currentSoc": {
+      "checked": 1006,
+      "matched": 1000,
+      "endpoint": "realtime"
+     },
+     "odometer": {
+      "checked": 1006,
+      "matched": 1001,
+      "endpoint": "realtime"
+     },
+     "speed": {
+      "checked": 1005,
+      "matched": 1001,
+      "endpoint": "realtime"
+     },
+     "charging.isCharging": {
+      "checked": 1006,
+      "matched": 1006,
+      "endpoint": "charging"
+     }
+    },
+    "mismatches": [],
+    "window_s": 15.0,
+    "mismatches_listed": 15
+   },
+   "guard": {
+    "installed": [
+     "aiodns/pycares disabled",
+     "socket lookups",
+     "socket.connect/connect_ex/sendto",
+     "IocpProactor.connect/sendto"
+    ],
+    "blocked_total": 67,
+    "blocked": [
+     {
+      "via": "getaddrinfo",
+      "host": "nominatim.openstreetmap.org",
+      "port": "443",
+      "count": 67
+     }
+    ],
+    "exit_code": 0
+   },
+   "problems": [],
+   "cars_with_detections": {
+    "drives": 11,
+    "charges": 3
+   }
+  }
+ ],
+ "variants": {
+  "python_cipher": {
+   "label": "pyBYD cipher (worker as on main)",
+   "runs": 3,
+   "figures": {
+    "derived.cpu_s_per_account": {
+     "median": 5.3109375,
+     "min": 4.78140625,
+     "max": 5.9215625,
+     "spread": 0.21468078846719632,
+     "n": 3
+    },
+    "derived.cpu_ms_per_account_minute": {
+     "median": 176.64984076535063,
+     "min": 159.05430080452092,
+     "max": 197.3153505337883,
+     "spread": 0.2165926080855668,
+     "n": 3
+    },
+    "derived.memory_per_account_kib": {
+     "median": 3588.84,
+     "min": 3553.36,
+     "max": 3600.04,
+     "spread": 0.013006988330491144,
+     "n": 3
+    },
+    "derived.memory_growth_per_account_kib": {
+     "median": 2229.44,
+     "min": 2193.64,
+     "max": 2268.96,
+     "spread": 0.033784268695277814,
+     "n": 3
+    },
+    "measured.cpu_s": {
+     "median": 531.09375,
+     "min": 478.140625,
+     "max": 592.15625,
+     "spread": 0.21468078846719624,
+     "n": 3
+    },
+    "measured.rss_peak_mib": {
+     "median": 350.47265625,
+     "min": 347.0078125,
+     "max": 351.56640625,
+     "spread": 0.013006988330491189,
+     "n": 3
+    },
+    "measured.threads_peak": {
+     "median": 111.0,
+     "min": 110.0,
+     "max": 111.0,
+     "spread": 0.009009009009009009,
+     "n": 3
+    },
+    "metrics.loop_lag_p99_s": {
+     "median": 0.22777966101694913,
+     "min": 0.19550000000000028,
+     "max": 0.27058823529411896,
+     "spread": 0.3296529416141828,
+     "n": 3
+    }
+   }
+  },
+  "rust_cipher": {
+   "label": "openbyd cipher",
+   "runs": 3,
+   "figures": {
+    "derived.cpu_s_per_account": {
+     "median": 1.18890625,
+     "min": 1.07984375,
+     "max": 1.2034375,
+     "spread": 0.1039558417663293,
+     "n": 3
+    },
+    "derived.cpu_ms_per_account_minute": {
+     "median": 39.55955970684405,
+     "min": 35.92732828567847,
+     "max": 40.03524346956936,
+     "spread": 0.10384127665556889,
+     "n": 3
+    },
+    "derived.memory_per_account_kib": {
+     "median": 2248.64,
+     "min": 2245.16,
+     "max": 2255.64,
+     "spread": 0.004660594848441733,
+     "n": 3
+    },
+    "derived.memory_growth_per_account_kib": {
+     "median": 877.32,
+     "min": 875.92,
+     "max": 889.84,
+     "spread": 0.015866502530433674,
+     "n": 3
+    },
+    "measured.cpu_s": {
+     "median": 118.890625,
+     "min": 107.984375,
+     "max": 120.34375,
+     "spread": 0.10395584176632934,
+     "n": 3
+    },
+    "measured.rss_peak_mib": {
+     "median": 219.59375,
+     "min": 219.25390625,
+     "max": 220.27734375,
+     "spread": 0.0046605948484417245,
+     "n": 3
+    },
+    "measured.threads_peak": {
+     "median": 121.0,
+     "min": 113.0,
+     "max": 125.0,
+     "spread": 0.09917355371900827,
+     "n": 3
+    },
+    "metrics.loop_lag_p99_s": {
+     "median": 0.04913949579831933,
+     "min": 0.04912904009720534,
+     "max": 0.04916237623762376,
+     "spread": 0.0006783980966195012,
+     "n": 3
+    }
+   }
+  },
+  "rust_cipher_shadow": {
+   "label": "openbyd cipher + shadow parsing (PR #271)",
+   "runs": 2,
+   "figures": {
+    "derived.cpu_s_per_account": {
+     "median": 1.1155468750000002,
+     "min": 1.08734375,
+     "max": 1.14375,
+     "spread": 0.050563764969535664,
+     "n": 2
+    },
+    "derived.cpu_ms_per_account_minute": {
+     "median": 37.10204586819536,
+     "min": 36.17171357794116,
+     "max": 38.03237815844955,
+     "spread": 0.05014991860875768,
+     "n": 2
+    },
+    "derived.memory_per_account_kib": {
+     "median": 2256.44,
+     "min": 2255.8,
+     "max": 2257.08,
+     "spread": 0.0005672652496852322,
+     "n": 2
+    },
+    "derived.memory_growth_per_account_kib": {
+     "median": 882.8,
+     "min": 879.68,
+     "max": 885.92,
+     "spread": 0.007068418667874954,
+     "n": 2
+    },
+    "measured.cpu_s": {
+     "median": 111.5546875,
+     "min": 108.734375,
+     "max": 114.375,
+     "spread": 0.050563764969535685,
+     "n": 2
+    },
+    "measured.rss_peak_mib": {
+     "median": 220.35546875,
+     "min": 220.29296875,
+     "max": 220.41796875,
+     "spread": 0.0005672652496853451,
+     "n": 2
+    },
+    "measured.threads_peak": {
+     "median": 116.0,
+     "min": 115.0,
+     "max": 117.0,
+     "spread": 0.017241379310344827,
+     "n": 2
+    },
+    "metrics.loop_lag_p99_s": {
+     "median": 0.049103197679869495,
+     "min": 0.04909622166246851,
+     "max": 0.04911017369727047,
+     "spread": 0.00028413699028153884,
+     "n": 2
+    }
+   }
+  }
+ },
+ "comparison": [
+  {
+   "reference": "python_cipher#1",
+   "other": "rust_cipher#1",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 4,
+   "difference_summary": {
+    "drives count": 1,
+    "drives extra": 1,
+    "drives field end": 2
+   },
+   "cars_differing": 3
+  },
+  {
+   "reference": "python_cipher#1",
+   "other": "python_cipher#2",
+   "same_variant": true,
+   "equal": false,
+   "differences": [],
+   "difference_count": 2,
+   "difference_summary": {
+    "drives count": 1,
+    "drives extra": 1
+   },
+   "cars_differing": 1
+  },
+  {
+   "reference": "python_cipher#1",
+   "other": "rust_cipher#2",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 5,
+   "difference_summary": {
+    "charges field end": 1,
+    "charges field end_soc": 1,
+    "drives count": 1,
+    "drives extra": 1,
+    "drives field end": 1
+   },
+   "cars_differing": 3
+  },
+  {
+   "reference": "python_cipher#1",
+   "other": "python_cipher#3",
+   "same_variant": true,
+   "equal": false,
+   "differences": [],
+   "difference_count": 1,
+   "difference_summary": {
+    "drives field end": 1
+   },
+   "cars_differing": 1
+  },
+  {
+   "reference": "python_cipher#1",
+   "other": "rust_cipher#3",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 4,
+   "difference_summary": {
+    "charges field end": 1,
+    "drives count": 1,
+    "drives extra": 1,
+    "drives field end": 1
+   },
+   "cars_differing": 3
+  },
+  {
+   "reference": "python_cipher#1",
+   "other": "rust_cipher_shadow#1",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 6,
+   "difference_summary": {
+    "charges field end": 1,
+    "charges field end_soc": 1,
+    "drives count": 1,
+    "drives extra": 1,
+    "drives field end": 2
+   },
+   "cars_differing": 3
+  },
+  {
+   "reference": "python_cipher#1",
+   "other": "rust_cipher_shadow#2",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 5,
+   "difference_summary": {
+    "charges field end": 1,
+    "drives count": 1,
+    "drives extra": 1,
+    "drives field end": 2
+   },
+   "cars_differing": 3
+  },
+  {
+   "reference": "rust_cipher#1",
+   "other": "python_cipher#2",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 4,
+   "difference_summary": {
+    "drives extra": 1,
+    "drives field end": 2,
+    "drives missing": 1
+   },
+   "cars_differing": 3
+  },
+  {
+   "reference": "rust_cipher#1",
+   "other": "rust_cipher#2",
+   "same_variant": true,
+   "equal": false,
+   "differences": [],
+   "difference_count": 3,
+   "difference_summary": {
+    "charges field end": 1,
+    "charges field end_soc": 1,
+    "drives field end": 1
+   },
+   "cars_differing": 2
+  },
+  {
+   "reference": "rust_cipher#1",
+   "other": "python_cipher#3",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 5,
+   "difference_summary": {
+    "drives count": 1,
+    "drives field end": 3,
+    "drives missing": 1
+   },
+   "cars_differing": 4
+  },
+  {
+   "reference": "rust_cipher#1",
+   "other": "rust_cipher#3",
+   "same_variant": true,
+   "equal": false,
+   "differences": [],
+   "difference_count": 1,
+   "difference_summary": {
+    "drives field end": 1
+   },
+   "cars_differing": 1
+  },
+  {
+   "reference": "rust_cipher#1",
+   "other": "rust_cipher_shadow#1",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 6,
+   "difference_summary": {
+    "charges field end": 1,
+    "charges field end_soc": 1,
+    "drives extra": 1,
+    "drives field end": 2,
+    "drives missing": 1
+   },
+   "cars_differing": 3
+  },
+  {
+   "reference": "rust_cipher#1",
+   "other": "rust_cipher_shadow#2",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 3,
+   "difference_summary": {
+    "charges field end": 1,
+    "drives field end": 2
+   },
+   "cars_differing": 2
+  },
+  {
+   "reference": "python_cipher#2",
+   "other": "rust_cipher#2",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 6,
+   "difference_summary": {
+    "charges field end": 1,
+    "charges field end_soc": 1,
+    "drives extra": 1,
+    "drives field end": 2,
+    "drives missing": 1
+   },
+   "cars_differing": 4
+  },
+  {
+   "reference": "python_cipher#2",
+   "other": "python_cipher#3",
+   "same_variant": true,
+   "equal": false,
+   "differences": [],
+   "difference_count": 3,
+   "difference_summary": {
+    "drives count": 1,
+    "drives field end": 1,
+    "drives missing": 1
+   },
+   "cars_differing": 2
+  },
+  {
+   "reference": "python_cipher#2",
+   "other": "rust_cipher#3",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 4,
+   "difference_summary": {
+    "drives extra": 1,
+    "drives field end": 2,
+    "drives missing": 1
+   },
+   "cars_differing": 3
+  },
+  {
+   "reference": "python_cipher#2",
+   "other": "rust_cipher_shadow#1",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 5,
+   "difference_summary": {
+    "charges field end": 1,
+    "charges field end_soc": 1,
+    "drives field end": 3
+   },
+   "cars_differing": 3
+  },
+  {
+   "reference": "python_cipher#2",
+   "other": "rust_cipher_shadow#2",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 6,
+   "difference_summary": {
+    "charges field end": 1,
+    "drives extra": 1,
+    "drives field end": 3,
+    "drives missing": 1
+   },
+   "cars_differing": 4
+  },
+  {
+   "reference": "rust_cipher#2",
+   "other": "python_cipher#3",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 6,
+   "difference_summary": {
+    "charges field end": 1,
+    "charges field end_soc": 1,
+    "drives count": 1,
+    "drives field end": 2,
+    "drives missing": 1
+   },
+   "cars_differing": 4
+  },
+  {
+   "reference": "rust_cipher#2",
+   "other": "rust_cipher#3",
+   "same_variant": true,
+   "equal": false,
+   "differences": [],
+   "difference_count": 3,
+   "difference_summary": {
+    "charges field end": 1,
+    "charges field end_soc": 1,
+    "drives field end": 1
+   },
+   "cars_differing": 2
+  },
+  {
+   "reference": "rust_cipher#2",
+   "other": "rust_cipher_shadow#1",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 3,
+   "difference_summary": {
+    "drives extra": 1,
+    "drives field end": 1,
+    "drives missing": 1
+   },
+   "cars_differing": 2
+  },
+  {
+   "reference": "rust_cipher#2",
+   "other": "rust_cipher_shadow#2",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 3,
+   "difference_summary": {
+    "charges field end": 1,
+    "charges field end_soc": 1,
+    "drives field end": 1
+   },
+   "cars_differing": 1
+  },
+  {
+   "reference": "python_cipher#3",
+   "other": "rust_cipher#3",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 4,
+   "difference_summary": {
+    "drives count": 1,
+    "drives extra": 1,
+    "drives field end": 2
+   },
+   "cars_differing": 3
+  },
+  {
+   "reference": "python_cipher#3",
+   "other": "rust_cipher_shadow#1",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 7,
+   "difference_summary": {
+    "charges field end": 1,
+    "charges field end_soc": 1,
+    "drives count": 1,
+    "drives extra": 1,
+    "drives field end": 3
+   },
+   "cars_differing": 4
+  },
+  {
+   "reference": "python_cipher#3",
+   "other": "rust_cipher_shadow#2",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 6,
+   "difference_summary": {
+    "charges field end": 1,
+    "drives count": 1,
+    "drives extra": 1,
+    "drives field end": 3
+   },
+   "cars_differing": 4
+  },
+  {
+   "reference": "rust_cipher#3",
+   "other": "rust_cipher_shadow#1",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 5,
+   "difference_summary": {
+    "charges field end": 1,
+    "charges field end_soc": 1,
+    "drives extra": 1,
+    "drives field end": 1,
+    "drives missing": 1
+   },
+   "cars_differing": 2
+  },
+  {
+   "reference": "rust_cipher#3",
+   "other": "rust_cipher_shadow#2",
+   "same_variant": false,
+   "equal": false,
+   "differences": [],
+   "difference_count": 2,
+   "difference_summary": {
+    "charges field end": 1,
+    "drives field end": 1
+   },
+   "cars_differing": 1
+  },
+  {
+   "reference": "rust_cipher_shadow#1",
+   "other": "rust_cipher_shadow#2",
+   "same_variant": true,
+   "equal": false,
+   "differences": [],
+   "difference_count": 4,
+   "difference_summary": {
+    "charges field end": 1,
+    "charges field end_soc": 1,
+    "drives extra": 1,
+    "drives missing": 1
+   },
+   "cars_differing": 2
+  }
+ ],
+ "redacted": true
+}

@@ -143,9 +143,13 @@ def versions_info() -> dict[str, Any]:
     }
 
 
-def write_results(name: str, quick: bool, payload: dict[str, Any]) -> Path:
-    """Write ``bench/results/<name>-<timestamp>[-quick].json`` with the date, machine and commits."""
-    RESULTS.mkdir(parents=True, exist_ok=True)
+def write_results(name: str, quick: bool, payload: dict[str, Any], *, directory: Path | None = None) -> Path:
+    """Write ``bench/results/<name>-<timestamp>[-quick].json`` with the date, machine and commits.
+
+    ``directory`` is another place to write it (results that must stay out of the repository).
+    """
+    results = RESULTS if directory is None else directory
+    results.mkdir(parents=True, exist_ok=True)
     now = dt.datetime.now().astimezone()
     document = {
         "benchmark": name,
@@ -155,7 +159,7 @@ def write_results(name: str, quick: bool, payload: dict[str, Any]) -> Path:
         "versions": versions_info(),
         **payload,
     }
-    path = RESULTS / f"{name}-{now:%Y%m%d-%H%M%S}{'-quick' if quick else ''}.json"
+    path = results / f"{name}-{now:%Y%m%d-%H%M%S}{'-quick' if quick else ''}.json"
     path.write_text(json.dumps(document, indent=1) + "\n", encoding="utf-8")
     return path
 
@@ -206,12 +210,14 @@ class Child:
     log file under :data:`SCRATCH`.
     """
 
-    def __init__(self, cmd: list[str | Path], label: str) -> None:
+    def __init__(
+        self, cmd: list[str | Path], label: str, *, env: dict[str, str] | None = None, cwd: Path | None = None
+    ) -> None:
         SCRATCH.mkdir(parents=True, exist_ok=True)
         self.label = label
         self.log = SCRATCH / f"{label.replace(' ', '_').replace('+', '_')}-{os.getpid()}.log"
         self._stderr = self.log.open("wb")
-        env = dict(os.environ)
+        env = dict(os.environ if env is None else env)
         env.setdefault("PYTHONUNBUFFERED", "1")
         self.proc = subprocess.Popen(
             [str(part) for part in cmd],
@@ -221,7 +227,7 @@ class Child:
             text=True,
             bufsize=1,
             env=env,
-            cwd=ROOT,
+            cwd=cwd or ROOT,
         )
         self.lines: queue.Queue[str | None] = queue.Queue()
         threading.Thread(target=self._read, daemon=True).start()

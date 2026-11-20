@@ -152,6 +152,7 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
         module.add_class::<testing::PyFakeServer>()?;
         module.add_class::<testing::PyReply>()?;
         module.add_class::<testing::PyTestBroker>()?;
+        module.add_class::<testing::PyReplayServer>()?;
     }
     module.add("HAS_TESTING", cfg!(feature = "testing"))?;
 

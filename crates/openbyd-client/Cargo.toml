@@ -69,3 +69,9 @@ name = "load"
 [[example]]
 name = "mqtt_idle"
 required-features = ["testing"]
+
+# The fake server and broker answering a scenario file on a replay clock
+# (`bench/replay/SCENARIO.md`).
+[[example]]
+name = "replay_server"
+required-features = ["testing"]

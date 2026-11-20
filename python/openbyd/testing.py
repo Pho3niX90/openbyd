@@ -1,4 +1,4 @@
-"""A fake BYD server and an MQTT test broker, for tests and benchmarks.
+"""A fake BYD server, an MQTT test broker and a scenario replay, for tests and benchmarks.
 
 It speaks the real wire protocol on ``127.0.0.1``: it checks every
 request's envelope, checkcode and signature, accepts logins for the
@@ -25,6 +25,26 @@ the broker lookup at it and push events to a logged-in client::
             await client.login()
             broker.push(client.export_session(), {"event": "vehicleInfo", "vin": VIN, "data": {...}})
 
+Replay
+------
+
+:class:`ReplayServer` answers a whole fleet from a scenario file
+(``bench/replay/SCENARIO.md``): every account logs in as
+``<account>@example.com`` / ``secret`` and reads its cars' state at the replay
+clock's time, the recorded errors come back at their moments, and the broker
+pushes the recorded events. A manual clock (the default) moves only when
+told to, so a test never waits for real time::
+
+    with ReplayServer("bench/replay/samples/demo.jsonl") as replay:
+        replay.set_time(3600)          # pushes and 1005s due by then have happened
+        config = {"username": "acct-0001@example.com", "password": "secret", "base_url": replay.url}
+        ...
+        replay.advance(60)
+        assert replay.stats()["replay"]["accounts"] == 3
+
+``replay.ca_pem`` is the broker's certificate, for a client that has to be
+told to trust it (pyBYD's paho: ``tls_set(ca_certs=...)``).
+
 This module exists only in an extension built with the cargo feature
 ``testing`` (``python parity/dev_install.py`` builds one). Released wheels
 leave it out, and importing it from them raises ``ImportError``.
@@ -47,5 +67,7 @@ FakeServer = _native.FakeServer
 Reply = _native.Reply
 #: A running MQTT test broker; see the module documentation. Stop it with ``stop()`` or ``with``.
 TestBroker = _native.TestBroker
+#: A running replay of a scenario file; see the module documentation. Stop it with ``stop()`` or ``with``.
+ReplayServer = _native.ReplayServer
 
-__all__ = ["FakeServer", "Reply", "TestBroker"]
+__all__ = ["FakeServer", "ReplayServer", "Reply", "TestBroker"]

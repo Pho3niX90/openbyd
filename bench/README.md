@@ -8,6 +8,7 @@ bench/
   load.py        N accounts doing poll cycles against a fake server; CPU and memory per account
   mqtt_idle.py   memory and threads of connected-but-idle MQTT accounts
   replay_worker.py  a whole backend worker against replayed BYD behaviour; CPU, memory and what it detected
+  replay_detect.py  step the backend's detection drivers through a scenario and compare detections exactly
   replay/        replay scenarios: the format (SCENARIO.md), generator, privacy check, exporter, and the worker's launcher
   realtime_levels.py   one reply model (VehicleRealtimeData) in Rust, through Python and as a whole call
   profile_realtime.py  where the time of one realtime reply goes, from outside (no instrumented build)
@@ -218,6 +219,8 @@ N connections to the TLS test broker (a separate process), each subscribed to it
 
 ### Replay: the whole worker
 
+This result shows the timing noise in detections when the worker schedules its own polls. Use [deterministic detection replay](#deterministic-detection-replay-replay_detectpy) to check whether variants detect the same drives and charges.
+
 Runs of 2026-11-20, 00:00 to 04:00, on the same machine. The backend's mqtt-worker (backend commit `a5ae63a1e5`, Python 3.12.13, pyBYD 0.0.85, openbyd 0.1.1) against the replay server playing 30 minutes of a scenario exported from production: 100 accounts with one car each (75 electric, 25 hybrid), from a 13-day export of 231,832 car states, 55,217 errors and 577,289 pushes. The stretch replayed was chosen for being busier than most: in production 15 cars moved in it, about 30 drives started and ended, and three charges started. Every run starts from an empty database and the measured window begins once the worker holds a session for all 100 accounts. Postgres and Redis ran in containers; the reply templates were those of the corpus with the real realtime replies of several car models (the `corpus/realtime-samples` branch). The Python-cipher and Rust-cipher variants were run three times each, interleaved; the variant with shadow parsing twice, afterwards.
 
 | Variant | CPU ms / account / minute | CPU s in the window | Peak RSS | Memory growth / account | Loop lag, mean / p99 | Time per poll | BYD requests | Polls stored |
@@ -296,7 +299,7 @@ Derived figures: **CPU ms per poll cycle** is the run's CPU over `N x K` (it inc
 
 ### Replay (`replay_worker.py`)
 
-*What does the whole worker cost, and does it still find the same drives and charges?* The other benchmarks measure the client library. This one measures the application that uses it: the mqtt-worker of BYD Connect's backend, which holds one BYD session and one MQTT connection per account, decides when to poll each car, stores what it reads and works out drives and charges. The worker is the real one, unmodified. What is replaced is BYD.
+*What does the whole worker cost?* The other benchmarks measure the client library. This one measures the application that uses it: the mqtt-worker of BYD Connect's backend, which holds one BYD session and one MQTT connection per account, decides when to poll each car, stores what it reads and works out drives and charges. The worker is the real one, unmodified. What is replaced is BYD.
 
 **The scenario.** A scenario (`bench/replay/SCENARIO.md`) says what a set of cars did over time: each car's state, the moments BYD answered an error, and the moments a push arrived. `replay/generate.py` makes synthetic ones. `replay/export_prod.py` builds one from a production table of recorded polls and pushes, anonymised inside the database pod before anything leaves it: accounts and VINs are renumbered with a salt that exists only in the pod's memory, coordinates are removed in SQL, every time is shifted by one random offset, only an allow-list of typed and bounded keys is written, and every line passes a leak check (anything shaped like a VIN, a database id, an e-mail address or a coordinate pair stops the export). Exported scenarios are never committed.
 
@@ -314,11 +317,32 @@ A variant is one row of `VARIANTS` in `replay_worker.py`: a command and its envi
 
 **What is measured**, all from outside the worker: CPU seconds (user + system) and resident memory of the worker process over the window, and its threads (psutil); the worker's own Prometheus metrics, scraped every 5 s (event-loop lag, time per poll); the replay server's counters (requests by endpoint and by code, pushes sent); and the database afterwards (polls and pushes stored, drives and charges detected). The containers' and the replay server's CPU are not counted.
 
-**The correctness check.** Every variant must find the same drives and charges. After each run the closed drives and charges are read from the database as lists per car, with times in replay seconds, and every run is compared with every other run. Two runs never poll at the same instants, not even two runs of the same variant, so a boundary may move: the comparison allows a start to differ by 300 s and an end by 90 s, distances by 0.05 km and SoC by 0.5, and lists every difference beyond that. Differences between two repeats of the same variant are reported next to those between variants, because they are the yardstick. A second check compares a sample of the polls the worker stored with the scenario's state at that moment, which says whether the replay's replies carry the scenario's values through pyBYD and the backend's own mapping.
+**Detection timing noise.** After each run the closed drives and charges are read from the database as lists per car, with times in replay seconds, and every run is compared with every other run. Two runs never poll at the same instants, so a boundary may move even between repeats of one variant. The comparison allows a start to differ by 300 s and an end by 90 s, distances by 0.05 km and SoC by 0.5, and lists differences beyond those thresholds. A check of sampled stored polls against the scenario shows whether the replay's replies carry the scenario's values through pyBYD and the backend's mapping. The deterministic replay below checks the detections themselves.
 
 **Nothing leaves the machine.** The worker is started through `replay/launcher.py`, which before importing anything else makes every lookup of, and every connection to, an address that is not loopback fail, and reports what it refused. The backend also has a setting that sends every BYD request to one URL whatever the account's country. Either would be enough; both are on.
 
 **Results that come from real cars.** For a scenario that is not synthetic, `bench/results/` gets aggregate figures only: no list of drives or charges, no car, no scenario name or start. The complete results stay next to the scenario, outside the repository.
+
+### Deterministic detection replay (`replay_detect.py`)
+
+The harness gives each account an in-process replay server and a separate guarded driver process. It advances the server's manual clock once per timeline second that has a state, error or push. The driver runs due timers, processes every push delivered by the broker, then polls the account's cars once if the schedule calls for it. A poll includes session recovery and MQTT resubscription before the next step can begin. A 1005 expiry schedules a poll. The [driver protocol](replay/DRIVER.md) describes the clock and MQTT barrier.
+
+The three cipher variants use the backend's detection code against a fresh Postgres database on tmpfs and session state in memory. Up to eight account lanes run side by side, with the longest timelines queued first. Each variant runs twice by default. The harness compares every stored detection value and the sessions still open at the end. It reports a failed repeat check before comparing variants. The start-time window only pairs detections for listing differences. A paired value must still agree exactly. Exit status is 0 for agreement, 1 for a failed run or repeat check, and 2 for confirmed variant differences.
+
+Run from the openbyd checkout with the extension built with the testing feature. Use a separate backend checkout containing `scripts/replay_driver.py` and its installed Python environment:
+
+```powershell
+python bench\replay_detect.py --backend <backend> --backend-python <backend-venv>\Scripts\python.exe `
+    --scenario <scenario.jsonl> --private-dir <private-directory>
+```
+
+`OPENBYD_REPLAY_BACKEND` and `OPENBYD_REPLAY_BACKEND_PYTHON` can supply the backend paths. Without `--scenario`, the harness uses the synthetic demo. Use `--quick --local-store` for a SQLite smoke run of the two cipher variants, or `--reference --quick` to exercise the protocol with the synthetic test driver. Quick aggregate results go under `--scratch`. Complete synthetic results default to `<scratch>/complete`.
+
+For a long run, split accounts into disjoint chunks, for example `--accounts 1-20` and `--accounts acct-0021..acct-0040`. A single bare number selects the first N accounts, and lists accept names, numbers and comma-separated ranges. Merge the complete files with `python bench\replay_detect.py --merge <chunk1.json> <chunk2.json>`. The merge checks the scenario, virtual window, variants, repeats, store, corpus and backend versions before recomputing the comparisons. It reports coverage and records any omitted accounts in the complete file. Use `--until SECONDS` for a shorter window or `--no-repeat` for one sizing run with determinism unchecked.
+
+For an export, the complete file and working logs go outside the repository. With no `--private-dir` they go to `results/` and `work/` next to the scenario. With an explicit private directory the logs go in its `work/` subdirectory. Split scenarios are removed at the end of each account lane. The results in `bench/results/` contain counts and field summaries. Use `python bench\report.py <aggregate-results.json>` to render them.
+
+The schedule comes from the recording. This replay does not exercise the worker's own scheduling, production concurrency, network latency or real Redis. The launcher blocks outbound geocoder lookups and the comparison omits address text. The export has one car per account and the demo also covers a two-car account. Wall times are progress and sizing notes.
 
 ## How to run
 

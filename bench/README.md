@@ -34,7 +34,7 @@ The micro-benchmark tables and "VehicleRealtimeData at every level" were measure
 - **Reply models:** openbyd is 2.5 to 4.8 times faster on every model. The full realtime reply takes 100 us in pyBYD and 27 us in openbyd (36 us in 0.1.1), and 96 against 25 us on Linux. An earlier version of this page showed openbyd slower here; that was before three optimisation passes.
 - **CPU per poll cycle:** about 250 ms in pyBYD (314 ms at 1000 accounts). The fast implementations, run again on 2026-11-20 (`results/partial-load-20261120-013842.json`, three runs each): 2.9 to 3.6 ms in pyBYD with the Rust cipher (3.5 to 5.2 in 0.1.1), 0.8 to 1.0 ms in openbyd on one worker thread (1.6 to 2.4), 1.3 to 3.6 ms on the default workers (3.4 to 5.2). Memory per account did not change.
 - **Memory per account:** about 950 KiB in pyBYD, 113 to 148 KiB with the Rust cipher, 89 to 226 KiB in openbyd on one worker thread.
-- **Idle MQTT connection:** 727 KiB and one thread in pyBYD; 54 to 80 KiB and no extra thread in openbyd.
+- **Idle MQTT connection:** 727 KiB and one thread in pyBYD; 54 to 80 KiB and no extra thread in openbyd 0.1.1, and 100 to 130 KiB since the switch to rumqttc-next (see "Idle MQTT connections").
 
 ### Where openbyd is not faster
 
@@ -207,6 +207,8 @@ N connections to the TLS test broker (a separate process), each subscribed to it
 | openbyd MqttRuntime (tokio) | 1000 | 54 KiB | 59 MiB | 59 MiB | 29 | 1 | 0.00% of a core | 1000 / 1000 |
 
 *Source: `bench/results/mqtt_idle-20261119-212928.json`*
+
+**Since the switch to rumqttc-next** (rumqttc-v5-next 0.34.0, replacing rumqttc 0.25.1), an idle openbyd connection costs about 45 KiB more. In three runs of each version, alternating, on 2026-11-20: 130 KiB per connection at 200 (78 KiB before) and 100 KiB at 1000 (55 KiB before), about 104 MiB resident for 1000 connections. Threads, idle CPU, connect time and connect success did not change. Most of the extra is allocated inside the library for every connection: four 65,536-bit packet-identifier tables where rumqttc 0.25.1 had one (+24 KiB), and an event queue reserved for 128 events of 400 bytes instead of 100 of 392 (+13 KiB). Message delivery (3 KB pushes; round trip, a 50,000-message burst, 500 connections at once) was level within the run-to-run spread.
 
 ## What each benchmark measures, and why
 

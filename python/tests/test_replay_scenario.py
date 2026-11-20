@@ -16,7 +16,13 @@ from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
-from sqlalchemy import text
+
+try:
+    from sqlalchemy import text
+except ImportError:  # the tests of the exporter's statements need SQLAlchemy; the rest do not
+    text = None
+
+needs_sqlalchemy = pytest.mark.skipif(text is None, reason="SQLAlchemy is not installed")
 
 from bench.replay import export_prod, generate, privacy, scenario
 
@@ -506,6 +512,7 @@ class _FakeSessions:
             self.open = False
 
 
+@needs_sqlalchemy
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mode", ["inventory", "dry-run", "events"])
 async def test_database_queries_are_read_only_bounded_and_paginated(monkeypatch, mode):
@@ -611,6 +618,7 @@ def test_default_window_ends_ten_minutes_ago_on_a_minute_boundary():
     assert export_prod._default_until(now) == START + timedelta(hours=2, minutes=1)
 
 
+@needs_sqlalchemy
 @pytest.mark.asyncio
 async def test_explain_projects_only_safe_plan_fields_in_bounded_read_only_transactions():
     private = "A" * 17

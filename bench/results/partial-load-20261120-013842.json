@@ -1,0 +1,855 @@
+{
+ "benchmark": "load",
+ "quick": false,
+ "date": "2026-11-20T01:38:42+02:00",
+ "machine": {
+  "cpu": "AMD Ryzen 9 5900X 12-Core Processor",
+  "cores_logical": 24,
+  "cores_physical": 12,
+  "memory_gib": 63.9,
+  "os": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.13",
+  "python_implementation": "CPython",
+  "rust": "rustc 1.100.0 (0ef1bc386 2026-11-09)"
+ },
+ "versions": {
+  "openbyd_commit": "43a53d5cf00da6281bfe1b0a206232a840f7bf2d",
+  "openbyd_branch": "perf/realtime-profile",
+  "openbyd_dirty": true,
+  "openbyd_package_version": "0.1.1",
+  "pybyd_commit_pinned": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
+  "pybyd_commit_installed": "2c3d80648e8eeec50cd4f68f603abd3a01010fef"
+ },
+ "settings": {
+  "sizes": [
+   50,
+   200,
+   1000
+  ],
+  "cycles": 5,
+  "think_ms": 100,
+  "poll_interval_s": 0.05,
+  "server_delay_ms": 20,
+  "ramp_ms": 0,
+  "repeats": "3 (1 for quick runs, and for pyBYD at 200+ accounts)",
+  "requests_per_account": 37
+ },
+ "rows": [
+  {
+   "implementation": "pybyd_accel",
+   "label": "pyBYD + openbyd cipher",
+   "accounts": 50,
+   "cycles": 5,
+   "server": {
+    "requests": 1850,
+    "expected_requests": 1850,
+    "requests_ok": 1850,
+    "by_code": {
+     "0": 1850
+    },
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 50,
+     "/app/account/login": 50,
+     "/control/getGpsInfo": 250,
+     "/control/getGpsInfoResult": 250,
+     "/control/getStatusNow": 250,
+     "/control/smartCharge/homePage": 250,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 250,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 250,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 250
+    },
+    "connections": 50
+   },
+   "request_count_ok": true,
+   "reported": {
+    "implementation": "pybyd_accel",
+    "accounts": 50,
+    "cycles": 5,
+    "calls_ok": 1350,
+    "calls_failed": 0,
+    "errors": {},
+    "elapsed_s": 2.1351266000128817,
+    "loop_lag_ms": {
+     "median": 0.0,
+     "p99": 13.585899994941428,
+     "max": 18.021599981002506,
+     "samples": 261
+    }
+   },
+   "measured": {
+    "wall_s": 2.1375082999875303,
+    "cpu_s": 0.734375,
+    "cpu_user_s": 0.625,
+    "cpu_system_s": 0.109375,
+    "rss_before_mib": 58.80859375,
+    "rss_after_mib": 61.31640625,
+    "rss_peak_mib": 65.16015625,
+    "rss_peak_source": "os",
+    "threads_before": 8,
+    "threads_peak": 22,
+    "samples": 66,
+    "system_cpu_percent": 7.4
+   },
+   "derived": {
+    "cpu_ms_per_cycle": 2.9375,
+    "cpu_ms_per_request": 0.3969594594594595,
+    "memory_per_account_kib": 130.08,
+    "memory_end_per_account_kib": 51.36,
+    "requests_per_s": 865.4937152809149,
+    "cpu_utilisation": 0.3435659173834713
+   },
+   "repeats": {
+    "runs": 3,
+    "cpu_ms_per_cycle": {
+     "median": 2.9375,
+     "min": 2.75,
+     "max": 3.125,
+     "spread": 0.1276595744680851,
+     "n": 3
+    },
+    "memory_per_account_kib": {
+     "median": 128.4,
+     "min": 128.24,
+     "max": 130.08,
+     "spread": 0.014330218068535851,
+     "n": 3
+    },
+    "requests_per_s": {
+     "median": 865.4937152809149,
+     "min": 854.5961474268713,
+     "max": 887.085095917623,
+     "spread": 0.03753805246316166,
+     "n": 3
+    },
+    "all_request_counts_ok": true,
+    "all_calls_failed": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "implementation": "openbyd_1",
+   "label": "openbyd native, 1 worker",
+   "accounts": 50,
+   "cycles": 5,
+   "server": {
+    "requests": 1850,
+    "expected_requests": 1850,
+    "requests_ok": 1850,
+    "by_code": {
+     "0": 1850
+    },
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 50,
+     "/app/account/login": 50,
+     "/control/getGpsInfo": 250,
+     "/control/getGpsInfoResult": 250,
+     "/control/getStatusNow": 250,
+     "/control/smartCharge/homePage": 250,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 250,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 250,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 250
+    },
+    "connections": 99
+   },
+   "request_count_ok": true,
+   "reported": {
+    "implementation": "openbyd",
+    "workers": 1,
+    "accounts": 50,
+    "cycles": 5,
+    "calls_ok": 1350,
+    "calls_failed": 0,
+    "errors": {},
+    "elapsed_s": 2.2844976
+   },
+   "measured": {
+    "wall_s": 2.2846272999886423,
+    "cpu_s": 0.203125,
+    "cpu_user_s": 0.109375,
+    "cpu_system_s": 0.09375,
+    "rss_before_mib": 5.91015625,
+    "rss_after_mib": 16.4921875,
+    "rss_peak_mib": 17.21484375,
+    "rss_peak_source": "os",
+    "threads_before": 5,
+    "threads_peak": 6,
+    "samples": 71,
+    "system_cpu_percent": 5.8
+   },
+   "derived": {
+    "cpu_ms_per_cycle": 0.8125,
+    "cpu_ms_per_request": 0.1097972972972973,
+    "memory_per_account_kib": 231.52,
+    "memory_end_per_account_kib": 216.72,
+    "requests_per_s": 809.760086474147,
+    "cpu_utilisation": 0.08890946895408709
+   },
+   "repeats": {
+    "runs": 3,
+    "cpu_ms_per_cycle": {
+     "median": 0.8125,
+     "min": 0.6875,
+     "max": 1.25,
+     "spread": 0.6923076923076923,
+     "n": 3
+    },
+    "memory_per_account_kib": {
+     "median": 161.04,
+     "min": 160.24,
+     "max": 231.52,
+     "spread": 0.4426229508196722,
+     "n": 3
+    },
+    "requests_per_s": {
+     "median": 809.760086474147,
+     "min": 806.5886345224038,
+     "max": 813.9130740765278,
+     "spread": 0.009045197060793637,
+     "n": 3
+    },
+    "all_request_counts_ok": true,
+    "all_calls_failed": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "implementation": "openbyd_default",
+   "label": "openbyd native, default workers",
+   "accounts": 50,
+   "cycles": 5,
+   "server": {
+    "requests": 1850,
+    "expected_requests": 1850,
+    "requests_ok": 1850,
+    "by_code": {
+     "0": 1850
+    },
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 50,
+     "/app/account/login": 50,
+     "/control/getGpsInfo": 250,
+     "/control/getGpsInfoResult": 250,
+     "/control/getStatusNow": 250,
+     "/control/smartCharge/homePage": 250,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 250,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 250,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 250
+    },
+    "connections": 50
+   },
+   "request_count_ok": true,
+   "reported": {
+    "implementation": "openbyd",
+    "workers": 24,
+    "accounts": 50,
+    "cycles": 5,
+    "calls_ok": 1350,
+    "calls_failed": 0,
+    "errors": {},
+    "elapsed_s": 2.2469377
+   },
+   "measured": {
+    "wall_s": 2.2470787999918684,
+    "cpu_s": 0.328125,
+    "cpu_user_s": 0.21875,
+    "cpu_system_s": 0.109375,
+    "rss_before_mib": 5.9609375,
+    "rss_after_mib": 25.82421875,
+    "rss_peak_mib": 27.03515625,
+    "rss_peak_source": "os",
+    "threads_before": 28,
+    "threads_peak": 29,
+    "samples": 69,
+    "system_cpu_percent": 8.5
+   },
+   "derived": {
+    "cpu_ms_per_cycle": 1.3125,
+    "cpu_ms_per_request": 0.17736486486486486,
+    "memory_per_account_kib": 431.6,
+    "memory_end_per_account_kib": 406.8,
+    "requests_per_s": 823.2911102212769,
+    "cpu_utilisation": 0.14602291650884133
+   },
+   "repeats": {
+    "runs": 3,
+    "cpu_ms_per_cycle": {
+     "median": 1.3125,
+     "min": 1.125,
+     "max": 5.8125,
+     "spread": 3.5714285714285716,
+     "n": 3
+    },
+    "memory_per_account_kib": {
+     "median": 431.6,
+     "min": 400.72,
+     "max": 449.2,
+     "spread": 0.1123262279888785,
+     "n": 3
+    },
+    "requests_per_s": {
+     "median": 822.1284995827491,
+     "min": 817.1961029843172,
+     "max": 823.2911102212769,
+     "spread": 0.007413691703976951,
+     "n": 3
+    },
+    "all_request_counts_ok": true,
+    "all_calls_failed": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "implementation": "pybyd_accel",
+   "label": "pyBYD + openbyd cipher",
+   "accounts": 200,
+   "cycles": 5,
+   "server": {
+    "requests": 7400,
+    "expected_requests": 7400,
+    "requests_ok": 7400,
+    "by_code": {
+     "0": 7400
+    },
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 200,
+     "/app/account/login": 200,
+     "/control/getGpsInfo": 1000,
+     "/control/getGpsInfoResult": 1000,
+     "/control/getStatusNow": 1000,
+     "/control/smartCharge/homePage": 1000,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 1000,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1000,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 1000
+    },
+    "connections": 200
+   },
+   "request_count_ok": true,
+   "reported": {
+    "implementation": "pybyd_accel",
+    "accounts": 200,
+    "cycles": 5,
+    "calls_ok": 5400,
+    "calls_failed": 0,
+    "errors": {},
+    "elapsed_s": 3.182408199994825,
+    "loop_lag_ms": {
+     "median": 4.271699998062104,
+     "p99": 60.92329999431968,
+     "max": 98.93819999182597,
+     "samples": 176
+    }
+   },
+   "measured": {
+    "wall_s": 3.188361199980136,
+    "cpu_s": 2.953125,
+    "cpu_user_s": 2.65625,
+    "cpu_system_s": 0.296875,
+    "rss_before_mib": 58.75,
+    "rss_after_mib": 65.81640625,
+    "rss_peak_mib": 81.82421875,
+    "rss_peak_source": "os",
+    "threads_before": 8,
+    "threads_peak": 37,
+    "samples": 97,
+    "system_cpu_percent": 10.9
+   },
+   "derived": {
+    "cpu_ms_per_cycle": 2.953125,
+    "cpu_ms_per_request": 0.39907094594594594,
+    "memory_per_account_kib": 118.14,
+    "memory_end_per_account_kib": 36.18,
+    "requests_per_s": 2320.941554566058,
+    "cpu_utilisation": 0.9262203416659313
+   },
+   "repeats": {
+    "runs": 3,
+    "cpu_ms_per_cycle": {
+     "median": 2.953125,
+     "min": 2.859375,
+     "max": 2.96875,
+     "spread": 0.037037037037037035,
+     "n": 3
+    },
+    "memory_per_account_kib": {
+     "median": 119.24,
+     "min": 118.14,
+     "max": 119.96,
+     "spread": 0.015263334451526276,
+     "n": 3
+    },
+    "requests_per_s": {
+     "median": 2362.721943793032,
+     "min": 2320.941554566058,
+     "max": 2364.967392865216,
+     "spread": 0.018633524954053748,
+     "n": 3
+    },
+    "all_request_counts_ok": true,
+    "all_calls_failed": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "implementation": "openbyd_1",
+   "label": "openbyd native, 1 worker",
+   "accounts": 200,
+   "cycles": 5,
+   "server": {
+    "requests": 7400,
+    "expected_requests": 7400,
+    "requests_ok": 7400,
+    "by_code": {
+     "0": 7400
+    },
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 200,
+     "/app/account/login": 200,
+     "/control/getGpsInfo": 1000,
+     "/control/getGpsInfoResult": 1000,
+     "/control/getStatusNow": 1000,
+     "/control/smartCharge/homePage": 1000,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 1000,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1000,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 1000
+    },
+    "connections": 400
+   },
+   "request_count_ok": true,
+   "reported": {
+    "implementation": "openbyd",
+    "workers": 1,
+    "accounts": 200,
+    "cycles": 5,
+    "calls_ok": 5400,
+    "calls_failed": 0,
+    "errors": {},
+    "elapsed_s": 2.4112108
+   },
+   "measured": {
+    "wall_s": 2.4113576999807265,
+    "cpu_s": 0.875,
+    "cpu_user_s": 0.5625,
+    "cpu_system_s": 0.3125,
+    "rss_before_mib": 5.41796875,
+    "rss_after_mib": 23.46875,
+    "rss_peak_mib": 27.4375,
+    "rss_peak_source": "os",
+    "threads_before": 5,
+    "threads_peak": 6,
+    "samples": 75,
+    "system_cpu_percent": 9.9
+   },
+   "derived": {
+    "cpu_ms_per_cycle": 0.875,
+    "cpu_ms_per_request": 0.11824324324324324,
+    "memory_per_account_kib": 112.74,
+    "memory_end_per_account_kib": 92.42,
+    "requests_per_s": 3068.8105709323618,
+    "cpu_utilisation": 0.3628661148061914
+   },
+   "repeats": {
+    "runs": 3,
+    "cpu_ms_per_cycle": {
+     "median": 0.875,
+     "min": 0.859375,
+     "max": 0.875,
+     "spread": 0.017857142857142856,
+     "n": 3
+    },
+    "memory_per_account_kib": {
+     "median": 112.74,
+     "min": 112.14,
+     "max": 115.16,
+     "spread": 0.026787298208266773,
+     "n": 3
+    },
+    "requests_per_s": {
+     "median": 3068.8105709323618,
+     "min": 3039.832319544823,
+     "max": 3143.717732559716,
+     "spread": 0.03385201224177569,
+     "n": 3
+    },
+    "all_request_counts_ok": true,
+    "all_calls_failed": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "implementation": "openbyd_default",
+   "label": "openbyd native, default workers",
+   "accounts": 200,
+   "cycles": 5,
+   "server": {
+    "requests": 7400,
+    "expected_requests": 7400,
+    "requests_ok": 7400,
+    "by_code": {
+     "0": 7400
+    },
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 200,
+     "/app/account/login": 200,
+     "/control/getGpsInfo": 1000,
+     "/control/getGpsInfoResult": 1000,
+     "/control/getStatusNow": 1000,
+     "/control/smartCharge/homePage": 1000,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 1000,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1000,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 1000
+    },
+    "connections": 296
+   },
+   "request_count_ok": true,
+   "reported": {
+    "implementation": "openbyd",
+    "workers": 24,
+    "accounts": 200,
+    "cycles": 5,
+    "calls_ok": 5400,
+    "calls_failed": 0,
+    "errors": {},
+    "elapsed_s": 2.2911872
+   },
+   "measured": {
+    "wall_s": 2.291341599979205,
+    "cpu_s": 1.8125,
+    "cpu_user_s": 0.8125,
+    "cpu_system_s": 1.0,
+    "rss_before_mib": 5.984375,
+    "rss_after_mib": 41.88671875,
+    "rss_peak_mib": 46.1328125,
+    "rss_peak_source": "os",
+    "threads_before": 28,
+    "threads_peak": 29,
+    "samples": 68,
+    "system_cpu_percent": 11.5
+   },
+   "derived": {
+    "cpu_ms_per_cycle": 1.8125,
+    "cpu_ms_per_request": 0.24493243243243243,
+    "memory_per_account_kib": 205.56,
+    "memory_end_per_account_kib": 183.82,
+    "requests_per_s": 3229.549011839683,
+    "cpu_utilisation": 0.7910212951296521
+   },
+   "repeats": {
+    "runs": 3,
+    "cpu_ms_per_cycle": {
+     "median": 1.8125,
+     "min": 1.796875,
+     "max": 1.890625,
+     "spread": 0.05172413793103448,
+     "n": 3
+    },
+    "memory_per_account_kib": {
+     "median": 210.04,
+     "min": 205.56,
+     "max": 210.76,
+     "spread": 0.02475718910683674,
+     "n": 3
+    },
+    "requests_per_s": {
+     "median": 3229.549011839683,
+     "min": 3222.3448890724817,
+     "max": 3242.3448129665153,
+     "spread": 0.006192791569569903,
+     "n": 3
+    },
+    "all_request_counts_ok": true,
+    "all_calls_failed": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "implementation": "pybyd_accel",
+   "label": "pyBYD + openbyd cipher",
+   "accounts": 1000,
+   "cycles": 5,
+   "server": {
+    "requests": 37000,
+    "expected_requests": 37000,
+    "requests_ok": 37000,
+    "by_code": {
+     "0": 37000
+    },
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 1000,
+     "/app/account/login": 1000,
+     "/control/getGpsInfo": 5000,
+     "/control/getGpsInfoResult": 5000,
+     "/control/getStatusNow": 5000,
+     "/control/smartCharge/homePage": 5000,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 5000,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 5000,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 5000
+    },
+    "connections": 1000
+   },
+   "request_count_ok": true,
+   "reported": {
+    "implementation": "pybyd_accel",
+    "accounts": 1000,
+    "cycles": 5,
+    "calls_ok": 27000,
+    "calls_failed": 0,
+    "errors": {},
+    "elapsed_s": 17.79704980002134,
+    "loop_lag_ms": {
+     "median": 302.7355499891564,
+     "p99": 436.409299998777,
+     "max": 498.47120000980794,
+     "samples": 68
+    }
+   },
+   "measured": {
+    "wall_s": 17.80047009998816,
+    "cpu_s": 17.765625,
+    "cpu_user_s": 15.765625,
+    "cpu_system_s": 2.0,
+    "rss_before_mib": 59.12890625,
+    "rss_after_mib": 89.76953125,
+    "rss_peak_mib": 169.9140625,
+    "rss_peak_source": "os",
+    "threads_before": 8,
+    "threads_peak": 37,
+    "samples": 530,
+    "system_cpu_percent": 10.7
+   },
+   "derived": {
+    "cpu_ms_per_cycle": 3.553125,
+    "cpu_ms_per_request": 0.48015202702702703,
+    "memory_per_account_kib": 113.444,
+    "memory_end_per_account_kib": 31.376,
+    "requests_per_s": 2078.596789419882,
+    "cpu_utilisation": 0.9980424618118269
+   },
+   "repeats": {
+    "runs": 3,
+    "cpu_ms_per_cycle": {
+     "median": 3.553125,
+     "min": 3.546875,
+     "max": 3.596875,
+     "spread": 0.014072119613016661,
+     "n": 3
+    },
+    "memory_per_account_kib": {
+     "median": 112.18,
+     "min": 111.708,
+     "max": 113.444,
+     "spread": 0.015475129256552006,
+     "n": 3
+    },
+    "requests_per_s": {
+     "median": 2078.596789419882,
+     "min": 2037.7849724550904,
+     "max": 2082.2474108232523,
+     "spread": 0.021390602830946813,
+     "n": 3
+    },
+    "all_request_counts_ok": true,
+    "all_calls_failed": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "implementation": "openbyd_1",
+   "label": "openbyd native, 1 worker",
+   "accounts": 1000,
+   "cycles": 5,
+   "server": {
+    "requests": 37000,
+    "expected_requests": 37000,
+    "requests_ok": 37000,
+    "by_code": {
+     "0": 37000
+    },
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 1000,
+     "/app/account/login": 1000,
+     "/control/getGpsInfo": 5000,
+     "/control/getGpsInfoResult": 5000,
+     "/control/getStatusNow": 5000,
+     "/control/smartCharge/homePage": 5000,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 5000,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 5000,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 5000
+    },
+    "connections": 1728
+   },
+   "request_count_ok": true,
+   "reported": {
+    "implementation": "openbyd",
+    "workers": 1,
+    "accounts": 1000,
+    "cycles": 5,
+    "calls_ok": 27000,
+    "calls_failed": 0,
+    "errors": {},
+    "elapsed_s": 5.2547029
+   },
+   "measured": {
+    "wall_s": 5.254831099999137,
+    "cpu_s": 5.078125,
+    "cpu_user_s": 3.375,
+    "cpu_system_s": 1.703125,
+    "rss_before_mib": 5.42578125,
+    "rss_after_mib": 72.08984375,
+    "rss_peak_mib": 90.5234375,
+    "rss_peak_source": "os",
+    "threads_before": 5,
+    "threads_peak": 6,
+    "samples": 157,
+    "system_cpu_percent": 14.8
+   },
+   "derived": {
+    "cpu_ms_per_cycle": 1.015625,
+    "cpu_ms_per_request": 0.13724662162162163,
+    "memory_per_account_kib": 87.14,
+    "memory_end_per_account_kib": 68.264,
+    "requests_per_s": 7041.139723787902,
+    "cpu_utilisation": 0.9663726394556875
+   },
+   "repeats": {
+    "runs": 3,
+    "cpu_ms_per_cycle": {
+     "median": 1.015625,
+     "min": 0.96875,
+     "max": 1.025,
+     "spread": 0.055384615384615296,
+     "n": 3
+    },
+    "memory_per_account_kib": {
+     "median": 87.132,
+     "min": 82.496,
+     "max": 87.14,
+     "spread": 0.053298443740531665,
+     "n": 3
+    },
+    "requests_per_s": {
+     "median": 6938.942649524009,
+     "min": 6901.2431545224445,
+     "max": 7041.139723787902,
+     "spread": 0.020161078759608122,
+     "n": 3
+    },
+    "all_request_counts_ok": true,
+    "all_calls_failed": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "implementation": "openbyd_default",
+   "label": "openbyd native, default workers",
+   "accounts": 1000,
+   "cycles": 5,
+   "server": {
+    "requests": 37000,
+    "expected_requests": 37000,
+    "requests_ok": 37000,
+    "by_code": {
+     "0": 37000
+    },
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 1000,
+     "/app/account/login": 1000,
+     "/control/getGpsInfo": 5000,
+     "/control/getGpsInfoResult": 5000,
+     "/control/getStatusNow": 5000,
+     "/control/smartCharge/homePage": 5000,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 5000,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 5000,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 5000
+    },
+    "connections": 3103
+   },
+   "request_count_ok": false,
+   "reported": {
+    "implementation": "openbyd",
+    "workers": 24,
+    "accounts": 1000,
+    "cycles": 5,
+    "calls_ok": 27000,
+    "calls_failed": 0,
+    "errors": {},
+    "elapsed_s": 3.0017241
+   },
+   "measured": {
+    "wall_s": 3.0083507999952417,
+    "cpu_s": 18.03125,
+    "cpu_user_s": 3.859375,
+    "cpu_system_s": 14.171875,
+    "rss_before_mib": 5.9609375,
+    "rss_after_mib": 140.203125,
+    "rss_peak_mib": 151.02734375,
+    "rss_peak_source": "os",
+    "threads_before": 28,
+    "threads_peak": 29,
+    "samples": 76,
+    "system_cpu_percent": 42.5
+   },
+   "derived": {
+    "cpu_ms_per_cycle": 3.60625,
+    "cpu_ms_per_request": 0.4873310810810811,
+    "memory_per_account_kib": 148.548,
+    "memory_end_per_account_kib": 137.464,
+    "requests_per_s": 12299.097565369877,
+    "cpu_utilisation": 5.993732512853395
+   },
+   "repeats": {
+    "runs": 3,
+    "cpu_ms_per_cycle": {
+     "median": 3.60625,
+     "min": 2.33125,
+     "max": 7.1,
+     "spread": 1.3223570190641247,
+     "n": 3
+    },
+    "memory_per_account_kib": {
+     "median": 148.548,
+     "min": 106.292,
+     "max": 153.048,
+     "spread": 0.31475348035651773,
+     "n": 3
+    },
+    "requests_per_s": {
+     "median": 12299.097565369877,
+     "min": 2345.0097732442896,
+     "max": 14132.854099701131,
+     "spread": 0.9584316462085354,
+     "n": 3
+    },
+    "all_request_counts_ok": false,
+    "all_calls_failed": [
+     0,
+     6050,
+     0
+    ]
+   }
+  }
+ ]
+}

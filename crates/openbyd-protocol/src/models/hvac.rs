@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields, byd_enum, enum_call, enum_field};
+use super::base::{self, BydModel, Fields, Plan, byd_enum, enum_call, enum_field};
 use super::realtime::{
     AirCirculationMode, SeatHeatVentState, StearingWheelHeat, is_steering_wheel_heating,
     steering_wheel_heat,
@@ -260,7 +260,8 @@ impl BydModel for HvacStatus {
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let values = unwrap_status_now(raw);
-        let mut fields = Fields::cleaned(&values, KEY_ALIASES)?;
+        static PLAN: Plan = Plan::new(KEY_ALIASES);
+        let mut fields = Fields::planned(&PLAN, &values, &[])?;
         let float = coerce::float;
         let int = coerce::int;
         let mut model = Self {

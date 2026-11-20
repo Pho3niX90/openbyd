@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use serde::Serialize;
 use serde_json::{Map, Value};
 
-use super::base::{self, BydModel, Fields, PyDateTime, aliased};
+use super::base::{self, BydModel, Fields, Plan, PyDateTime, aliased};
 use crate::coerce::{self, ValidationError};
 use crate::parity::Outcome;
 
@@ -57,7 +57,8 @@ impl BydModel for GpsInfo {
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let values = flatten_nested_data(raw);
-        let mut fields = Fields::cleaned(&values, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, &values, &[])?;
         let model = Self {
             raw: fields.raw(),
             latitude: fields.opt("latitude", coerce::float),

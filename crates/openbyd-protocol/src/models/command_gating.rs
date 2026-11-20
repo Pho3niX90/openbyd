@@ -15,7 +15,7 @@ use std::sync::LazyLock;
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields};
+use super::base::{self, BydModel, Fields, Plan};
 use super::control::RemoteCommand;
 use super::latest_config::VehicleCapabilities;
 use crate::coerce::{self, ValidationError};
@@ -48,7 +48,8 @@ impl BydModel for CommandGateRule {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let strings = |value: &Value| coerce::list(value, coerce::string);
         let raw = fields.raw();
         let gate_id = fields.required("gate_id", coerce::string);
@@ -97,7 +98,8 @@ impl BydModel for CommandGateVerdict {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let strings = |value: &Value| coerce::list(value, coerce::string);
         let raw = fields.raw();
         let command = fields.required("command", |value| coerce::str_enum(value).map(Some));

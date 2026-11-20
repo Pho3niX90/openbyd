@@ -6,7 +6,10 @@
 //!    its base's, and within a class the last defined runs first);
 //! 2. `BydBaseModel._clean_byd_values`: key aliases, sentinel stripping and
 //!    the `raw` copy ([`clean_byd_values`]);
-//! 3. one conversion per field, in declaration order ([`Fields`]);
+//! 3. one conversion per field, in declaration order ([`Fields`], which
+//!    a model builds with [`Fields::planned`] so that, after its first
+//!    successful parse, the reads follow the model's recorded [`Plan`]
+//!    instead of hashing every key);
 //! 4. the `mode="after"` validators, base first: `_normalise_sentinels`
 //!    ([`clear_if`]) and then the subclass's own.
 //!
@@ -26,6 +29,10 @@ use crate::coerce::{
     self, Failures, IntEnum, ValidationError, py_decimal, py_is_digit, py_is_space, py_strip,
 };
 use crate::parity::{Args, Outcome, ParityError};
+
+mod plan;
+
+pub use plan::Plan;
 
 /// Strings the BYD API uses for "not available"; matched after `str.strip()`.
 pub const SENTINELS: &[&str] = &["", "--", "NaN", "nan"];
@@ -963,6 +970,9 @@ pub struct Fields<'a> {
     /// Whether this reads the reply [`BydModel::parse_owned`] was given, so
     /// [`Fields::raw`] may leave `raw` for it to move in.
     owns_reply: bool,
+    /// Whether a read was skipped because an escaping error stopped the
+    /// reads, so this parse must not be recorded as the model's [`Plan`].
+    cut_short: bool,
 }
 
 /// The reply [`BydModel::parse_owned`] is parsing, by address, while it parses.
@@ -1024,6 +1034,15 @@ enum Keys<'a> {
     /// A dict with `_clean_byd_values` applied, as a table of borrowed
     /// entries; sentinels are still in it and read as absent.
     Cleaned(HashMap<&'a str, &'a Value, KeyHashing>),
+    /// [`Keys::Cleaned`] for a model whose [`Plan`] is not recorded yet:
+    /// the reads are kept, to become the plan if this parse succeeds.
+    Recording {
+        table: HashMap<&'a str, &'a Value, KeyHashing>,
+        plan: &'static Plan,
+        reads: RefCell<Vec<Field>>,
+    },
+    /// The same dict read through the model's recorded [`Plan`].
+    Planned(plan::Planned<'a>),
 }
 
 /// Whether `_clean_dict` drops the value: null, or a string that is a sentinel after `str.strip()`.
@@ -1114,6 +1133,7 @@ impl<'a> Fields<'a> {
                 camel_case: true,
                 failures: Failures::default(),
                 owns_reply: false,
+                cut_short: false,
             }),
             _ => Err(ValidationError::new("model_type")),
         }
@@ -1161,23 +1181,67 @@ impl<'a> Fields<'a> {
         }
     }
 
+    /// [`Fields::cleaned_with_changes`] for a model with a [`Plan`], which
+    /// holds the model's key aliases: the same answers, read through the
+    /// plan once the model's first parse has recorded it. `changes` is `&[]`
+    /// for a model whose before-validator adds no keys.
+    pub fn planned(
+        plan: &'static Plan,
+        values: &'a Value,
+        changes: &'a [(&'a str, Value)],
+    ) -> Result<Self, ValidationError> {
+        let Value::Object(entries) = values else {
+            return Err(ValidationError::new("model_type"));
+        };
+        let keys = match plan.recorded() {
+            Some(recorded) => Keys::Planned(plan::Planned::new(
+                recorded,
+                plan.aliases(),
+                entries,
+                changes,
+                values,
+            )),
+            None => Keys::Recording {
+                table: clean_table(entries, changes, values, plan.aliases()),
+                plan,
+                reads: RefCell::new(Vec::new()),
+            },
+        };
+        Ok(Self {
+            keys,
+            camel_case: true,
+            failures: Failures::default(),
+            owns_reply: claim(values),
+            cut_short: false,
+        })
+    }
+
     fn from_table(table: HashMap<&'a str, &'a Value, KeyHashing>, owns_reply: bool) -> Self {
         Self {
             keys: Keys::Cleaned(table),
             camel_case: true,
             failures: Failures::default(),
             owns_reply,
+            cut_short: false,
         }
     }
 
     fn lookup(&self, key: &str) -> Option<&'a Value> {
         match &self.keys {
             Keys::Plain(values) => values.get(key),
-            Keys::Cleaned(table) => table.get(key).copied().filter(|value| !is_sentinel(value)),
+            Keys::Cleaned(table) | Keys::Recording { table, .. } => {
+                table.get(key).copied().filter(|value| !is_sentinel(value))
+            }
+            Keys::Planned(planned) => planned.lookup(key),
         }
     }
 
     fn find(&self, field: Field) -> Option<&'a Value> {
+        match &self.keys {
+            Keys::Planned(planned) => return planned.find(field),
+            Keys::Recording { reads, .. } => reads.borrow_mut().push(field),
+            Keys::Plain(_) | Keys::Cleaned(_) => {}
+        }
         if field.aliases.is_empty() {
             if self.camel_case {
                 let camel = camel_alias(field.name);
@@ -1210,6 +1274,7 @@ impl<'a> Fields<'a> {
     ) -> T {
         let field = field.into();
         if self.stopped() {
+            self.cut_short = true;
             return default;
         }
         let Some(value) = self.find(field) else {
@@ -1240,11 +1305,25 @@ impl<'a> Fields<'a> {
         convert: impl FnOnce(&Value) -> Result<T, ValidationError>,
     ) -> T {
         let field = field.into();
-        if !self.stopped() && self.find(field).is_none() {
-            self.record(ValidationError::new("missing").at(field.name));
+        if self.stopped() {
+            self.cut_short = true;
             return T::default();
         }
-        self.get(field, T::default(), convert)
+        // One lookup whether the key is there or not, so the reads a
+        // [`Plan`] records do not depend on the data.
+        let Some(value) = self.find(field) else {
+            self.record(ValidationError::new("missing").at(field.name));
+            return T::default();
+        };
+        // The default is made before the conversion runs, as `get` takes it.
+        let default = T::default();
+        match convert(value) {
+            Ok(converted) => converted,
+            Err(error) => {
+                self.record(error.at(field.name));
+                default
+            }
+        }
     }
 
     /// The `raw: dict[str, Any]` field every `BydBaseModel` has.
@@ -1265,12 +1344,35 @@ impl<'a> Fields<'a> {
                 return Map::new();
             }
         }
-        self.get("raw", Map::new(), coerce::any_dict)
+        // `self.get("raw", Map::new(), coerce::any_dict)`, without counting
+        // as a field read: whether `raw` is read depends on how the model is
+        // parsed (above), and a [`Plan`] needs the same reads every time.
+        if self.stopped() {
+            self.cut_short = true;
+            return Map::new();
+        }
+        match self.lookup("raw").map(coerce::any_dict) {
+            None => Map::new(),
+            Some(Ok(raw)) => raw,
+            Some(Err(error)) => {
+                self.record(error.at("raw"));
+                Map::new()
+            }
+        }
     }
 
-    /// The first error, if any field failed.
+    /// The first error, if any field failed. A parse that read every field
+    /// without an error records the model's [`Plan`] (if it has one and it
+    /// is not recorded yet).
     pub fn finish(self) -> Result<(), ValidationError> {
-        self.failures.finish()
+        let result = self.failures.finish();
+        if let Keys::Recording { plan, reads, .. } = self.keys
+            && result.is_ok()
+            && !self.cut_short
+        {
+            plan.record(&reads.into_inner());
+        }
+        result
     }
 }
 
@@ -1289,8 +1391,23 @@ pub trait BydModel: Serialize + Sized {
     /// the same model, without copying the reply where the model keeps it.
     ///
     /// A model whose `raw` is the whole reply takes the reply itself; see
-    /// [`Fields::raw`] and [`BydModel::raw_mut`].
+    /// [`Fields::raw`] and [`BydModel::raw_mut`]. This is
+    /// [`BydModel::parse_reply`] without the flag; override that one, not
+    /// this, so callers of either get the same model.
     fn parse_owned(raw: Value, context: &Value) -> Result<Self, ValidationError> {
+        Self::parse_reply(raw, context).map(|parsed| parsed.model)
+    }
+
+    /// [`BydModel::parse_owned`], also saying whether the model's `raw` is
+    /// the reply itself (moved in, so it holds exactly the reply given). The
+    /// Python bindings then build the dump's `raw` from the caller's own
+    /// objects instead of from the model.
+    ///
+    /// Override this in a model whose `parse` reads its own `raw` while the
+    /// model is built (`Vehicle`'s `_fill_missing_pics`): there `raw` cannot
+    /// be left empty for later, so parse by reference and report
+    /// `raw_is_reply: false`.
+    fn parse_reply(raw: Value, context: &Value) -> Result<ParsedReply<Self>, ValidationError> {
         let offer = Offer::new(&raw);
         let parsed = Self::parse(&raw, context);
         let taken = offer.taken();
@@ -1300,10 +1417,13 @@ pub trait BydModel: Serialize + Sized {
             match (model.raw_mut(), raw) {
                 (Some(slot), Value::Object(reply)) => *slot = reply,
                 // A model that cannot take it back is parsed again, copying.
-                (_, raw) => return Self::parse(&raw, context),
+                (_, raw) => return Self::parse(&raw, context).map(ParsedReply::copied),
             }
         }
-        Ok(model)
+        Ok(ParsedReply {
+            model,
+            raw_is_reply: taken,
+        })
     }
 
     /// The model's `raw` field, for [`BydModel::parse_owned`] and
@@ -1333,6 +1453,26 @@ pub trait BydModel: Serialize + Sized {
     /// `model_dump(mode="json")`.
     fn dump(&self) -> Value {
         serde_json::to_value(self).expect("models serialise to JSON")
+    }
+}
+
+/// A model from [`BydModel::parse_reply`], and where its `raw` came from.
+#[derive(Debug)]
+pub struct ParsedReply<M> {
+    /// The model, the same as [`BydModel::parse`] gives.
+    pub model: M,
+    /// Whether the model's `raw` is the reply itself, moved in: then the
+    /// dump's `raw` is exactly the reply that was parsed.
+    pub raw_is_reply: bool,
+}
+
+impl<M> ParsedReply<M> {
+    /// A model whose `raw` is not the reply itself (or that has none).
+    pub fn copied(model: M) -> Self {
+        Self {
+            model,
+            raw_is_reply: false,
+        }
     }
 }
 
@@ -1723,6 +1863,63 @@ mod tests {
             same_both_ways::<Probe<true>>(input);
             same_both_ways::<Probe<false>>(input);
         }
+    }
+
+    /// A model that reads its own `raw` while it is built, so it overrides
+    /// `parse_reply` to parse by reference (as `Vehicle` does).
+    #[derive(Debug, PartialEq, Serialize)]
+    struct ReadsRaw {
+        raw: Map<String, Value>,
+        keys: usize,
+    }
+
+    impl BydModel for ReadsRaw {
+        fn raw_mut(&mut self) -> Option<&mut Map<String, Value>> {
+            Some(&mut self.raw)
+        }
+
+        fn parse_reply(raw: Value, context: &Value) -> Result<ParsedReply<Self>, ValidationError> {
+            Self::parse(&raw, context).map(ParsedReply::copied)
+        }
+
+        fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
+            let mut fields = Fields::cleaned(raw, &[])?;
+            let raw = fields.raw();
+            fields.finish()?;
+            Ok(Self {
+                keys: raw.len(),
+                raw,
+            })
+        }
+    }
+
+    #[test]
+    fn parse_reply_says_whether_raw_is_the_reply() {
+        let reply = json!({"a": 1, "b": "--"});
+        // The whole reply is moved in.
+        let parsed = Probe::<true>::parse_reply(reply.clone(), &Value::Null).unwrap();
+        assert!(parsed.raw_is_reply);
+        assert_eq!(Value::Object(parsed.model.raw), reply);
+        // A model that cannot take it back copies, and says so.
+        let parsed = Probe::<false>::parse_reply(reply.clone(), &Value::Null).unwrap();
+        assert!(!parsed.raw_is_reply);
+        assert_eq!(Value::Object(parsed.model.raw), reply);
+        // The input's own `raw` key is not the reply.
+        let own = json!({"raw": {"own": 1}, "a": 2});
+        let parsed = Probe::<true>::parse_reply(own, &Value::Null).unwrap();
+        assert!(!parsed.raw_is_reply);
+        assert_eq!(Value::Object(parsed.model.raw), json!({"own": 1}));
+        let parsed = BydBaseModel::parse_reply(json!({"raw": "--"}), &Value::Null).unwrap();
+        assert!(!parsed.raw_is_reply && parsed.model.raw.is_empty());
+        // Failures stay failures.
+        assert!(Probe::<true>::parse_reply(json!([1]), &Value::Null).is_err());
+        // An override is what parse_owned uses too.
+        let parsed = ReadsRaw::parse_reply(reply.clone(), &Value::Null).unwrap();
+        assert!(!parsed.raw_is_reply);
+        assert_eq!(parsed.model.keys, 2);
+        let owned = ReadsRaw::parse_owned(reply.clone(), &Value::Null).unwrap();
+        assert_eq!(owned, ReadsRaw::parse(&reply, &Value::Null).unwrap());
+        assert_eq!(owned.keys, 2);
     }
 
     #[test]

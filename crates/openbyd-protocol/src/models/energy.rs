@@ -9,7 +9,7 @@
 use serde::Serialize;
 use serde_json::{Map, Value};
 
-use super::base::{self, BydModel, Fields, PyDateTime};
+use super::base::{self, BydModel, Fields, Plan, PyDateTime};
 use crate::coerce::{self, ValidationError};
 use crate::parity::Outcome;
 use crate::pyjson::py_float_from_str;
@@ -95,7 +95,8 @@ impl BydModel for EnergyConsumptionGraph {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             energy_consumption: fields.get("energy_consumption", Vec::new(), |value| {
@@ -147,7 +148,8 @@ impl BydModel for CumulativeEnergyConsumption {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             total_mileage: fields.get("total_mileage", None, |value| Ok(to_float(value))),
@@ -207,7 +209,8 @@ impl BydModel for NearestEnergyConsumption {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             avg_ev_consumption: fields.get("avg_ev_consumption", None, |value| Ok(to_float(value))),
@@ -261,7 +264,8 @@ impl BydModel for EnergyConsumption {
     }
 
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, KEY_ALIASES)?;
+        static PLAN: Plan = Plan::new(KEY_ALIASES);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             self_graph: fields.opt("self_graph", |v| EnergyConsumptionGraph::parse(v, context)),

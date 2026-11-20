@@ -27,9 +27,9 @@ use std::time::{Duration, Instant};
 
 use bytes::BytesMut;
 use openbyd_protocol::aes::aes_encrypt_hex;
-use rumqttc::v5::mqttbytes::QoS;
-use rumqttc::v5::mqttbytes::v5::{
-    ConnAck, ConnectReturnCode, Packet, PingResp, Publish, SubAck, SubscribeReasonCode,
+use rumqttc::mqttbytes::QoS;
+use rumqttc::mqttbytes::v5::{
+    ConnAck, ConnectAuth, ConnectReturnCode, Packet, Publish, SubAck, SubscribeReasonCode,
 };
 use serde_json::Value;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -399,21 +399,16 @@ async fn serve(
     'connection: loop {
         // Every complete packet in the buffer.
         loop {
-            // rumqttc writes a plain DISCONNECT as `E0 00`, which its own
-            // decoder rejects (it wants a reason code), so read it here.
-            if buffer.starts_with(&[0xE0, 0x00]) {
-                record(Seen::Disconnect { conn });
-                break 'connection;
-            }
             match Packet::read(&mut buffer, None) {
                 Ok(packet) => {
                     let reply = match packet {
                         Packet::Connect(connect, _, login) => {
+                            let (username, password) = credentials(login);
                             record(Seen::Connect {
                                 conn,
                                 client_id: connect.client_id.clone(),
-                                username: login.as_ref().map(|login| login.username.clone()),
-                                password: login.as_ref().map(|login| login.password.clone()),
+                                username,
+                                password,
                                 keep_alive: connect.keep_alive,
                                 clean_start: connect.clean_start,
                                 max_packet_size: connect
@@ -468,9 +463,9 @@ async fn serve(
                                 properties: None,
                             }))
                         }
-                        Packet::PingReq(_) => {
+                        Packet::PingReq => {
                             record(Seen::PingReq { conn });
-                            Some(Packet::PingResp(PingResp))
+                            Some(Packet::PingResp)
                         }
                         Packet::Disconnect(_) => {
                             record(Seen::Disconnect { conn });
@@ -484,7 +479,7 @@ async fn serve(
                         break 'connection;
                     }
                 }
-                Err(rumqttc::v5::mqttbytes::Error::InsufficientBytes(_)) => break,
+                Err(rumqttc::mqttbytes::Error::InsufficientBytes(_)) => break,
                 Err(_) => break 'connection,
             }
         }
@@ -507,6 +502,19 @@ async fn serve(
     drop(stream);
     record(Seen::Closed { conn });
     state.open.fetch_sub(1, Ordering::SeqCst);
+}
+
+/// The user name and password of a CONNECT, the password read as UTF-8.
+fn credentials(auth: ConnectAuth) -> (Option<String>, Option<String>) {
+    let text = |password: bytes::Bytes| String::from_utf8_lossy(&password).into_owned();
+    match auth {
+        ConnectAuth::None => (None, None),
+        ConnectAuth::Username { username } => (Some(username), None),
+        ConnectAuth::Password { password } => (None, Some(text(password))),
+        ConnectAuth::UsernamePassword { username, password } => {
+            (Some(username), Some(text(password)))
+        }
+    }
 }
 
 async fn write(

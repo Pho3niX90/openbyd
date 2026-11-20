@@ -13,7 +13,7 @@ use openbyd_client::mqtt::{
 };
 use openbyd_client::testing::broker::{Seen, TestBroker as Broker, WAIT, runtime_options, sealed};
 use openbyd_protocol::aes::aes_encrypt_hex;
-use rumqttc::v5::mqttbytes::QoS;
+use rumqttc::mqttbytes::QoS;
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tokio::sync::broadcast;

@@ -68,12 +68,13 @@
 //!   to 120 s, reset only by a successful CONNACK. These are paho's
 //!   defaults (`reconnect_delay_set(1, 120)`, `_reconnect_wait`), without
 //!   jitter, as in paho.
-//! - **Keepalive**: rumqttc pings every keepalive period and drops the
-//!   connection when a ping goes unanswered until the next one; paho pings
-//!   only after a quiet period and drops after a further quiet period. Both
-//!   notice a dead broker within about two periods. A keepalive below 5
-//!   seconds (or 0, which paho reads as "no pings") is refused: rumqttc
-//!   requires at least 5.
+//! - **Keepalive**: rumqttc pings one keepalive period after the last
+//!   packet it sent, which for this subscribe-only client is every period,
+//!   and drops the connection when a ping goes unanswered until the next
+//!   one; paho pings only after a quiet period and drops after a further
+//!   quiet period. Both notice a dead broker within about two periods. A
+//!   keepalive below 5 seconds (or 0, which paho reads as "no pings") is
+//!   refused.
 //! - **Packet size**: rumqttc limits incoming packets to 10 KiB unless told
 //!   otherwise, which is too small for vehicle data, so the CONNECT carries
 //!   a Maximum Packet Size of [`MqttRuntimeOptions::max_packet_size`]
@@ -95,10 +96,12 @@ use std::time::Duration;
 
 use openbyd_protocol::mqtt::{MessageDecoder, MessageOutcome, MqttBootstrap, MqttEvent};
 use openbyd_protocol::redact::redact_for_log;
-use rumqttc::v5::mqttbytes::QoS;
-use rumqttc::v5::mqttbytes::v5::{Packet, Publish};
-use rumqttc::v5::{AsyncClient, ConnectionError, Event, EventLoop, MqttOptions};
-use rumqttc::{Outgoing, TlsConfiguration, Transport};
+use rumqttc::mqttbytes::QoS;
+use rumqttc::mqttbytes::v5::{Packet, Publish};
+use rumqttc::{
+    AsyncClient, Broker, ConnectionError, Event, EventLoop, MqttOptions, Outgoing,
+    TlsConfiguration, Transport,
+};
 use serde_json::Value;
 use tokio::sync::{broadcast, oneshot};
 use tokio::task::JoinHandle;
@@ -203,7 +206,7 @@ pub struct MqttStatus {
 pub enum MqttStartError {
     /// The bootstrap's port is not a TCP port.
     InvalidPort(i64),
-    /// The keepalive is below the 5 seconds rumqttc needs.
+    /// The keepalive is below 5 seconds.
     InvalidKeepalive(u16),
     /// The platform's root certificates could not be loaded.
     Certificates(String),
@@ -525,7 +528,12 @@ impl MqttRuntime {
         );
         let options = self.mqtt_options(bootstrap)?;
         lock(&self.shared.decoder).reset();
-        let (client, mut eventloop) = AsyncClient::new(options, 4);
+        // The only options the client rejects are zero limits, here a zero
+        // `max_packet_size`; report it like any other failed start.
+        let (client, mut eventloop) = AsyncClient::builder(options)
+            .capacity(4)
+            .try_build()
+            .map_err(|error| MqttStartError::Connect(error.to_string()))?;
         let first = eventloop.poll().await;
         let generation = self.shared.generation.fetch_add(1, Ordering::SeqCst) + 1;
         let mut task = Task {
@@ -587,14 +595,13 @@ impl MqttRuntime {
         };
         let mut options = MqttOptions::new(
             bootstrap.client_id.clone(),
-            bootstrap.broker_host.clone(),
-            port,
+            Broker::tcp(bootstrap.broker_host.clone(), port),
         );
         options
             .set_credentials(bootstrap.username.clone(), bootstrap.password.clone())
-            .set_keep_alive(Duration::from_secs(self.options.keepalive.into()))
+            .set_keep_alive(self.options.keepalive)
             .set_clean_start(true)
-            .set_connection_timeout(self.options.connect_timeout.as_secs().max(1))
+            .set_connect_timeout(self.options.connect_timeout.max(Duration::from_secs(1)))
             .set_max_packet_size(Some(self.options.max_packet_size))
             // Only QoS 0 is used: keep the in-flight table small.
             .set_outgoing_inflight_upper_limit(1)

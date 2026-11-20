@@ -38,7 +38,9 @@ hyper = { version = "1", default-features = false, features = ["client", "http1"
 hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "tls12", "ring", "webpki-roots"] }
 hyper-util = { version = "0.1", default-features = false, features = ["client-legacy", "http1", "tokio"] }
 # MQTT push channel (`mqtt.rs`): MQTT v5 with the platform's root certificates, as paho uses.
-rumqttc = { version = "0.25.1", default-features = false, features = ["use-rustls-no-provider"] }
+# rumqttc-next, the maintained fork of rumqttc (bytebeamio/rumqtt has had no release since
+# 0.25.1 and still pins the vulnerable rustls-webpki 0.102). Pinned: bump it deliberately.
+rumqttc = { package = "rumqttc-v5-next", version = "=0.34.0", default-features = false, features = ["use-rustls-no-provider"] }
 rustls-native-certs = "0.8"
 # The test broker (feature `testing`).
 bytes = { version = "1", optional = true }

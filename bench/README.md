@@ -256,6 +256,28 @@ No two runs agreed, not even two runs of the same code: where a drive or a charg
 
 *Source: `bench/results/replay_worker-20261120-035344.json`. It holds the measurements and the counts; the drives and charges themselves stay with the scenario.*
 
+### Replay: detections, deterministic
+
+**The three variants detect exactly the same drives and charges.** With the poll schedule taken from the recording and the clock virtual (`replay_detect.py`), every variant gave identical results in both of its runs, and the variants agree on every stored value. No tolerance was applied. The comparison covered every column of every closed drive and charge, and the drives and charges still open at the end.
+
+Run of 2026-11-20 on the same machine and the same export as above: the first 8 accounts (one car each), the first day of the 13 (86,400 s, 4,945 steps per run), all three variants twice. Backend commit `0cbe35e3` (the replay driver on top of the worker of `bench/replay-worker`), Python 3.12.13, pyBYD 0.0.85, openbyd 0.1.1, Postgres on tmpfs.
+
+| Variant | Drives | Charges | Open at the end | Cars with detections | Identical across 2 runs | Against the pyBYD-cipher worker |
+|---|---|---|---|---|---|---|
+| pyBYD cipher | 11 | 3 | 0 | 4 of 8 | Yes | (reference) |
+| openbyd cipher | 11 | 3 | 0 | 4 of 8 | Yes | Exactly equal |
+| openbyd cipher + shadow parsing | 11 | 3 | 0 | 4 of 8 | Yes | Exactly equal |
+
+*In every run 13 of the 4,945 steps ended with the account's MQTT subscription down, as many in every run. The launcher retried no connections and refused 2,686 geocoder lookups per run.*
+
+**A wider run, all 13 days.** Before the 8-account run, 25 accounts over the whole 13 days were replayed with all three variants twice. That run found 448 drives and 190 charges, plus 4 drives and 3 charges still open. Five of the six runs agreed exactly with one another, the pyBYD-cipher run against both openbyd variants included. The sixth was the second pyBYD-cipher run, and it split one charge in two. In that run Windows had refused one loopback connection (`WinError 52`, out of ephemeral ports), the worker took it for a BYD outage, and its re-login failed at exactly the moment the charge was cut. Nine such connection failures happened across the six runs. The other eight changed no detection, and the repeat check caught the one that did. The launcher now retries a loopback connection the machine itself failed (see the deterministic-replay section below). The 13-day run is therefore no proof of determinism, and its result file is not published. Its comparisons, made afterwards on the private file, found no difference between the variants beyond that one charge.
+
+**Against the real-time replay above.** In the real-time runs, 17 drives and 8 charges in 30 minutes ended minutes apart between any two runs, of one variant or of two. That spread comes from when the worker happens to poll, not from the cipher or the parsing. With the poll times fixed, no variant moves a drive or a charge by a second.
+
+**What this replay does not test:** the worker's own scheduling (the moments it polls are taken from the recording), concurrency between accounts in one worker, BYD's latency, real Redis, and the geocoder. Two-car accounts are covered only by the synthetic sample. The run covers 8 of the 100 accounts and 1 of the 13 days, to save machine time. The 13-day run above shows the same agreement over 25 accounts. The remaining accounts and days run with the same command (`--accounts`, `--until`, `--merge` for chunks).
+
+*Source: `bench/results/replay_detect-20261120-153535-769165.json` (aggregate figures only; the drives and charges stay with the scenario).*
+
 ## What each benchmark measures, and why
 
 ### Micro-benchmarks (`micro.py`)
@@ -328,6 +350,8 @@ A variant is one row of `VARIANTS` in `replay_worker.py`: a command and its envi
 The harness gives each account an in-process replay server and a separate guarded driver process. It advances the server's manual clock once per timeline second that has a state, error or push. The driver runs due timers, processes every push delivered by the broker, then polls the account's cars once if the schedule calls for it. A poll includes session recovery and MQTT resubscription before the next step can begin. A 1005 expiry schedules a poll. The [driver protocol](replay/DRIVER.md) describes the clock and MQTT barrier.
 
 The three cipher variants use the backend's detection code against a fresh Postgres database on tmpfs and session state in memory. Up to eight account lanes run side by side, with the longest timelines queued first. Each variant runs twice by default. The harness compares every stored detection value and the sessions still open at the end. It reports a failed repeat check before comparing variants. The start-time window only pairs detections for listing differences. A paired value must still agree exactly. Exit status is 0 for agreement, 1 for a failed run or repeat check, and 2 for confirmed variant differences.
+
+A run makes hundreds of thousands of short connections to the replay servers, and Windows can run out of ephemeral ports: a connect to `127.0.0.1` then fails (`WinError 52`), the worker takes it for a BYD outage, and its detections change. The first run on the export showed exactly that. Nine connects failed across six runs, and in one of them a re-login that failed split one charge in two, so the repeat check failed. The launcher therefore retries a loopback connect that the machine itself failed (`--retry-local-connects`). Nothing was sent, so the replay server never sees the attempt. The results record each retry as `connect_retries`, and a connect that fails every try fails the run.
 
 Run from the openbyd checkout with the extension built with the testing feature. Use a separate backend checkout containing `scripts/replay_driver.py` and its installed Python environment:
 

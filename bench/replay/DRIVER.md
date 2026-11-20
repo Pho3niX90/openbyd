@@ -92,6 +92,7 @@ Two runs of one variant on one scenario must give identical detections, to the l
 - **No real waiting as logic.** A sleep in the variant's code (between two reads of a result, before a retry) returns at once or becomes an internal timer; it never decides anything by how long it really took.
 - **No free-running tasks.** A command's answer is sent only when everything it caused has finished.
 - **One MQTT connection per account at a time**, so that the broker's count of delivered pushes is the count the driver waits for.
+- **No outage the scenario does not hold.** Hundreds of thousands of short loopback connections can run the machine out of ephemeral ports; Windows then fails a connect (`WinError 52`) and the variant handles it as BYD being unreachable, which changes its detections. The scenario's own errors are replies, never failed connects. A Python driver gets a retry of such failures from the launcher (`--retry-local-connects`, counted as `connect_retries` in the guard report; a connect that fails every try ends the run as failed). A native driver must retry them the same way: nothing was sent, so the replay server never sees the attempt.
 - **Stored values from the clock above.** Every stored column is compared, so none may be filled by the database server's own `now()` (that is real time) and nothing may be decided from such a value. The backend has none on these paths today; one added later would show as a failed repeat check.
 
 ## What a new variant has to provide

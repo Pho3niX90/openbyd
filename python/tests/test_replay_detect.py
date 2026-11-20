@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections import Counter
 from dataclasses import replace
+import errno
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
+from typing import Any
 
 import pytest
 
@@ -321,3 +324,74 @@ def test_backend_driver_on_demo(tmp_path):
     assert not any(row["problems"] for row in results["rows"]), [row["problems"] for row in results["rows"]]
     assert all(entry["identical"] is True for entry in results["determinism"].values()), rd.publishable(results)["determinism"]
     assert all(row["counts"]["drives"] for row in results["rows"])
+
+
+# ---------------------------------------------------------------------------
+# The launcher's retry of local connects the machine failed (--retry-local-connects)
+# ---------------------------------------------------------------------------
+
+
+def _winerror(code: int) -> OSError:
+    exc = OSError(f"[WinError {code}] simulated")
+    exc.winerror = code  # type: ignore[attr-defined]
+    return exc
+
+
+def _retrying(monkeypatch, outcomes: list) -> tuple[Any, Any, list]:
+    """The wrapped start_connection over a fake that fails with ``outcomes`` in turn."""
+    aiohappyeyeballs = pytest.importorskip("aiohappyeyeballs")
+    from replay import launcher
+
+    calls: list = []
+
+    async def fake(addr_infos, *args, **kwargs):
+        calls.append(addr_infos[0][4])
+        outcome = outcomes.pop(0)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    monkeypatch.setattr(aiohappyeyeballs, "start_connection", fake)
+    monkeypatch.setattr(launcher, "CONNECT_ATTEMPTS", 3)
+    guard = launcher.Guard()
+    assert launcher.install_connect_retry(guard)
+    return aiohappyeyeballs.start_connection, guard, calls
+
+
+LOOPBACK = [(2, 1, 6, "", ("127.0.0.1", 50123))]
+
+
+def test_a_local_connect_the_machine_failed_is_tried_again(monkeypatch):
+    start, guard, calls = _retrying(monkeypatch, [_winerror(52), _winerror(10048), "socket"])
+    assert asyncio.run(start(LOOPBACK)) == "socket"
+    assert len(calls) == 3
+    assert (guard.connect_retries, guard.connect_failures) == (2, 0)
+    assert guard.report()["connect_retries"] == 2
+
+
+def test_a_local_connect_that_keeps_failing_is_counted_and_raised(monkeypatch):
+    start, guard, calls = _retrying(monkeypatch, [_winerror(52)] * 3)
+    with pytest.raises(OSError, match="WinError 52"):
+        asyncio.run(start(LOOPBACK))
+    assert len(calls) == 3
+    assert (guard.connect_retries, guard.connect_failures) == (2, 1)
+
+
+@pytest.mark.parametrize(
+    "addr_infos, error",
+    [
+        (LOOPBACK, ConnectionRefusedError(errno.ECONNREFUSED, "refused by the peer")),  # the server said no
+        ([(2, 1, 6, "", ("192.0.2.1", 443))], _winerror(52)),  # not this machine
+    ],
+)
+def test_only_local_resource_failures_on_loopback_are_retried(monkeypatch, addr_infos, error):
+    start, guard, calls = _retrying(monkeypatch, [error, "socket"])
+    with pytest.raises(OSError):
+        asyncio.run(start(addr_infos))
+    assert len(calls) == 1
+    assert (guard.connect_retries, guard.connect_failures) == (0, 0)
+
+
+def test_the_backend_driver_runs_with_the_connect_retry():
+    assert "--retry-local-connects" in rd.DRIVER
+    assert rd.DRIVER.index("--retry-local-connects") < rd.DRIVER.index("-m")

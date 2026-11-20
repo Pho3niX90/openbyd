@@ -1,6 +1,6 @@
 """Run a Python module (the backend's mqtt-worker) with a loopback-only network guard.
 
-    python bench/replay/launcher.py [--guard-report FILE] [--stdin-stop] [--speed N] -m app.mqtt_worker [args...]
+    python bench/replay/launcher.py [--guard-report FILE] [--stdin-stop] [--retry-local-connects] [--speed N] -m app.mqtt_worker [args...]
 
 ``bench/replay_worker.py`` starts the backend's real worker through this launcher, from the
 backend checkout, and measures this process from outside. The launcher:
@@ -21,6 +21,13 @@ backend checkout, and measures this process from outside. The launcher:
 4. prints ``GUARD_REPORT <json>`` on standard output when the module returns (and writes the
    same JSON to ``--guard-report``): how many attempts were blocked, and which host, port and
    path each was.
+
+``--retry-local-connects`` (the deterministic detection replay passes it): a connection to a
+loopback address that the operating system fails for want of local resources (on Windows,
+``WinError 52`` or ``WSAEADDRINUSE`` when ephemeral ports run short after hundreds of thousands
+of short connections) is tried again: see :func:`install_connect_retry`. Nothing was sent, so the
+replay server never sees the failed attempt; without the retry the worker would treat it as an
+outage and its detections would depend on the machine's state.
 
 ``--speed N`` (N > 1) is experimental: see :func:`install_speed`.
 
@@ -89,6 +96,9 @@ class Guard:
         self.blocked: dict[tuple[str, str, str], int] = {}
         self._lock = threading.Lock()
         self.installed: list[str] = []
+        #: Local connects tried again (``--retry-local-connects``), and those that failed every try.
+        self.connect_retries = 0
+        self.connect_failures = 0
 
     def record(self, via: str, host: Any, port: Any) -> None:
         key = (via, _host_text(host), "" if port is None else str(port))
@@ -101,6 +111,8 @@ class Guard:
             items = sorted(self.blocked.items())
         return {
             "installed": list(self.installed),
+            "connect_retries": self.connect_retries,
+            "connect_failures": self.connect_failures,
             "blocked_total": sum(count for _key, count in items),
             "blocked": [{"via": via, "host": host, "port": port, "count": count} for (via, host, port), count in items],
         }
@@ -247,6 +259,70 @@ def install_guard() -> Guard:
 
 
 # ---------------------------------------------------------------------------
+# Retrying local connects the operating system failed
+# ---------------------------------------------------------------------------
+
+#: Windows errors for a connect that failed on this machine's side: 52 (``ERROR_DUP_NAME``, seen on
+#: loopback when ephemeral ports run short), ``WSAEADDRINUSE`` and ``WSAENOBUFS``.
+TRANSIENT_WINERRORS = {52, 10048, 10055}
+TRANSIENT_ERRNOS = {errno.EADDRINUSE, errno.EADDRNOTAVAIL, errno.ENOBUFS}
+CONNECT_ATTEMPTS = 20
+
+
+def transient_local_failure(exc: BaseException) -> bool:
+    """Whether a failed connect was refused by this machine for want of resources, not by a peer."""
+    if not isinstance(exc, OSError):
+        return False
+    winerror = getattr(exc, "winerror", None)
+    return winerror in TRANSIENT_WINERRORS or (winerror is None and exc.errno in TRANSIENT_ERRNOS)
+
+
+def install_connect_retry(guard: Guard) -> bool:
+    """Try a loopback connect again when the operating system fails it for want of resources.
+
+    Wraps ``aiohappyeyeballs.start_connection``, which aiohttp calls (as a module attribute) to
+    open every client socket; each attempt is a fresh socket. Only loopback addresses and only
+    :func:`transient_local_failure` errors are retried, up to ``CONNECT_ATTEMPTS`` times with real
+    backoffs of 10 ms doubling to 0.5 s; a connection refused by the server, or any other
+    error, is raised at once. Every retry is counted in the report, and so is a connect that failed
+    every attempt. Returns False when aiohttp's connector library is not installed.
+    """
+    try:
+        import aiohappyeyeballs
+    except ImportError:
+        return False
+    import asyncio
+
+    original = aiohappyeyeballs.start_connection
+
+    async def start_connection(addr_infos: Any, *args: Any, **kwargs: Any) -> Any:
+        local = bool(addr_infos) and all(address_is_local(info[4][0]) for info in addr_infos)
+        delay = 0.01
+        for attempt in range(1, CONNECT_ATTEMPTS + 1):
+            try:
+                return await original(addr_infos, *args, **kwargs)
+            except OSError as exc:
+                if not local or not transient_local_failure(exc):
+                    raise
+                with guard._lock:
+                    if attempt == CONNECT_ATTEMPTS:
+                        guard.connect_failures += 1
+                    else:
+                        guard.connect_retries += 1
+                if attempt == CONNECT_ATTEMPTS:
+                    raise
+                print(f"LAUNCHER retrying a local connect after {exc}", file=sys.stderr, flush=True)
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 0.5)
+        raise AssertionError("unreachable")
+
+    start_connection.__wrapped__ = original  # type: ignore[attr-defined]
+    aiohappyeyeballs.start_connection = start_connection
+    guard.installed.append("aiohappyeyeballs.start_connection retry")
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Experimental: replay speed
 # ---------------------------------------------------------------------------
 
@@ -276,9 +352,10 @@ def _watch_stdin() -> None:
     signal.raise_signal(signal.SIGINT)
 
 
-def _parse(argv: list[str]) -> tuple[str | None, bool, float, str, list[str]]:
+def _parse(argv: list[str]) -> tuple[str | None, bool, bool, float, str, list[str]]:
     report: str | None = None
     stdin_stop = False
+    retry = False
     speed = 1.0
     index = 0
     while index < len(argv):
@@ -289,21 +366,26 @@ def _parse(argv: list[str]) -> tuple[str | None, bool, float, str, list[str]]:
         elif arg == "--stdin-stop":
             stdin_stop = True
             index += 1
+        elif arg == "--retry-local-connects":
+            retry = True
+            index += 1
         elif arg == "--speed":
             speed = float(argv[index + 1])
             index += 2
         elif arg == "-m":
-            return report, stdin_stop, speed, argv[index + 1], argv[index + 2 :]
+            return report, stdin_stop, retry, speed, argv[index + 1], argv[index + 2 :]
         else:
             raise SystemExit(
-                f"launcher: unexpected argument {arg!r}; usage: launcher.py [--guard-report F] [--stdin-stop] [--speed N] -m MODULE [args]"
+                f"launcher: unexpected argument {arg!r}; usage: launcher.py [--guard-report F] [--stdin-stop] [--retry-local-connects] [--speed N] -m MODULE [args]"
             )
     raise SystemExit("launcher: -m MODULE is required")
 
 
 def main(argv: list[str] | None = None) -> int:
-    report_path, stdin_stop, speed, module, rest = _parse(list(sys.argv[1:] if argv is None else argv))
+    report_path, stdin_stop, retry, speed, module, rest = _parse(list(sys.argv[1:] if argv is None else argv))
     guard = install_guard()
+    if retry and not install_connect_retry(guard):
+        raise SystemExit("launcher: --retry-local-connects needs aiohappyeyeballs (aiohttp's connector)")
     if speed > 1:
         install_speed(speed, 0.0, 0.0)
     # Import the module from the working directory (the backend checkout), never from bench/replay.

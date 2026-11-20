@@ -31,7 +31,7 @@ import common  # noqa: E402
 import replay_worker as rw  # noqa: E402
 from replay import scenario as scenario_io  # noqa: E402
 
-DRIVER = ("{python}", "{launcher}", "--guard-report", "{guard_report}", "-m", "scripts.replay_driver")
+DRIVER = ("{python}", "{launcher}", "--guard-report", "{guard_report}", "--retry-local-connects", "-m", "scripts.replay_driver")
 KINDS = ("drives", "charges", "open_drive", "open_charge")
 PAIR_WINDOW_S = 300
 MAX_PROCESSES = 8
@@ -397,6 +397,10 @@ def _lane(
                 row["replay"] = replay.stats()
                 if guard_file.is_file():
                     row["guard"] = json.loads(guard_file.read_text(encoding="utf-8"))
+        failures = row.get("guard", {}).get("connect_failures", 0)
+        if failures and "problem" not in row:
+            # The worker saw an outage the scenario does not hold: its detections depend on the machine.
+            row["problem"] = f"{failures} connection(s) to the replay server failed on this machine after every retry (local ports exhausted?)"
     except Exception as exc:
         stopped.set()
         row["problem"] = f"{type(exc).__name__}: {exc}"
@@ -445,6 +449,8 @@ def _sum_counts(target: dict, counts: dict) -> None:
 def _guard_total(target: dict, report: dict) -> None:
     target["reports"] += report.get("reports", 1)
     target["blocked_total"] += report["blocked_total"]
+    for key in ("connect_retries", "connect_failures"):
+        target[key] = target.get(key, 0) + report.get(key, 0)
     by_site = {
         (item["via"], item["host"], item["port"]): item for item in target["blocked"]
     }
@@ -460,7 +466,7 @@ def _guard_total(target: dict, report: dict) -> None:
 def _new_row(variant: str, repeat: int) -> dict:
     return {
         "variant": variant, "repeat": repeat, "accounts": 0, "steps": 0, "steps_without_mqtt": 0,
-        "detections": {}, "counters": {}, "replay": {}, "guard": {"reports": 0, "blocked_total": 0, "blocked": []},
+        "detections": {}, "counters": {}, "replay": {}, "guard": {"reports": 0, "blocked_total": 0, "connect_retries": 0, "connect_failures": 0, "blocked": []},
         "problems": [], "logs": [], "wall_s": 0, "orchestrator_cpu_s": 0, "parent_cpu_ns": 0, "server_step_ns": 0,
     }
 
@@ -907,7 +913,7 @@ def publishable(results: dict[str, Any]) -> dict[str, Any]:
         public = {key: row[key] for key in ("variant", "repeat", "accounts", "steps", "steps_without_mqtt", "counts", "cars_with_detections",
                                            "wall_s", "orchestrator_cpu_s", "parent_cpu_ns", "server_step_ns")}
         public["problems"] = ["run failed (see complete results)"] * len(row["problems"]) if private else row["problems"]
-        public["guard"] = {key: row["guard"][key] for key in ("reports", "blocked_total")}
+        public["guard"] = {key: row["guard"].get(key, 0) for key in ("reports", "blocked_total", "connect_retries", "connect_failures")}
         public["counters"] = clean_counts(row["counters"])
         public["replay"] = clean_counts(row["replay"])
         rows.append(public)
@@ -960,6 +966,8 @@ def _print_summary(results: dict) -> None:
     for row in public["rows"]:
         if row["guard"]["blocked_total"]:
             print(f"GUARD {row['variant']}#{row['repeat']}: refused {row['guard']['blocked_total']} non-loopback attempt(s)")
+        if row["guard"]["connect_retries"]:
+            print(f"GUARD {row['variant']}#{row['repeat']}: retried {row['guard']['connect_retries']} local connect(s) the machine failed")
         for problem in row["problems"]:
             print(f"PROBLEM {row['variant']}#{row['repeat']}: {problem}")
     for key, check in public["determinism"].items():

@@ -1,0 +1,886 @@
+{
+ "benchmark": "replay_detect",
+ "quick": false,
+ "date": "2026-11-20T15:35:35+02:00",
+ "machine": {
+  "cpu": "AMD Ryzen 9 5900X 12-Core Processor",
+  "cores_logical": 24,
+  "cores_physical": 12,
+  "memory_gib": 63.9,
+  "os": "Windows-11-10.0.26200-SP0",
+  "python": "3.12.13",
+  "python_implementation": "CPython",
+  "rust": "rustc 1.100.0 (0ef1bc386 2026-11-09)"
+ },
+ "versions": {
+  "openbyd_commit": "6afc08526b5b86e18aaeaba319c364780a5fd313",
+  "openbyd_branch": "feat/replay-deterministic",
+  "openbyd_dirty": true,
+  "openbyd_package_version": "0.1.1",
+  "pybyd_commit_pinned": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
+  "pybyd_commit_installed": "2c3d80648e8eeec50cd4f68f603abd3a01010fef"
+ },
+ "redacted": true,
+ "scenario": {
+  "header": {
+   "version": 1,
+   "duration_s": 1123200,
+   "accounts": 100,
+   "cars": 100,
+   "source": "export"
+  },
+  "counts": {
+   "account": 100,
+   "car": 100,
+   "state": 231832,
+   "push": 577289,
+   "error": 55217
+  }
+ },
+ "rows": [
+  {
+   "variant": "python_cipher",
+   "repeat": 1,
+   "accounts": 8,
+   "steps": 4945,
+   "steps_without_mqtt": 13,
+   "counts": {
+    "drives": 11,
+    "charges": 3,
+    "open_drive": 0,
+    "open_charge": 0
+   },
+   "cars_with_detections": {
+    "drives": 4,
+    "charges": 2,
+    "open_drive": 0,
+    "open_charge": 0,
+    "any": 4
+   },
+   "wall_s": 646.3279999999795,
+   "orchestrator_cpu_s": 12.515625,
+   "parent_cpu_ns": 1296875000,
+   "server_step_ns": 431975000,
+   "problems": [],
+   "guard": {
+    "reports": 10,
+    "blocked_total": 2686,
+    "connect_retries": 0,
+    "connect_failures": 0
+   },
+   "counters": {
+    "byd_req_app_account_getAllListByUserId": 236,
+    "byd_req_app_account_login": 12,
+    "byd_req_app_emqAuth_getEmqBrokerIp": 12,
+    "byd_requests": 14812,
+    "claims": 25,
+    "cpu_ms_heartbeats": 233,
+    "instant_sleeps": 5629,
+    "lease_heartbeats": 69120,
+    "logins": 12,
+    "mqtt_clients": 12,
+    "mqtt_connacks": 12,
+    "mqtt_reconnects": 4,
+    "mqtt_starts": 12,
+    "mqtt_subacks": 12,
+    "mqtt_unexpected_reconnects": 0,
+    "pushes_received": 3355,
+    "real_ms_byd_requests": 746620,
+    "byd_req_control_getGpsInfo": 1430,
+    "byd_req_control_getGpsInfoResult": 1430,
+    "byd_req_control_getStatusNow": 1430,
+    "byd_req_control_smartCharge_homePage": 2860,
+    "byd_req_vehicleInfo_vehicle_getEnergyConsumption": 1430,
+    "byd_req_vehicleInfo_vehicle_vehicleRealTimeRequest": 1654,
+    "byd_req_vehicleInfo_vehicle_vehicleRealTimeResult": 2888,
+    "byd_req_vehicle_vehicleswitch_getLatestConfig": 1430,
+    "car_polls": 2338,
+    "car_polls_ok": 1430,
+    "cpu_ms_debounce_timers": 19594,
+    "cpu_ms_other_steps": 18906,
+    "cpu_ms_poll_steps": 801859,
+    "cpu_ms_polls": 797797,
+    "cpu_ms_push_delivery": 3250,
+    "debounce_timers": 3940,
+    "other_steps": 2594,
+    "poll_steps": 2351,
+    "polls": 2351,
+    "pushes_announced": 3355,
+    "pushes_applied": 1626,
+    "pushes_enqueued": 3355,
+    "pushes_event_remoteControl": 1713,
+    "pushes_event_vehicleInfo": 1642,
+    "pushes_in_other_steps": 2594,
+    "real_ms_other_steps": 59797,
+    "real_ms_poll_steps": 979008,
+    "real_ms_settle_waits": 72700,
+    "slots_dropped_no_session": 4,
+    "byd_code_1008": 224,
+    "car_polls_error_1008": 224,
+    "car_polls_no_snapshot": 684,
+    "car_polls_raised_UpstreamError": 224,
+    "car_polls_skip_busy": 684,
+    "polls_without_slot": 13
+   },
+   "replay": {
+    "requests": 14812,
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 236,
+     "/app/account/login": 12,
+     "/app/emqAuth/getEmqBrokerIp": 12,
+     "/control/getGpsInfo": 1430,
+     "/control/getGpsInfoResult": 1430,
+     "/control/getStatusNow": 1430,
+     "/control/smartCharge/homePage": 2860,
+     "/vehicle/vehicleswitch/getLatestConfig": 1430,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 1430,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1654,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 2888
+    },
+    "by_code": {
+     "0": 14588,
+     "1008": 224
+    },
+    "connections": 1678,
+    "logins": 12,
+    "mqtt": {
+     "open": 0,
+     "connects": 12,
+     "subscriptions": 12,
+     "pushes_sent": 3355,
+     "pushes_missed": 0
+    },
+    "replay": {
+     "errors_by_code": {
+      "1008": 224
+     },
+     "sessions_expired": 0,
+     "accounts": 8,
+     "cars": 8
+    }
+   }
+  },
+  {
+   "variant": "rust_cipher",
+   "repeat": 1,
+   "accounts": 8,
+   "steps": 4945,
+   "steps_without_mqtt": 13,
+   "counts": {
+    "drives": 11,
+    "charges": 3,
+    "open_drive": 0,
+    "open_charge": 0
+   },
+   "cars_with_detections": {
+    "drives": 4,
+    "charges": 2,
+    "open_drive": 0,
+    "open_charge": 0,
+    "any": 4
+   },
+   "wall_s": 108.59299999999348,
+   "orchestrator_cpu_s": 7.671875,
+   "parent_cpu_ns": 1015625000,
+   "server_step_ns": 399621800,
+   "problems": [],
+   "guard": {
+    "reports": 10,
+    "blocked_total": 2686,
+    "connect_retries": 0,
+    "connect_failures": 0
+   },
+   "counters": {
+    "byd_req_app_account_getAllListByUserId": 236,
+    "byd_req_app_account_login": 12,
+    "byd_req_app_emqAuth_getEmqBrokerIp": 12,
+    "byd_requests": 14812,
+    "claims": 25,
+    "cpu_ms_heartbeats": 235,
+    "instant_sleeps": 5629,
+    "lease_heartbeats": 69120,
+    "logins": 12,
+    "mqtt_clients": 12,
+    "mqtt_connacks": 12,
+    "mqtt_reconnects": 4,
+    "mqtt_starts": 12,
+    "mqtt_subacks": 12,
+    "mqtt_unexpected_reconnects": 0,
+    "pushes_received": 3355,
+    "real_ms_byd_requests": 15727,
+    "byd_req_control_getGpsInfo": 1430,
+    "byd_req_control_getGpsInfoResult": 1430,
+    "byd_req_control_getStatusNow": 1430,
+    "byd_req_control_smartCharge_homePage": 2860,
+    "byd_req_vehicleInfo_vehicle_getEnergyConsumption": 1430,
+    "byd_req_vehicleInfo_vehicle_vehicleRealTimeRequest": 1654,
+    "byd_req_vehicleInfo_vehicle_vehicleRealTimeResult": 2888,
+    "byd_req_vehicle_vehicleswitch_getLatestConfig": 1430,
+    "car_polls": 2338,
+    "car_polls_ok": 1430,
+    "cpu_ms_debounce_timers": 17875,
+    "cpu_ms_other_steps": 17922,
+    "cpu_ms_poll_steps": 81313,
+    "cpu_ms_polls": 78172,
+    "cpu_ms_push_delivery": 3139,
+    "debounce_timers": 3940,
+    "other_steps": 2594,
+    "poll_steps": 2351,
+    "polls": 2351,
+    "pushes_announced": 3355,
+    "pushes_applied": 1626,
+    "pushes_enqueued": 3355,
+    "pushes_event_remoteControl": 1713,
+    "pushes_event_vehicleInfo": 1642,
+    "pushes_in_other_steps": 2594,
+    "real_ms_other_steps": 39767,
+    "real_ms_poll_steps": 155880,
+    "real_ms_settle_waits": 42901,
+    "slots_dropped_no_session": 4,
+    "byd_code_1008": 224,
+    "car_polls_error_1008": 224,
+    "car_polls_no_snapshot": 684,
+    "car_polls_raised_UpstreamError": 224,
+    "car_polls_skip_busy": 684,
+    "polls_without_slot": 13
+   },
+   "replay": {
+    "requests": 14812,
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 236,
+     "/app/account/login": 12,
+     "/app/emqAuth/getEmqBrokerIp": 12,
+     "/control/getGpsInfo": 1430,
+     "/control/getGpsInfoResult": 1430,
+     "/control/getStatusNow": 1430,
+     "/control/smartCharge/homePage": 2860,
+     "/vehicle/vehicleswitch/getLatestConfig": 1430,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 1430,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1654,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 2888
+    },
+    "by_code": {
+     "0": 14588,
+     "1008": 224
+    },
+    "connections": 1678,
+    "logins": 12,
+    "mqtt": {
+     "open": 0,
+     "connects": 12,
+     "subscriptions": 12,
+     "pushes_sent": 3355,
+     "pushes_missed": 0
+    },
+    "replay": {
+     "errors_by_code": {
+      "1008": 224
+     },
+     "sessions_expired": 0,
+     "accounts": 8,
+     "cars": 8
+    }
+   }
+  },
+  {
+   "variant": "rust_cipher_shadow",
+   "repeat": 1,
+   "accounts": 8,
+   "steps": 4945,
+   "steps_without_mqtt": 13,
+   "counts": {
+    "drives": 11,
+    "charges": 3,
+    "open_drive": 0,
+    "open_charge": 0
+   },
+   "cars_with_detections": {
+    "drives": 4,
+    "charges": 2,
+    "open_drive": 0,
+    "open_charge": 0,
+    "any": 4
+   },
+   "wall_s": 116.04700000002049,
+   "orchestrator_cpu_s": 9.234375,
+   "parent_cpu_ns": 1140625000,
+   "server_step_ns": 445433600,
+   "problems": [],
+   "guard": {
+    "reports": 10,
+    "blocked_total": 2686,
+    "connect_retries": 0,
+    "connect_failures": 0
+   },
+   "counters": {
+    "byd_req_app_account_getAllListByUserId": 236,
+    "byd_req_app_account_login": 12,
+    "byd_req_app_emqAuth_getEmqBrokerIp": 12,
+    "byd_requests": 14812,
+    "claims": 25,
+    "cpu_ms_heartbeats": 249,
+    "instant_sleeps": 5629,
+    "lease_heartbeats": 69120,
+    "logins": 12,
+    "mqtt_clients": 12,
+    "mqtt_connacks": 12,
+    "mqtt_reconnects": 4,
+    "mqtt_starts": 12,
+    "mqtt_subacks": 12,
+    "mqtt_unexpected_reconnects": 0,
+    "pushes_received": 3355,
+    "real_ms_byd_requests": 18038,
+    "byd_req_control_getGpsInfo": 1430,
+    "byd_req_control_getGpsInfoResult": 1430,
+    "byd_req_control_getStatusNow": 1430,
+    "byd_req_control_smartCharge_homePage": 2860,
+    "byd_req_vehicleInfo_vehicle_getEnergyConsumption": 1430,
+    "byd_req_vehicleInfo_vehicle_vehicleRealTimeRequest": 1654,
+    "byd_req_vehicleInfo_vehicle_vehicleRealTimeResult": 2888,
+    "byd_req_vehicle_vehicleswitch_getLatestConfig": 1430,
+    "car_polls": 2338,
+    "car_polls_ok": 1430,
+    "cpu_ms_debounce_timers": 21046,
+    "cpu_ms_other_steps": 20344,
+    "cpu_ms_poll_steps": 91405,
+    "cpu_ms_polls": 87422,
+    "cpu_ms_push_delivery": 3203,
+    "debounce_timers": 3940,
+    "other_steps": 2594,
+    "poll_steps": 2351,
+    "polls": 2351,
+    "pushes_announced": 3355,
+    "pushes_applied": 1626,
+    "pushes_enqueued": 3355,
+    "pushes_event_remoteControl": 1713,
+    "pushes_event_vehicleInfo": 1642,
+    "pushes_in_other_steps": 2594,
+    "real_ms_other_steps": 45096,
+    "real_ms_poll_steps": 175410,
+    "real_ms_settle_waits": 47863,
+    "slots_dropped_no_session": 4,
+    "byd_code_1008": 224,
+    "car_polls_error_1008": 224,
+    "car_polls_no_snapshot": 684,
+    "car_polls_raised_UpstreamError": 224,
+    "car_polls_skip_busy": 684,
+    "polls_without_slot": 13
+   },
+   "replay": {
+    "requests": 14812,
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 236,
+     "/app/account/login": 12,
+     "/app/emqAuth/getEmqBrokerIp": 12,
+     "/control/getGpsInfo": 1430,
+     "/control/getGpsInfoResult": 1430,
+     "/control/getStatusNow": 1430,
+     "/control/smartCharge/homePage": 2860,
+     "/vehicle/vehicleswitch/getLatestConfig": 1430,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 1430,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1654,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 2888
+    },
+    "by_code": {
+     "0": 14588,
+     "1008": 224
+    },
+    "connections": 1678,
+    "logins": 12,
+    "mqtt": {
+     "open": 0,
+     "connects": 12,
+     "subscriptions": 12,
+     "pushes_sent": 3355,
+     "pushes_missed": 0
+    },
+    "replay": {
+     "errors_by_code": {
+      "1008": 224
+     },
+     "sessions_expired": 0,
+     "accounts": 8,
+     "cars": 8
+    }
+   }
+  },
+  {
+   "variant": "python_cipher",
+   "repeat": 2,
+   "accounts": 8,
+   "steps": 4945,
+   "steps_without_mqtt": 13,
+   "counts": {
+    "drives": 11,
+    "charges": 3,
+    "open_drive": 0,
+    "open_charge": 0
+   },
+   "cars_with_detections": {
+    "drives": 4,
+    "charges": 2,
+    "open_drive": 0,
+    "open_charge": 0,
+    "any": 4
+   },
+   "wall_s": 525.6720000000205,
+   "orchestrator_cpu_s": 10.578125,
+   "parent_cpu_ns": 1109375000,
+   "server_step_ns": 389305600,
+   "problems": [],
+   "guard": {
+    "reports": 10,
+    "blocked_total": 2686,
+    "connect_retries": 0,
+    "connect_failures": 0
+   },
+   "counters": {
+    "byd_req_app_account_getAllListByUserId": 236,
+    "byd_req_app_account_login": 12,
+    "byd_req_app_emqAuth_getEmqBrokerIp": 12,
+    "byd_requests": 14812,
+    "claims": 25,
+    "cpu_ms_heartbeats": 156,
+    "instant_sleeps": 5629,
+    "lease_heartbeats": 69120,
+    "logins": 12,
+    "mqtt_clients": 12,
+    "mqtt_connacks": 12,
+    "mqtt_reconnects": 4,
+    "mqtt_starts": 12,
+    "mqtt_subacks": 12,
+    "mqtt_unexpected_reconnects": 0,
+    "pushes_received": 3355,
+    "real_ms_byd_requests": 655520,
+    "byd_req_control_getGpsInfo": 1430,
+    "byd_req_control_getGpsInfoResult": 1430,
+    "byd_req_control_getStatusNow": 1430,
+    "byd_req_control_smartCharge_homePage": 2860,
+    "byd_req_vehicleInfo_vehicle_getEnergyConsumption": 1430,
+    "byd_req_vehicleInfo_vehicle_vehicleRealTimeRequest": 1654,
+    "byd_req_vehicleInfo_vehicle_vehicleRealTimeResult": 2888,
+    "byd_req_vehicle_vehicleswitch_getLatestConfig": 1430,
+    "car_polls": 2338,
+    "car_polls_ok": 1430,
+    "cpu_ms_debounce_timers": 17501,
+    "cpu_ms_other_steps": 17515,
+    "cpu_ms_poll_steps": 715156,
+    "cpu_ms_polls": 712233,
+    "cpu_ms_push_delivery": 2906,
+    "debounce_timers": 3940,
+    "other_steps": 2594,
+    "poll_steps": 2351,
+    "polls": 2351,
+    "pushes_announced": 3355,
+    "pushes_applied": 1626,
+    "pushes_enqueued": 3355,
+    "pushes_event_remoteControl": 1713,
+    "pushes_event_vehicleInfo": 1642,
+    "pushes_in_other_steps": 2594,
+    "real_ms_other_steps": 39133,
+    "real_ms_poll_steps": 799497,
+    "real_ms_settle_waits": 42414,
+    "slots_dropped_no_session": 4,
+    "byd_code_1008": 224,
+    "car_polls_error_1008": 224,
+    "car_polls_no_snapshot": 684,
+    "car_polls_raised_UpstreamError": 224,
+    "car_polls_skip_busy": 684,
+    "polls_without_slot": 13
+   },
+   "replay": {
+    "requests": 14812,
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 236,
+     "/app/account/login": 12,
+     "/app/emqAuth/getEmqBrokerIp": 12,
+     "/control/getGpsInfo": 1430,
+     "/control/getGpsInfoResult": 1430,
+     "/control/getStatusNow": 1430,
+     "/control/smartCharge/homePage": 2860,
+     "/vehicle/vehicleswitch/getLatestConfig": 1430,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 1430,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1654,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 2888
+    },
+    "by_code": {
+     "0": 14588,
+     "1008": 224
+    },
+    "connections": 1678,
+    "logins": 12,
+    "mqtt": {
+     "open": 0,
+     "connects": 12,
+     "subscriptions": 12,
+     "pushes_sent": 3355,
+     "pushes_missed": 0
+    },
+    "replay": {
+     "errors_by_code": {
+      "1008": 224
+     },
+     "sessions_expired": 0,
+     "accounts": 8,
+     "cars": 8
+    }
+   }
+  },
+  {
+   "variant": "rust_cipher",
+   "repeat": 2,
+   "accounts": 8,
+   "steps": 4945,
+   "steps_without_mqtt": 13,
+   "counts": {
+    "drives": 11,
+    "charges": 3,
+    "open_drive": 0,
+    "open_charge": 0
+   },
+   "cars_with_detections": {
+    "drives": 4,
+    "charges": 2,
+    "open_drive": 0,
+    "open_charge": 0,
+    "any": 4
+   },
+   "wall_s": 103.65599999995902,
+   "orchestrator_cpu_s": 8.640625,
+   "parent_cpu_ns": 796875000,
+   "server_step_ns": 404595700,
+   "problems": [],
+   "guard": {
+    "reports": 10,
+    "blocked_total": 2686,
+    "connect_retries": 0,
+    "connect_failures": 0
+   },
+   "counters": {
+    "byd_req_app_account_getAllListByUserId": 236,
+    "byd_req_app_account_login": 12,
+    "byd_req_app_emqAuth_getEmqBrokerIp": 12,
+    "byd_requests": 14812,
+    "claims": 25,
+    "cpu_ms_heartbeats": 156,
+    "instant_sleeps": 5629,
+    "lease_heartbeats": 69120,
+    "logins": 12,
+    "mqtt_clients": 12,
+    "mqtt_connacks": 12,
+    "mqtt_reconnects": 4,
+    "mqtt_starts": 12,
+    "mqtt_subacks": 12,
+    "mqtt_unexpected_reconnects": 0,
+    "pushes_received": 3355,
+    "real_ms_byd_requests": 16351,
+    "byd_req_control_getGpsInfo": 1430,
+    "byd_req_control_getGpsInfoResult": 1430,
+    "byd_req_control_getStatusNow": 1430,
+    "byd_req_control_smartCharge_homePage": 2860,
+    "byd_req_vehicleInfo_vehicle_getEnergyConsumption": 1430,
+    "byd_req_vehicleInfo_vehicle_vehicleRealTimeRequest": 1654,
+    "byd_req_vehicleInfo_vehicle_vehicleRealTimeResult": 2888,
+    "byd_req_vehicle_vehicleswitch_getLatestConfig": 1430,
+    "car_polls": 2338,
+    "car_polls_ok": 1430,
+    "cpu_ms_debounce_timers": 18593,
+    "cpu_ms_other_steps": 18062,
+    "cpu_ms_poll_steps": 84468,
+    "cpu_ms_polls": 81281,
+    "cpu_ms_push_delivery": 2547,
+    "debounce_timers": 3940,
+    "other_steps": 2594,
+    "poll_steps": 2351,
+    "polls": 2351,
+    "pushes_announced": 3355,
+    "pushes_applied": 1626,
+    "pushes_enqueued": 3355,
+    "pushes_event_remoteControl": 1713,
+    "pushes_event_vehicleInfo": 1642,
+    "pushes_in_other_steps": 2594,
+    "real_ms_other_steps": 39323,
+    "real_ms_poll_steps": 156524,
+    "real_ms_settle_waits": 42157,
+    "slots_dropped_no_session": 4,
+    "byd_code_1008": 224,
+    "car_polls_error_1008": 224,
+    "car_polls_no_snapshot": 684,
+    "car_polls_raised_UpstreamError": 224,
+    "car_polls_skip_busy": 684,
+    "polls_without_slot": 13
+   },
+   "replay": {
+    "requests": 14812,
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 236,
+     "/app/account/login": 12,
+     "/app/emqAuth/getEmqBrokerIp": 12,
+     "/control/getGpsInfo": 1430,
+     "/control/getGpsInfoResult": 1430,
+     "/control/getStatusNow": 1430,
+     "/control/smartCharge/homePage": 2860,
+     "/vehicle/vehicleswitch/getLatestConfig": 1430,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 1430,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1654,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 2888
+    },
+    "by_code": {
+     "0": 14588,
+     "1008": 224
+    },
+    "connections": 1678,
+    "logins": 12,
+    "mqtt": {
+     "open": 0,
+     "connects": 12,
+     "subscriptions": 12,
+     "pushes_sent": 3355,
+     "pushes_missed": 0
+    },
+    "replay": {
+     "errors_by_code": {
+      "1008": 224
+     },
+     "sessions_expired": 0,
+     "accounts": 8,
+     "cars": 8
+    }
+   }
+  },
+  {
+   "variant": "rust_cipher_shadow",
+   "repeat": 2,
+   "accounts": 8,
+   "steps": 4945,
+   "steps_without_mqtt": 13,
+   "counts": {
+    "drives": 11,
+    "charges": 3,
+    "open_drive": 0,
+    "open_charge": 0
+   },
+   "cars_with_detections": {
+    "drives": 4,
+    "charges": 2,
+    "open_drive": 0,
+    "open_charge": 0,
+    "any": 4
+   },
+   "wall_s": 103.23500000004424,
+   "orchestrator_cpu_s": 8.78125,
+   "parent_cpu_ns": 1109375000,
+   "server_step_ns": 390880600,
+   "problems": [],
+   "guard": {
+    "reports": 10,
+    "blocked_total": 2686,
+    "connect_retries": 0,
+    "connect_failures": 0
+   },
+   "counters": {
+    "byd_req_app_account_getAllListByUserId": 236,
+    "byd_req_app_account_login": 12,
+    "byd_req_app_emqAuth_getEmqBrokerIp": 12,
+    "byd_requests": 14812,
+    "claims": 25,
+    "cpu_ms_heartbeats": 187,
+    "instant_sleeps": 5629,
+    "lease_heartbeats": 69120,
+    "logins": 12,
+    "mqtt_clients": 12,
+    "mqtt_connacks": 12,
+    "mqtt_reconnects": 4,
+    "mqtt_starts": 12,
+    "mqtt_subacks": 12,
+    "mqtt_unexpected_reconnects": 0,
+    "pushes_received": 3355,
+    "real_ms_byd_requests": 16024,
+    "byd_req_control_getGpsInfo": 1430,
+    "byd_req_control_getGpsInfoResult": 1430,
+    "byd_req_control_getStatusNow": 1430,
+    "byd_req_control_smartCharge_homePage": 2860,
+    "byd_req_vehicleInfo_vehicle_getEnergyConsumption": 1430,
+    "byd_req_vehicleInfo_vehicle_vehicleRealTimeRequest": 1654,
+    "byd_req_vehicleInfo_vehicle_vehicleRealTimeResult": 2888,
+    "byd_req_vehicle_vehicleswitch_getLatestConfig": 1430,
+    "car_polls": 2338,
+    "car_polls_ok": 1430,
+    "cpu_ms_debounce_timers": 17765,
+    "cpu_ms_other_steps": 17157,
+    "cpu_ms_poll_steps": 81907,
+    "cpu_ms_polls": 78469,
+    "cpu_ms_push_delivery": 2828,
+    "debounce_timers": 3940,
+    "other_steps": 2594,
+    "poll_steps": 2351,
+    "polls": 2351,
+    "pushes_announced": 3355,
+    "pushes_applied": 1626,
+    "pushes_enqueued": 3355,
+    "pushes_event_remoteControl": 1713,
+    "pushes_event_vehicleInfo": 1642,
+    "pushes_in_other_steps": 2594,
+    "real_ms_other_steps": 38982,
+    "real_ms_poll_steps": 153984,
+    "real_ms_settle_waits": 41299,
+    "slots_dropped_no_session": 4,
+    "byd_code_1008": 224,
+    "car_polls_error_1008": 224,
+    "car_polls_no_snapshot": 684,
+    "car_polls_raised_UpstreamError": 224,
+    "car_polls_skip_busy": 684,
+    "polls_without_slot": 13
+   },
+   "replay": {
+    "requests": 14812,
+    "by_endpoint": {
+     "/app/account/getAllListByUserId": 236,
+     "/app/account/login": 12,
+     "/app/emqAuth/getEmqBrokerIp": 12,
+     "/control/getGpsInfo": 1430,
+     "/control/getGpsInfoResult": 1430,
+     "/control/getStatusNow": 1430,
+     "/control/smartCharge/homePage": 2860,
+     "/vehicle/vehicleswitch/getLatestConfig": 1430,
+     "/vehicleInfo/vehicle/getEnergyConsumption": 1430,
+     "/vehicleInfo/vehicle/vehicleRealTimeRequest": 1654,
+     "/vehicleInfo/vehicle/vehicleRealTimeResult": 2888
+    },
+    "by_code": {
+     "0": 14588,
+     "1008": 224
+    },
+    "connections": 1678,
+    "logins": 12,
+    "mqtt": {
+     "open": 0,
+     "connects": 12,
+     "subscriptions": 12,
+     "pushes_sent": 3355,
+     "pushes_missed": 0
+    },
+    "replay": {
+     "errors_by_code": {
+      "1008": 224
+     },
+     "sessions_expired": 0,
+     "accounts": 8,
+     "cars": 8
+    }
+   }
+  }
+ ],
+ "coverage": {
+  "covered": 8,
+  "total": 100,
+  "window": {
+   "start_s": 0,
+   "end_s": 86400,
+   "omitted_s": 1036800
+  },
+  "lines_after_window": {
+   "push": 42523,
+   "state": 17891,
+   "error": 416
+  }
+ },
+ "execution": {
+  "processes": 8,
+  "step_timeout_s": 240.0
+ },
+ "settings": {
+  "variants": [
+   "python_cipher",
+   "rust_cipher",
+   "rust_cipher_shadow"
+  ],
+  "repeats": 2,
+  "no_repeat": false,
+  "protocol": 1,
+  "pair_window_s": 300,
+  "store": "postgres:16-alpine"
+ },
+ "backend": {
+  "backend_commit": "0cbe35e3a8e5ebd73e7805ec914b822cea34f5ca",
+  "backend_dirty": false,
+  "packages": {
+   "pybyd": "0.0.85",
+   "openbyd": "0.1.1",
+   "paho-mqtt": "2.1.0",
+   "aiohttp": "3.14.5",
+   "sqlalchemy": "2.1.9"
+  },
+  "backend_python": "3.12.13"
+ },
+ "determinism": {
+  "python_cipher": {
+   "identical": true,
+   "repeats": 2,
+   "checks": [
+    {
+     "reference": "python_cipher#1",
+     "other": "python_cipher#2",
+     "equal": true,
+     "difference_count": 0,
+     "cars_differing": 0,
+     "summary": []
+    }
+   ]
+  },
+  "rust_cipher": {
+   "identical": true,
+   "repeats": 2,
+   "checks": [
+    {
+     "reference": "rust_cipher#1",
+     "other": "rust_cipher#2",
+     "equal": true,
+     "difference_count": 0,
+     "cars_differing": 0,
+     "summary": []
+    }
+   ]
+  },
+  "rust_cipher_shadow": {
+   "identical": true,
+   "repeats": 2,
+   "checks": [
+    {
+     "reference": "rust_cipher_shadow#1",
+     "other": "rust_cipher_shadow#2",
+     "equal": true,
+     "difference_count": 0,
+     "cars_differing": 0,
+     "summary": []
+    }
+   ]
+  }
+ },
+ "comparison": [
+  {
+   "reference": "python_cipher#1",
+   "other": "rust_cipher#1",
+   "equal": true,
+   "difference_count": 0,
+   "cars_differing": 0,
+   "summary": []
+  },
+  {
+   "reference": "python_cipher#1",
+   "other": "rust_cipher_shadow#1",
+   "equal": true,
+   "difference_count": 0,
+   "cars_differing": 0,
+   "summary": []
+  },
+  {
+   "reference": "rust_cipher#1",
+   "other": "rust_cipher_shadow#1",
+   "equal": true,
+   "difference_count": 0,
+   "cars_differing": 0,
+   "summary": []
+  }
+ ]
+}

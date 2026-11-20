@@ -7,6 +7,8 @@ bench/
   micro.py       one operation, pyBYD against openbyd, in the same Python process
   load.py        N accounts doing poll cycles against a fake server; CPU and memory per account
   mqtt_idle.py   memory and threads of connected-but-idle MQTT accounts
+  replay_worker.py  a whole backend worker against replayed BYD behaviour; CPU, memory and what it detected
+  replay/        replay scenarios: the format (SCENARIO.md), generator, privacy check, exporter, and the worker's launcher
   report.py      renders bench/results/*.json as Markdown tables
   run_all.py     runs all three and the report; exits non-zero on any failure or wrong answer
   common.py      shared helpers
@@ -15,6 +17,7 @@ bench/
   fake_server.rs the fake BYD server as a process of its own (load benchmark)
   load.rs        openbyd's side of the load benchmark
   mqtt_idle.rs   the TLS test broker, and openbyd's side of the MQTT benchmark
+  replay_server.rs  the fake server and broker answering a scenario on a replay clock (replay benchmark)
 ```
 
 ## Results
@@ -29,6 +32,7 @@ Full run of 2026-11-19 (evening) on one machine: AMD Ryzen 9 5900X (12 cores, 24
 - **CPU per poll cycle:** about 250 ms in pyBYD (314 ms at 1000 accounts), 3.5 to 5.2 ms in pyBYD with the Rust cipher, 1.6 to 2.4 ms in openbyd on one worker thread.
 - **Memory per account:** about 950 KiB in pyBYD, 113 to 148 KiB with the Rust cipher, 89 to 226 KiB in openbyd on one worker thread.
 - **Idle MQTT connection:** 727 KiB and one thread in pyBYD; 54 to 80 KiB and no extra thread in openbyd.
+- **The whole worker, replayed:** BYD Connect's real worker, serving 100 accounts for 30 minutes of recorded car behaviour, used 177 ms of CPU per account per minute with pyBYD's Python cipher and 40 ms with openbyd's: about 4.5 times less for the same polls, with peak memory down from 350 to 220 MiB. What remains is the worker's own work, which the cipher does not touch.
 
 ### Where openbyd is not faster
 
@@ -39,6 +43,8 @@ Full run of 2026-11-19 (evening) on one machine: AMD Ryzen 9 5900X (12 cores, 24
 ### What could not be measured
 
 - TLS on the HTTP side and real network latency: the fake server speaks plain HTTP on localhost.
+- A Rust worker in the replay: it does not exist yet. It will be one more row of the replay benchmark's table of variants.
+- More than 30 minutes of the scenario per run, and so whole charges: the replay runs at the speed of the wall clock (see the limits).
 - Linux and macOS: only this Windows machine was available. CI has measured reply parsing on Linux at about half pyBYD's time, before the last optimisation.
 - pyBYD with 1000 idle MQTT connections, and the delivery of a push message.
 
@@ -160,6 +166,43 @@ N connections to the TLS test broker (a separate process), each subscribed to it
 
 *Source: `bench/results/mqtt_idle-20261119-212928.json`*
 
+### Replay: the whole worker
+
+Runs of 2026-11-20, 00:00 to 04:00, on the same machine. The backend's mqtt-worker (backend commit `a5ae63a1e5`, Python 3.12.13, pyBYD 0.0.85, openbyd 0.1.1) against the replay server playing 30 minutes of a scenario exported from production: 100 accounts with one car each (75 electric, 25 hybrid), from a 13-day export of 231,832 car states, 55,217 errors and 577,289 pushes. The stretch replayed was chosen for being busier than most: in production 15 cars moved in it, about 30 drives started and ended, and three charges started. Every run starts from an empty database and the measured window begins once the worker holds a session for all 100 accounts. Postgres and Redis ran in containers; the reply templates were those of the corpus with the real realtime replies of several car models (the `corpus/realtime-samples` branch). The Python-cipher and Rust-cipher variants were run three times each, interleaved; the variant with shadow parsing twice, afterwards.
+
+| Variant | CPU ms / account / minute | CPU s in the window | Peak RSS | Memory growth / account | Loop lag, mean / p99 | Time per poll | BYD requests | Polls stored |
+|---|---|---|---|---|---|---|---|---|
+| pyBYD cipher (the worker as it is today) | 176.6 (range 159.1-197.3, 3 runs) | 531 (478-592) | 350 MiB (347-352) | 2,229 KiB | 14-24 ms / 196-271 ms | 4.1-4.5 s | 9,838-10,213 | 1,072-1,113 |
+| openbyd cipher | 39.6 (range 35.9-40.0, 3 runs) | 119 (108-120) | 220 MiB (219-220) | 877 KiB | 7 ms / 49 ms | 3.6-3.7 s | 10,202-10,410 | 1,103-1,124 |
+| openbyd cipher + shadow parsing | 37.1 (36.2-38.0, 2 runs) | 112 (109-114) | 220 MiB | 883 KiB | 7 ms / 49 ms | 3.7-3.8 s | 10,315-10,368 | 1,118-1,122 |
+
+*CPU is user + system time of the worker process over the 30 minutes, divided by 100 accounts. Memory growth is the peak resident size minus the size when the worker was ready, before it had claimed an account. Loop lag is the worker's own histogram (how late a one-second timer fires); 49 ms is what an idle worker reads on Windows. In every run the replay sent the same 996 pushes over MQTT (0 to 2 of them while the account was reconnecting), expired 4 sessions and saw 103 logins: the 100 accounts and 3 logins after an expiry.*
+
+What the table says:
+
+- **The cipher was three quarters of the worker's CPU.** With the same scenario and nearly the same requests (the Python-cipher worker made 2 to 5% fewer, because it falls behind), the worker used 4.5 times less CPU with openbyd's cipher: 48.6 to 58.0 ms of CPU per BYD request against 10.4 to 11.7 ms. One core would carry about 340 accounts at this activity with the Python cipher and about 1,500 with openbyd's.
+- **The rest is the worker.** The 40 ms per account per minute that remain are everything else the worker does: pyBYD's request building and reply models, the HTTP client, the database and Redis writes, the drive and charge logic, and one MQTT thread per account (110 to 125 threads). A Rust client addresses the first two and the threads; the micro and load benchmarks above measure only those.
+- **Memory:** 130 MiB less at the peak, 877 KiB per account instead of 2,229 KiB.
+- **Responsiveness:** with the Python cipher the worker's event loop ran a mean of 14 to 24 ms late with a 99th percentile of 196 to 271 ms, a poll took 4.1 to 4.5 s, and 10 to 13 cars at a time were due for a poll and waiting at the worst moment. With openbyd's cipher lag stayed at the floor this machine can measure, a poll took 3.6 to 3.8 s, and 7 cars waited at the worst moment (10 in one run).
+- **Shadow parsing costs nothing measurable:** its two runs sit inside the range of the runs without it.
+- **Spread:** the Python-cipher runs differ by 20% and the Rust-cipher runs by 10%, in step with how busy the rest of the machine was (5 to 12% of all cores during the runs; another benchmark ran on it for part of the night). The ranges do not overlap.
+
+**Drives and charges.** Every run, of every variant, ended with 17 drives and 8 charges, counting the ones still open when the window closed (10 or 11 drives and 3 charges closed, 6 or 7 drives and 5 charges open). They were not the same within the comparison's tolerances, and that is a result, not noise to be averaged:
+
+| Pairs of runs | Pairs | Same detections | Differences per pair |
+|---|---|---|---|
+| Two repeats of one variant | 7 | 0 | 1 to 4 (mean 2.4) |
+| openbyd cipher against openbyd cipher + shadow parsing | 6 | 0 | 2 to 6 (mean 3.7) |
+| pyBYD cipher against either openbyd-cipher variant | 15 | 0 | 4 to 7 (mean 5.1) |
+
+No two runs agreed, not even two runs of the same code: where a drive or a charge ends depends on when the worker happens to poll, and between two repeats of one variant a drive's end moved by 109 to 306 s and a charge's by 130 to 588 s, against a tolerance of 90 s. One drive had or had not been closed by the end of the window. Between the Python-cipher worker and the Rust-cipher worker there were about twice as many differences, all of the same kinds (a drive's end 127 to 303 s apart, a charge's end 98 to 611 s apart, the drive at the window's edge, and one drive whose start moved by just over 300 s and so counted as two different drives). Five of the 100 cars account for every difference. Two of them differ in 14 and in all 15 of the pairings of a Python-cipher run with a Rust-cipher run, but in only 3 and 1 of the 7 pairings of two repeats: for those two cars the workers place a drive's or a charge's end minutes apart consistently, because the Python-cipher worker polls later and less often and so sees the car stop at a different moment. The other three differ about as often between repeats as between variants. No drive or charge was found by one variant and not at all by the other. Distances, odometers and energy agreed wherever a drive was matched; a charge's final SoC differed by one point where its end moved.
+
+**The replay itself.** 99.7 to 99.8% of the values in the worker's stored polls (SoC, odometer, speed, online, charging: about 5,000 values per run) equal the scenario's state at that moment, and `online` and `charging` always did; the rest are values that changed in the seconds between the reply and the moment it was stored. The network guard refused 66 to 81 lookups of the geocoder per run and nothing else, under one second of CPU.
+
+**Two things the replay found that are not about cost.** With shadow parsing on, openbyd's comparison called 1,241 of about 9,000 replies different from pyBYD's result: every one of the capabilities objects the worker builds from a car's configuration, on all 44 fields, and one realtime reply on `rate`. The capabilities case reproduces outside the replay (`openbyd.shadow.compare` on pyBYD's `VehicleCapabilities` built from the corpus's own payload returns every field), so it is the comparison, not the replay, and it would count a mismatch on every such read in production. And in a synthetic scenario with two cars on one account, the worker stored the second car's polls with the first car's higher odometer; the export has one car per account, so the figures above are not affected.
+
+*Source: `bench/results/replay_worker-20261120-035344.json`. It holds the measurements and the counts; the drives and charges themselves stay with the scenario.*
+
 ## What each benchmark measures, and why
 
 ### Micro-benchmarks (`micro.py`)
@@ -201,6 +244,32 @@ Derived figures: **CPU ms per poll cycle** is the run's CPU over `N x K` (it inc
 
 **Certificate verification is off on both sides.** pyBYD always uses TLS with the system's certificates and the test broker's certificate is made for the run, so the pyBYD worker patches paho's `Client.tls_set` (in that process only) to use `cert_reqs=CERT_NONE` and `tls_insecure_set(True)`. The openbyd example installs a certificate verifier that accepts anything. Both sides still do the full TLS handshake and encrypt the connection; neither checks a chain.
 
+### Replay (`replay_worker.py`)
+
+*What does the whole worker cost, and does it still find the same drives and charges?* The other benchmarks measure the client library. This one measures the application that uses it: the mqtt-worker of BYD Connect's backend, which holds one BYD session and one MQTT connection per account, decides when to poll each car, stores what it reads and works out drives and charges. The worker is the real one, unmodified. What is replaced is BYD.
+
+**The scenario.** A scenario (`bench/replay/SCENARIO.md`) says what a set of cars did over time: each car's state, the moments BYD answered an error, and the moments a push arrived. `replay/generate.py` makes synthetic ones. `replay/export_prod.py` builds one from a production table of recorded polls and pushes, anonymised inside the database pod before anything leaves it: accounts and VINs are renumbered with a salt that exists only in the pod's memory, coordinates are removed in SQL, every time is shifted by one random offset, only an allow-list of typed and bounded keys is written, and every line passes a leak check (anything shaped like a VIN, a database id, an e-mail address or a coordinate pair stops the export). Exported scenarios are never committed.
+
+**The replay server.** `replay_server` (the fake BYD server and the TLS test broker in one process of its own) answers every account's requests from its cars' state at the current replay time. It fills the reply templates of `parity/corpus/` with the scenario's values, so the worker receives complete raw replies in BYD's wire format, encrypted and signed as BYD's are. It answers the recorded error codes while they last, expires sessions at a recorded 1005, and publishes the recorded pushes over MQTT, sealed with the account's session key. A car has no position in a scenario: the server gives each one a made-up anchor and moves it around that anchor as its odometer advances.
+
+**A run.** For each variant, from nothing: fresh Postgres and Redis containers (data in memory), the replay server, the backend's seeding script (one entitled user per scenario account, with that account's cars), then `python -m app.mqtt_worker` from the backend checkout. With `--start-when-claimed` the replay clock starts once the worker holds a session for every account, so logins are not in the measured window. After `--minutes` the worker is stopped cleanly and everything is collected. Runs are sequential, variants interleaved (`A B A B`), and each starts from an empty database.
+
+| Variant | What runs |
+|---|---|
+| pyBYD cipher | The worker as it is in production today: pyBYD with its Python envelope cipher (`BYD_NATIVE_CIPHER=false`). |
+| openbyd cipher | The same worker with pyBYD's cipher replaced by openbyd's (`BYD_NATIVE_CIPHER=true`). |
+| openbyd cipher + shadow parsing | The same, and every reply is also parsed by openbyd and compared with pyBYD's result (`BYD_SHADOW_SAMPLE_RATE=1`). |
+
+A variant is one row of `VARIANTS` in `replay_worker.py`: a command and its environment. A worker written in Rust will be one more row.
+
+**What is measured**, all from outside the worker: CPU seconds (user + system) and resident memory of the worker process over the window, and its threads (psutil); the worker's own Prometheus metrics, scraped every 5 s (event-loop lag, time per poll); the replay server's counters (requests by endpoint and by code, pushes sent); and the database afterwards (polls and pushes stored, drives and charges detected). The containers' and the replay server's CPU are not counted.
+
+**The correctness check.** Every variant must find the same drives and charges. After each run the closed drives and charges are read from the database as lists per car, with times in replay seconds, and every run is compared with every other run. Two runs never poll at the same instants, not even two runs of the same variant, so a boundary may move: the comparison allows a start to differ by 300 s and an end by 90 s, distances by 0.05 km and SoC by 0.5, and lists every difference beyond that. Differences between two repeats of the same variant are reported next to those between variants, because they are the yardstick. A second check compares a sample of the polls the worker stored with the scenario's state at that moment, which says whether the replay's replies carry the scenario's values through pyBYD and the backend's own mapping.
+
+**Nothing leaves the machine.** The worker is started through `replay/launcher.py`, which before importing anything else makes every lookup of, and every connection to, an address that is not loopback fail, and reports what it refused. The backend also has a setting that sends every BYD request to one URL whatever the account's country. Either would be enough; both are on.
+
+**Results that come from real cars.** For a scenario that is not synthetic, `bench/results/` gets aggregate figures only: no list of drives or charges, no car, no scenario name or start. The complete results stay next to the scenario, outside the repository.
+
 ## How to run
 
 You need a Rust toolchain, Python 3.11 or newer, and a checkout of this repository. From the repository root (PowerShell shown; use `.venv/bin/python` elsewhere):
@@ -216,6 +285,17 @@ uv pip install --python .venv\Scripts\python.exe maturin psutil "pybyd @ git+htt
 `pip install ".[bench]"` installs psutil; pyBYD at the pinned commit is always installed separately, as on the second line. The scripts build the example binaries themselves (`cargo build --release -p openbyd-client --features testing --examples`); pass `--skip-build` once they are built. Scratch logs go to `target/bench-scratch` (set `OPENBYD_BENCH_SCRATCH` to move them). Each script can also be run alone (`bench\micro.py`, `bench\load.py`, `bench\mqtt_idle.py`) and takes `--help`; `bench\report.py` prints the newest full results as Markdown (`--quick` for the newest quick ones).
 
 `run_all.py --quick` exits non-zero if a benchmark fails, if openbyd gives a different answer from pyBYD in any micro row, if a load run's request count differs from the plan or a call fails, or if MQTT connections do not all come up. **CI can call it** (`python bench/run_all.py --quick`) as a check that the suite and both libraries still work together; do not compare its numbers. Quick results are not kept (`bench/.gitignore`), the results of full runs are.
+
+The replay benchmark needs more than the others: Docker (for Postgres and Redis), a checkout of the backend with its own Python environment, and for the measured runs a scenario. With a synthetic scenario:
+
+```powershell
+.venv\Scripts\python.exe -m bench.replay.generate --accounts 50 --hours 6 --seed demo --profile busy --out E:\tmp\replay\busy.jsonl
+.venv\Scripts\python.exe bench\replay_worker.py --backend <backend>\backend --backend-python <backend venv>\Scripts\python.exe `
+    --scenario E:\tmp\replay\busy.jsonl --start-at 900 --minutes 30 --repeats 3 --start-when-claimed
+.venv\Scripts\python.exe bench\report.py           # the newest results of every benchmark, the replay among them
+```
+
+Without `--scenario` it replays `bench/replay/samples/demo.jsonl` (3 accounts, 4 cars); `--quick --local-store` is a three-minute smoke run on SQLite and an in-memory store that needs no Docker. The replay runs at the speed of the wall clock, so pick `--start-at` and `--minutes` so that drives and charges both start and finish inside the window (`python -m bench.replay.scenario summary <file>` counts what a scenario holds). A run takes `--minutes` plus about a minute of set-up, plus the time the worker needs to claim every account (it claims 10 every 15 s). `--corpus` points the replay server at another directory of reply templates. Results files of separate invocations with the same scenario and settings can be combined as repeats with `--merge`.
 
 To add an implementation (for example the Python `openbyd.Client`): add an `Impl` to the rows it applies to in `micro.py`, a row to `IMPLEMENTATIONS` in `load.py` (a `--worker` branch for Python, or a binary speaking the same `READY` / `go` / `RESULT` / `quit` line protocol), and a row in `mqtt_idle.py`.
 
@@ -236,4 +316,8 @@ To add an implementation (for example the Python `openbyd.Client`): add an `Impl
 * **openbyd's model parsing is being optimised on another branch.** The model rows are the figures at the commit named above, not a verdict.
 * **The idle MQTT benchmark** disables certificate verification on both sides (see above), uses one topic per account and delivers no messages; it measures the cost of holding a connection, not of handling a push.
 * **Loopback sockets.** After a load run thousands of sockets linger in TIME_WAIT for a couple of minutes, and paho (which opens a socket pair per client on Windows) then fails with "address already in use". The first full run lost its pyBYD MQTT row to this; `mqtt_idle.py` now waits for the sockets to clear and the MQTT rows above are from a rerun.
+* **The replay is not BYD.** It answers in a few milliseconds from the same machine, without TLS on the HTTP side; real BYD takes hundreds of milliseconds to seconds, which does not change the worker's CPU per request but does change how many polls fit in a minute when the worker is busy. Production stored 19 derived fields per poll, not BYD's replies: the replay fills every other field of a reply (tyre pressures, doors, windows, range, energy history, capabilities, the charging schedule) from a template, so those fields are realistic but constant. Recorded pushes include the ones BYD sent in answer to production's own polls, and they arrive at production's times, not in answer to the replayed worker's polls. An error is replayed for as long as it lasted in production, whenever the worker asks. Cars have made-up positions.
+* **The replay runs at wall-clock speed.** The worker stamps what it stores with its own clock and its cadences are in real seconds, so a faster replay would need the worker's clocks scaled as well, and its database's and Redis's. A run therefore covers `--minutes` of the scenario, not days: a long charge that starts in the window is still open when it ends, and is counted as open, not compared.
+* **The worker's lookups of street addresses are refused** by the network guard (it asks a public geocoder for the address of each drive's start and end). A refused lookup is retried at the car's later polls, at about 11 ms of CPU each; the results count the refusals. Nothing else the worker does reaches outside.
+* **Loop lag in the replay results** is the worker's own histogram of how late a one-second timer fires. On Windows a timer cannot be more precise than 15.6 ms and the histogram's buckets are coarse, so an idle worker already reads a 99th percentile near 49 ms; only differences well above that mean something. Memory per account divides the whole process's peak by the accounts, the interpreter and the application included.
 * **Memory** is the process's resident size. For Python it includes interpreter and import growth that happens during the run (it is the baseline's imports that are excluded), for the Rust binaries the heap and the thread stacks.

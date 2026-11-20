@@ -1,7 +1,7 @@
 """Compare one car's own readings with what BYD's cloud said about the same car at the same moments.
 
 Reads a pairs file written by ``export_pairs.py`` (a ``meta`` line, ``car`` lines, ``cloud``
-lines; see bench/mapping/README.md) and writes ``results.json`` (every number) and
+lines, ``raw`` lines; see bench/mapping/README.md) and writes ``results.json`` (every number) and
 ``report.md`` (tables) to an output directory::
 
     python -m bench.mapping.compare <pairs.jsonl> --out-dir <dir>
@@ -9,8 +9,10 @@ lines; see bench/mapping/README.md) and writes ``results.json`` (every number) a
 The car is the ground truth. The tool builds a car-state timeline in which a reading
 holds only while it is fresh, pairs every cloud value with the car's value at the cloud
 row's ``t``, and reports aggregates only: counts, quantiles, means, confusion matrices,
-code tables and fitted slopes. It never writes or prints an input row, the ``t`` of an
-individual event, or any per-event list (not even derived lags). Standard library only,
+code tables and fitted slopes. The decode section does the same for every raw BYD field
+(contingency tables against the car's enum readings, fits against its numbers). It never
+writes or prints an input row, the ``t`` of an individual event, or any per-event list
+(not even derived lags). Standard library only (and export_pairs' line check for raw lines),
 deterministic.
 """
 
@@ -20,12 +22,16 @@ import argparse
 import bisect
 import json
 import math
+import random
 import re
 import sys
+import zlib
 from collections import Counter
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
+
+from bench.mapping import export_pairs
 
 VERSION = 1
 
@@ -112,6 +118,51 @@ ODO_RECOVERY_READINGS = 3
 # What pyBYD's vehicle_on says about BYD's powerGear when the car is not moving and not asleep.
 POWER_GEAR = {"true": "powerGear 3 (ON)", "false": "powerGear 1 (OFF) or unknown + vehicleState 0/2",
               "null": "neither known", "absent": "vehicle_on absent"}
+# Decode (raw BYD fields against the car). An integer, enum or boolean field (by its table kind) with at most
+# this many distinct values is enum-like; a float field, or an integer one with more values, is numeric.
+ENUM_MAX_VALUES = 20
+# Independent evidence. A raw value supports a mapping only when it was seen in at least this many time
+# clusters (pairs CLUSTER_GAP_S or more apart) and runs of its own; each car value needs this many episodes
+# (for a fit: car-state episodes); a finding needs this many test clusters.
+MIN_EPISODES = 3
+MIN_TEST_CLUSTERS = 3
+# Train gates, applied to unrounded values on the train half: at least DECODE_MIN_N pairs; for an enum field
+# the bias-corrected uncertainty coefficient U(car | field) and Goodman-Kruskal lambda (the share of the
+# errors of always guessing the car's modal value that the field removes); for a numeric field |r| of the
+# first differences within clusters (so two unrelated trends do not correlate).
+DECODE_MIN_N = 10
+DECODE_MIN_U = 0.3
+DECODE_MIN_LAMBDA = 0.3
+DECODE_MIN_R = 0.8
+# Held-out gates on the test half: an enum mapping's balanced accuracy (mean recall over the car values)
+# must beat the majority-class predictor's (1 / number of car values) by HELD_OUT_MIN_GAIN, covering at least
+# HELD_OUT_MIN_COVERAGE of the test pairs; a fit, with the train slope and offset, must reach r >=
+# HELD_OUT_MIN_R and a smaller mean absolute error than the train mean.
+HELD_OUT_MIN_GAIN = 0.2
+HELD_OUT_MIN_COVERAGE = 0.5
+HELD_OUT_MIN_R = 0.8
+# Significance on the test half: PERMUTATIONS shifts (seeded per field and reading); Benjamini-Hochberg at FDR_Q
+# over every examined hypothesis.
+PERMUTATIONS = 2000
+FDR_Q = 0.05
+# A reply carrying its own sample time is paired at that time, and not at all when the sample time is more
+# than STALE_SAMPLE_S from the reply's receive time, or marked stale by the exporter (BYD's 0 or no time).
+STALE_SAMPLE_S = 300.0
+SAMPLE_TIME_PATHS = ("time", "timestamp", "updateTime", "data.gpsTimeStamp", "gpsTimeStamp")
+# pyBYD's numeric "no reading" values, never fitted: -999 (rate idle), -129 (temperatures), and -1 on a path
+# whose table range starts at -1.
+FIT_SENTINELS = (-999.0, -129.0)
+# Secondary: the strongest fields re-evaluated with the car reading taken this much earlier, on one cohort.
+DECODE_LAGS_S = (0, 30, 60, 120)
+LAG_FIELDS = 5
+DOOR_KEYS = ("fl", "fr", "rl", "rr", "hood", "trunk")
+ENUM_READINGS = ("doors_any_open", *(f"doors.{d}" for d in DOOR_KEYS), "lock", "gear", "power_level", "cadence",
+                 "moving", "charging_gun_raw", "charger_state_raw", "charging_type_raw", "car_state")
+PLAIN_NUMBERS = ("speed_kph", "motor_power_kw", "charging_power_kw", "soc_pct", "odometer_km", "outside_temp_c",
+                 "remaining_kwh", "lifetime_kwh", "twelve_volt", "charge_remaining_min", "charged_kwh")
+# Tyre corner labels are unconfirmed on the car, so each raw tyre field is fitted against every slot and the mean.
+TYRE_SLOTS = ("fl", "fr", "rl", "rr", "mean")
+NUMBER_READINGS = PLAIN_NUMBERS + tuple(f"{key}[{slot}]" for key in ("tyre_kpa", "tyre_temp_c") for slot in TYRE_SLOTS)
 
 
 class _Mark:
@@ -298,11 +349,13 @@ def share(part: int, whole: int) -> float | None:
 # --- reading the file ------------------------------------------------------------------------------
 
 
-def read_pairs(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], Counter[str]]:
-    """Stream the file: the meta line, car rows, cloud rows and counts of skipped lines."""
+def read_pairs(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], Counter[str],
+                                    list[dict[str, Any]]]:
+    """Stream the file: the meta line, car rows, cloud rows, counts of skipped lines and raw rows."""
     meta: dict[str, Any] = {}
     car: list[dict[str, Any]] = []
     cloud: list[dict[str, Any]] = []
+    raw: list[dict[str, Any]] = []
     skipped: Counter[str] = Counter()
     with path.open("r", encoding="utf-8") as handle:
         for line in handle:
@@ -330,9 +383,17 @@ def read_pairs(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], list[d
                         skipped["cloud_without_source"] += 1
                         continue
                     cloud.append(row)
+            elif kind == "raw":
+                # The exporter's strict check again: a raw line it refuses is counted and skipped, never used.
+                try:
+                    export_pairs.check_line(line if line.endswith("\n") else line + "\n")
+                except export_pairs.ep._ExportError:
+                    skipped["raw_invalid"] += 1
+                    continue
+                raw.append(row)
             else:
                 skipped["unknown_type"] += 1
-    return meta, car, cloud, skipped
+    return meta, car, cloud, skipped, raw
 
 
 def dedupe(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int, int]:
@@ -690,8 +751,9 @@ def state_hours(car: Car, lo: float, hi: float) -> dict[str, float]:
 
 class Analysis:
     def __init__(self, meta: dict[str, Any], car_rows: list[dict[str, Any]], cloud: list[dict[str, Any]],
-                 skipped: Counter[str]) -> None:
+                 skipped: Counter[str], raw: list[dict[str, Any]] | None = None) -> None:
         self.meta = meta
+        self.raw = sorted(raw or [], key=lambda r: r["t"])
         self.raw_car_rows = len(car_rows)
         rows, self.exact_dups, self.near_dups = dedupe(car_rows)
         self.car = Car(rows)
@@ -1906,6 +1968,266 @@ class Analysis:
                 out.append({"quantity": key, "side": "cloud_only", "reason": reason})
         return out
 
+    # 18 ------------------------------------------------------------------------------------------
+    def _enum_readings(self, t: float, snap: Snapshot) -> dict[str, str]:
+        """The car's enum readings at ``t`` (fresh or inferred), as table labels; unknown ones left out.
+
+        ``doors_any_open`` is open when any door reads open, and closed only when all six (four
+        doors, hood, trunk) are read and closed.
+        """
+        car = self.car
+        out: dict[str, str] = {}
+        doors = car.value("doors", t)
+        if type(doors) is dict:
+            known = {str(d): v for d, v in doors.items() if v in ("open", "closed")}
+            if "open" in known.values():
+                out["doors_any_open"] = "open"
+            elif all(known.get(d) == "closed" for d in DOOR_KEYS):
+                out["doors_any_open"] = "closed"
+            for d in DOOR_KEYS:
+                if d in known:
+                    out[f"doors.{d}"] = known[d]
+        for key in ("lock", "gear", "power_level", "cadence", *PLUG_KEYS):
+            value = car.value(key, t)
+            if value is not UNKNOWN and value is not ABSENT and value is not None:
+                out[key] = label(value)
+        out["moving"] = label(snap.moving)
+        out["car_state"] = snap.state
+        return out
+
+    def _number_readings(self, t: float) -> dict[str, float]:
+        """The car's numbers at ``t`` (speed interpolated while moving); tyres per slot and their mean."""
+        out: dict[str, float] = {}
+        for key in PLAIN_NUMBERS:
+            value = self.car.value(key, t, interpolate=key == "speed_kph")
+            if isnum(value):
+                out[key] = float(value)
+        for key in ("tyre_kpa", "tyre_temp_c"):
+            value = self.car.value(key, t)
+            if type(value) is dict:
+                slots = {w: float(value[w]) for w in TYRE_SLOTS[:4] if isnum(value.get(w))}
+                out.update({f"{key}[{w}]": x for w, x in slots.items()})
+                if len(slots) == 4:
+                    out[f"{key}[mean]"] = sum(slots.values()) / 4
+        return out
+
+    def _reading_at(self, t: float, reading: str, numeric: bool) -> Any:
+        """One car reading at ``t`` from fresh rows only (not inferred), for the lag evaluation."""
+        snap = self.car.snapshot(t)
+        if snap.state in ("unknown", "parked_inferred"):
+            return None
+        return self._number_readings(t).get(reading) if numeric else self._enum_readings(t, snap).get(reading)
+
+    def decode(self) -> dict[str, Any]:
+        """Each raw BYD field against the car's own readings (aggregates only; see DECODE_NOTE)."""
+        car = self.car
+        by_endpoint: Counter[str] = Counter()
+        lines = with_fields = 0
+        status_counts: Counter[str] = Counter()
+        codes = Tally()
+        counts: dict[str, Counter[str]] = {}
+        specs: dict[str, Any] = {}
+        samples: dict[str, list[tuple[float, str, Any, int]]] = {}
+        inferred: Counter[str] = Counter()
+        readings: list[tuple[dict[str, str], dict[str, float]]] = []
+        pair_times: list[float] = []
+        ages: dict[str, Dist] = {}
+        for row in self.raw:
+            t = row["t"]
+            source, endpoint = row.get("source"), row["endpoint"]
+            lines += 1
+            by_endpoint[f"{source}:{endpoint}"] += 1
+            fields = row.get("fields") if type(row.get("fields")) is dict else None
+            table = export_pairs.raw_table(source, endpoint)
+            sample = None
+            invalid_time = False
+            if fields:
+                invalid_time = any(f"{path}_stale" in fields for path in SAMPLE_TIME_PATHS)
+                sample = next((fields[f"{path}_t"] for path in SAMPLE_TIME_PATHS
+                               if isnum(fields.get(f"{path}_t"))), None)
+            when = t if sample is None else float(sample)
+            snap = car.snapshot(when)
+            if "code" in row:
+                codes.add(f"{endpoint}:{label(row['code'])}", snap.state, t, snap.state)
+            if fields is None:
+                continue
+            with_fields += 1
+            if invalid_time:
+                status = "sample_time_invalid"
+            elif sample is not None and abs(t - sample) > STALE_SAMPLE_S:
+                status = "stale_sample"
+            elif snap.state == "unknown":
+                status = "car_unknown"
+            elif snap.state == "parked_inferred":
+                status = "inferred_parked"
+            else:
+                status = "paired_with_car"
+            status_counts[status] += 1
+            index = -1
+            if status == "paired_with_car":
+                readings.append((self._enum_readings(when, snap), self._number_readings(when)))
+                pair_times.append(when)
+                index = len(readings) - 1
+            for key, value in fields.items():
+                if key.endswith("_stale"):
+                    continue
+                name = f"{endpoint}:{key}"
+                if key.endswith("_t"):
+                    if isnum(value):
+                        ages.setdefault(name[:-2], Dist()).add(t - value, t, snap.state)
+                    continue
+                spec = table.get(key)
+                if spec is None:
+                    continue
+                specs[name] = spec
+                counts.setdefault(name, Counter())[label(value)] += 1
+                if status == "paired_with_car":
+                    samples.setdefault(name, []).append((when, snap.state, value, index))
+                elif status == "inferred_parked":
+                    inferred[name] += 1
+        clusters = _global_clusters(pair_times)
+        constant: dict[str, dict[str, Any]] = {}
+        enums: dict[str, dict[str, Any]] = {}
+        numbers: dict[str, dict[str, Any]] = {}
+        unranked: dict[str, int] = {}
+        family: list[dict[str, Any]] = []  # every hypothesis: {"kind", "field", "reading", "out", "work"}
+        best_of: list[dict[str, Any]] = []
+        for name in sorted(counts):
+            seen = counts[name]
+            spec = specs[name]
+            if len(seen) <= 1:
+                constant[name] = {"value": next(iter(seen)), "lines": sum(seen.values())}
+                continue
+            rows = sorted(samples.get(name, []), key=lambda r: (r[0], r[3]))
+            if spec.kind in ("int", "enum", "bool") and len(seen) <= ENUM_MAX_VALUES:
+                kind, readings_of, build = "enum", ENUM_READINGS, _enum_hypothesis
+            elif spec.kind in ("int", "float"):
+                kind, readings_of, build = "numeric", NUMBER_READINGS, _numeric_hypothesis
+            else:
+                unranked[name] = len(seen)  # many distinct strings: neither a table nor a fit
+                continue
+            found = {}
+            for order, reading in enumerate(readings_of):
+                result = build(rows, readings, clusters, reading, spec)
+                if result is not None:
+                    entry = {"kind": kind, "field": name, "reading": reading, "order": order, **result}
+                    found[reading] = entry
+                    family.append(entry)
+            best = max(found.values(), key=lambda e: (e["work"]["gate"], e["work"]["score"], -e["order"]),
+                       default=None)
+            record = {"table_kind": spec.kind, "distinct": len(seen), "inferred_parked_pairs": inferred[name],
+                      "best_reading": None if best is None else best["reading"],
+                      "hypotheses": {reading: entry["out"] for reading, entry in found.items()}}
+            if kind == "enum":
+                record["value_counts"] = dict(sorted(seen.items()))
+                enums[name] = record
+            else:
+                numbers[name] = record
+            if best is not None:
+                best_of.append(best)
+        # Each field's best reading (chosen on the train half) is tested on the test half when it passed the
+        # train gates; every other hypothesis keeps p = 1 and stays in the family.
+        for entry in best_of:
+            work, out = entry["work"], entry["out"]
+            if not work["gate"]:
+                continue
+            key = f"{entry['kind']}|{entry['field']}|{entry['reading']}"
+            if entry["kind"] == "enum":
+                work["p"] = _enum_shift_p(work["test_x"], work["test_y"], work["test_clusters"], key)
+                out["held_out"] = _enum_held_out(work)
+            else:
+                work["p"] = _numeric_shift_p(work["test_clusters_xy"], key)
+                out["held_out"] = _numeric_held_out(work)
+            out["p_value"] = r3(work["p"])
+            out["tested"] = True
+        passed = _benjamini_hochberg([entry["work"].get("p", 1.0) for entry in family], FDR_Q)
+        for entry, ok in zip(family, passed, strict=True):
+            out, work = entry["out"], entry["work"]
+            out["bh_pass"] = ok
+            held = out.get("held_out") or {}
+            if (ok and out.get("tested") and held.get("pass") and work["gate"]
+                    and out["test_clusters"] >= MIN_TEST_CLUSTERS):
+                out["verdict"] = "predicts"
+        rank_enum: list[dict[str, Any]] = []
+        rank_numeric: list[dict[str, Any]] = []
+        for entry in best_of:
+            out = entry["out"]
+            item = {"field": entry["field"], "reading": entry["reading"], "verdict": out["verdict"], "n": out["n"],
+                    "n_train": out["n_train"], "n_test": out["n_test"], "test_clusters": out["test_clusters"],
+                    "days": out.get("days", 0), "p_value": out.get("p_value"), "bh_pass": out["bh_pass"],
+                    "held_out": out.get("held_out"), "_score": entry["work"]["score"]}
+            if entry["kind"] == "enum":
+                item.update(u_train=out["train"]["u"], lambda_train=out["train"]["lambda"],
+                            supported_raw_values=len(out["raw_values_supported"]),
+                            episodes_min=min(out["episodes_by_car_value"].values(), default=0))
+                rank_enum.append(item)
+            else:
+                item.update(r_diff_train=out["r_diff_train"], episodes=out["episodes"], clusters=out["clusters"],
+                            slope_train=out["slope_train"], offset_train=out["offset_train"])
+                rank_numeric.append(item)
+        for ranking in (rank_enum, rank_numeric):
+            ranking.sort(key=lambda x: (-_RANK[x["verdict"]], -x["_score"], x["field"]))
+        lags = self._decode_lags(rank_enum, rank_numeric, samples, specs, clusters)
+        for ranking in (rank_enum, rank_numeric):
+            for item in ranking:
+                del item["_score"]
+        tested = [entry for entry in family if entry["out"].get("tested")]
+        return {
+            "note": DECODE_NOTE,
+            "lines": {"raw_lines": lines, "with_fields": with_fields,
+                      **{key: status_counts[key] for key in ("paired_with_car", "car_unknown", "inferred_parked",
+                                                             "stale_sample", "sample_time_invalid")},
+                      "by_source_endpoint": dict(sorted(by_endpoint.items()))},
+            "clusters": {"total": len(set(clusters)), "train": len({c for c in clusters if c % 2 == 0}),
+                         "test": len({c for c in clusters if c % 2 == 1})},
+            "tests": {"hypotheses": len(family), "tested_on_test_half": len(tested), "bh_pass": sum(passed),
+                      "predicts": sum(entry["out"]["verdict"] == "predicts" for entry in family), "q": FDR_Q,
+                      "permutations": PERMUTATIONS},
+            "codes_x_car_state": codes.summary(),
+            "constant_fields": constant,
+            "unranked_fields_distinct": unranked,
+            "ranking_enum": rank_enum,
+            "ranking_numeric": rank_numeric,
+            "lags_secondary": lags,
+            "time_fields_age_s": {name: dist.summary() for name, dist in sorted(ages.items())},
+            "enum_fields": enums,
+            "numeric_fields": numbers,
+        }
+
+    def _decode_lags(self, rank_enum: list[dict[str, Any]], rank_numeric: list[dict[str, Any]],
+                     samples: dict[str, list[tuple[float, str, Any, int]]], specs: dict[str, Any],
+                     clusters: list[int]) -> dict[str, Any]:
+        """The strongest fields with the car read DECODE_LAGS_S earlier, on the cohort present at every lag."""
+        out: dict[str, Any] = {}
+        for ranking, is_numeric in ((rank_enum, False), (rank_numeric, True)):
+            for item in ranking[:LAG_FIELDS]:
+                name, reading = item["field"], item["reading"]
+                cohort = []
+                for when, _, value, index in sorted(samples.get(name, []), key=lambda r: (r[0], r[3])):
+                    if is_numeric and not _fit_value(value, specs[name]):
+                        continue
+                    car_values = [self._reading_at(when - lag, reading, is_numeric) for lag in DECODE_LAGS_S]
+                    if all(v is not None for v in car_values):
+                        cohort.append((clusters[index], value, car_values))
+                result: dict[str, Any] = {"cohort_n": len(cohort)}
+                scores: dict[str, float | None] = {}
+                for k, lag in enumerate(DECODE_LAGS_S):
+                    if is_numeric:
+                        dx, dy = _cluster_diffs([(c, cv[k], float(v)) for c, v, cv in cohort])
+                        r = _pearson(dx, dy) if len(dx) >= 2 else None
+                        scores[str(lag)] = None if r is None else abs(r)
+                    else:
+                        car_labels = [cv[k] for _, _, cv in cohort]
+                        scores[str(lag)] = (_association([label(v) for _, v, _ in cohort], car_labels)["u"]
+                                            if len(set(car_labels)) >= 2 else None)
+                if len(cohort) < DECODE_MIN_N or any(score is None for score in scores.values()):
+                    result["note"] = "lag not comparable"
+                else:
+                    result["by_lag_s"] = {lag: r3(score) for lag, score in scores.items()}
+                    result["best_lag_s"] = max(DECODE_LAGS_S, key=lambda lag: (scores[str(lag)], -lag))
+                out[f"{name} x {reading}"] = result
+        return out
+
     def run(self) -> dict[str, Any]:
         inventory = self.inventory()
         results = {
@@ -1943,9 +2265,354 @@ class Analysis:
             "online_latency": self.online_latency(),
             "poll_contamination": self.contamination(),
             "freeze_and_stale": self.freeze_and_stale(),
+            "decode": self.decode(),
         }
         results["limits"] = self.limits(inventory["car_keys"], inventory["cloud_keys"])
         return results
+
+
+_RANK = {"predicts": 2, "observation": 1, "no association": 0}
+DECODE_NOTE = (
+    "Pairing: a raw line is paired with the car at its own sample time when it carries one (time, timestamp, "
+    "updateTime, gpsTimeStamp) and at its receive time only when it has no sample-time path at all; a reply "
+    "whose sample time the exporter marked stale (BYD's 0, null) or that lies more than 5 min from its receive "
+    "time is not paired. Pairs in inferred parked gaps are counted per field and kept out. The car's freshness "
+    "rules are the rest of the report's. "
+    "Split: the paired lines' time clusters (10 min apart) alternate between a train half (even) and a test "
+    "half (odd). Fields: integer, enum and boolean fields (by their table kind) with at most 20 values get a "
+    "contingency table against every car reading; float fields, and integer ones with more values, a fit "
+    "raw = slope * car + offset (pyBYD's sentinels -999, -129, and -1 where the range starts there, are not "
+    "fitted, row by row). "
+    "Family: every examined (field, reading) pair with n >= 10 pairs and at least two car values is one "
+    "hypothesis. Each field's best reading is chosen on the train half only (the train gates first, then U or "
+    "|r|), and only it is tested, on the test half only, if it passed the train gates: for an enum field U >= "
+    "0.3 and lambda >= 0.3 on supported train pairs (a raw value is supported when seen in 3 clusters and 3 "
+    "runs) with 3 episodes of each car value; for a fit |r| >= 0.8 of first differences within clusters, with 3 "
+    "car-state episodes and 3 clusters. The test is a permutation (2000 draws, seeded): enum fields rotate the "
+    "raw series inside each test cluster and then as a whole against the car's, fits shift the raw series in "
+    "time within each test cluster and correlate first differences. Every other hypothesis, "
+    "including one that fails a gate, has p = 1 and stays in the family. Benjamini-Hochberg runs over the "
+    "whole family at q = 0.05. "
+    "Verdict: 'predicts' needs the BH pass, the train gates (with repeat support), at least 3 test clusters, "
+    "and the held-out check on the test half: an enum mapping learned on the train half reaching a balanced "
+    "accuracy at least 0.2 above the majority-class predictor's (1 / car values) on at least half of the test "
+    "pairs, or a fit with the train slope reaching r >= 0.8 and a smaller mean absolute error than the train "
+    "mean. A hypothesis that meets the gates or the effect thresholds otherwise is an 'observation', the rest "
+    "'no association'. All thresholds apply to unrounded values. Lags (the car read 30, 60, 120 s earlier) are "
+    "secondary and compared on the pairs present at every lag."
+)
+
+
+def _episodes(samples: Iterable[tuple[float, str]]) -> Counter[str]:
+    """Runs of one value, per value: a new run at every change and after a gap of CLUSTER_GAP_S or more."""
+    runs: Counter[str] = Counter()
+    previous: tuple[float, str] | None = None
+    for t, value in sorted(samples, key=lambda s: (s[0], str(s[1]))):
+        if previous is None or value != previous[1] or t - previous[0] >= CLUSTER_GAP_S:
+            runs[value] += 1
+        previous = (t, value)
+    return runs
+
+
+def _global_clusters(times: list[float]) -> list[int]:
+    """The time cluster of each paired line (by index): a new cluster after a gap of CLUSTER_GAP_S or more."""
+    order = sorted(range(len(times)), key=lambda i: (times[i], i))
+    out = [0] * len(times)
+    cluster = 0
+    for k, i in enumerate(order):
+        if k and times[i] - times[order[k - 1]] >= CLUSTER_GAP_S:
+            cluster += 1
+        out[i] = cluster
+    return out
+
+
+def _association(raw: list[str], car: list[str]) -> dict[str, Any]:
+    """Unrounded association of raw labels with car labels: U, lambda, purity, baseline, the table and modes."""
+    n = len(raw)
+    cells: Counter[tuple[str, str]] = Counter(zip(raw, car))
+    by_raw: Counter[str] = Counter(raw)
+    by_car: Counter[str] = Counter(car)
+    out: dict[str, Any] = {"n": n, "u": None, "lambda": None, "purity": None, "baseline": None, "rows": {},
+                           "modal": {}}
+    if not n:
+        return out
+    entropy = -sum(k / n * math.log(k / n) for k in by_car.values())
+    information = sum(k / n * math.log(k * n / (by_raw[r] * by_car[c])) for (r, c), k in cells.items())
+    corrected = information - (len(by_raw) - 1) * (len(by_car) - 1) / (2 * n)
+    table: dict[str, dict[str, int]] = {}
+    for (r, c), k in sorted(cells.items()):
+        table.setdefault(r, {})[c] = k
+    modal = {r: max(sorted(cols.items()), key=lambda item: item[1]) for r, cols in table.items()}
+    purity = sum(k for _, k in modal.values()) / n
+    baseline = max(by_car.values()) / n
+    out.update(u=max(0.0, corrected) / entropy if entropy > 0 else None,
+               **{"lambda": (purity - baseline) / (1 - baseline) if baseline < 1 else None},
+               purity=purity, baseline=baseline, rows=table,
+               modal={r: {"car": c, "share": r3(k / by_raw[r])} for r, (c, k) in modal.items()})
+    return out
+
+
+def _effect(a: dict[str, Any]) -> bool:
+    return (a["n"] >= DECODE_MIN_N and a["u"] is not None and a["u"] >= DECODE_MIN_U
+            and a["lambda"] is not None and a["lambda"] >= DECODE_MIN_LAMBDA)
+
+
+def _rounded(a: dict[str, Any]) -> dict[str, Any]:
+    return {"n": a["n"], **{k: None if a[k] is None else r3(a[k]) for k in ("u", "lambda", "purity", "baseline")}}
+
+
+def _enum_hypothesis(rows: list[tuple[float, str, Any, int]],
+                     readings: list[tuple[dict[str, str], dict[str, float]]], clusters: list[int], reading: str,
+                     spec: Any) -> dict[str, Any] | None:
+    """A raw enum field against one car reading: support, train gates and the halves; None if not a hypothesis."""
+    pairs = [(t, state, label(value), readings[i][0][reading], clusters[i]) for t, state, value, i in rows
+             if reading in readings[i][0]]
+    if len(pairs) < DECODE_MIN_N or len({p[3] for p in pairs}) < 2:
+        return None
+    clusters_by_raw: dict[str, set[int]] = {}
+    for _, _, raw, _, cluster in pairs:
+        clusters_by_raw.setdefault(raw, set()).add(cluster)
+    raw_runs = _episodes((t, raw) for t, _, raw, _, _ in pairs)
+    supported = sorted(raw for raw, seen in clusters_by_raw.items()
+                       if len(seen) >= MIN_EPISODES and raw_runs[raw] >= MIN_EPISODES)
+    kept = [p for p in pairs if p[2] in supported]
+    car_runs = _episodes((t, car) for t, _, _, car, _ in kept)
+    repeated = len(car_runs) >= 2 and min(car_runs.values()) >= MIN_EPISODES
+    train = [p for p in kept if p[4] % 2 == 0]
+    test = [p for p in pairs if p[4] % 2 == 1]
+    on_train = _association([p[2] for p in train], [p[3] for p in train])
+    every = _association([p[2] for p in pairs], [p[3] for p in pairs])
+    train_ok = len({p[2] for p in train}) >= 2 and _effect(on_train)
+    gate = train_ok and repeated
+    out: dict[str, Any] = {
+        "n": len(pairs), "n_train": len(train), "n_test": len(test), "test_clusters": len({p[4] for p in test}),
+        **_units([(t, state) for t, state, _, _, _ in pairs]),
+        "states": _states(Counter(state for _, state, _, _, _ in pairs)),
+        "raw_values_supported": supported,
+        "clusters_by_raw_value": {raw: len(seen) for raw, seen in sorted(clusters_by_raw.items())},
+        "raw_runs_by_value": dict(sorted(raw_runs.items())), "episodes_by_car_value": dict(sorted(car_runs.items())),
+        "all_pairs": _rounded(every), "train": _rounded(on_train), "train_gate": train_ok, "repeated": repeated,
+        "rows": every["rows"], "modal": every["modal"], "bh_pass": False,
+        "verdict": "observation" if gate or _effect(every) else "no association",
+    }
+    work = {"gate": gate, "score": on_train["u"] or 0.0, "train": [(p[2], p[3]) for p in train],
+            "test_x": [p[3] for p in test], "test_y": [p[2] for p in test], "test_clusters": [p[4] for p in test]}
+    return {"out": out, "work": work}
+
+
+def _fit_value(value: Any, spec: Any) -> bool:
+    """Whether a raw value is fitted: a number that is not one of pyBYD's "no reading" sentinels."""
+    return isnum(value) and value not in FIT_SENTINELS and not (value == -1 and spec.low == -1)
+
+
+def _cluster_diffs(points: list[tuple[int, float, float]]) -> tuple[list[float], list[float]]:
+    """First differences (car, raw) of consecutive points within the same cluster."""
+    dx: list[float] = []
+    dy: list[float] = []
+    for (c1, x1, y1), (c2, x2, y2) in zip(points, points[1:]):
+        if c1 == c2:
+            dx.append(x2 - x1)
+            dy.append(y2 - y1)
+    return dx, dy
+
+
+def _least_squares(xs: list[float], ys: list[float]) -> tuple[float, float] | None:
+    n = len(xs)
+    if n < 2:
+        return None
+    mx, my = sum(xs) / n, sum(ys) / n
+    sxx = sum((x - mx) ** 2 for x in xs)
+    if sxx <= 0:
+        return None
+    slope = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / sxx
+    return slope, my - slope * mx
+
+
+def _numeric_hypothesis(rows: list[tuple[float, str, Any, int]],
+                        readings: list[tuple[dict[str, str], dict[str, float]]], clusters: list[int], reading: str,
+                        spec: Any) -> dict[str, Any] | None:
+    """A numeric field against one car number: differences within clusters, train gates, the halves."""
+    points = [(t, state, clusters[i], readings[i][1][reading], float(value)) for t, state, value, i in rows
+              if reading in readings[i][1] and _fit_value(value, spec)]
+    if (len(points) < DECODE_MIN_N or len({p[3] for p in points}) < 2 or len({p[4] for p in points}) < 2):
+        return None
+    fit = Fit()
+    for t, state, _, x, y in points:
+        fit.add(x, y, t, state)
+    out = fit.summary()
+    train = [p for p in points if p[2] % 2 == 0]
+    test = [p for p in points if p[2] % 2 == 1]
+    dx_train, dy_train = _cluster_diffs([(c, x, y) for _, _, c, x, y in train])
+    dx_all, dy_all = _cluster_diffs([(c, x, y) for _, _, c, x, y in points])
+    r_train = _pearson(dx_train, dy_train) if len(dx_train) >= 2 else None
+    r_all = _pearson(dx_all, dy_all) if len(dx_all) >= 2 else None
+    episodes = sum(_episodes((t, state) for t, state, _, _, _ in points).values())
+    n_clusters = len({p[2] for p in points})
+    repeated = episodes >= MIN_EPISODES and n_clusters >= MIN_EPISODES
+    train_ok = len(train) >= DECODE_MIN_N and r_train is not None and abs(r_train) >= DECODE_MIN_R
+    line = _least_squares([p[3] for p in train], [p[4] for p in train])
+    gate = train_ok and repeated and line is not None
+    effect = r_all is not None and len(points) >= DECODE_MIN_N and abs(r_all) >= DECODE_MIN_R
+    by_cluster: dict[int, list[tuple[float, float]]] = {}
+    for _, _, c, x, y in test:
+        by_cluster.setdefault(c, []).append((x, y))
+    out.update(n_train=len(train), n_test=len(test), test_clusters=len(by_cluster), episodes=episodes,
+               clusters=n_clusters, r_diff_train=None if r_train is None else r3(r_train),
+               r_diff_all=None if r_all is None else r3(r_all), train_gate=train_ok, repeated=repeated,
+               slope_train=None if line is None else r3(line[0]), offset_train=None if line is None else r3(line[1]),
+               bh_pass=False, verdict="observation" if gate or effect else "no association")
+    work = {"gate": gate, "score": abs(r_train) if r_train is not None else 0.0, "line": line,
+            "train_mean": sum(p[4] for p in train) / len(train) if train else None,
+            "test_points": [(x, y) for _, _, _, x, y in test], "test_clusters_xy": list(by_cluster.values())}
+    return {"out": out, "work": work}
+
+
+def _pearson(xs: list[float], ys: list[float]) -> float | None:
+    n = len(xs)
+    if n < 2:
+        return None
+    mx, my = sum(xs) / n, sum(ys) / n
+    sxx = sum((x - mx) ** 2 for x in xs)
+    syy = sum((y - my) ** 2 for y in ys)
+    if sxx <= 0 or syy <= 0:
+        return None
+    return sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / math.sqrt(sxx * syy)
+
+
+def _information(x: list[int], y: list[int]) -> float:
+    """Mutual information of two coded label series (n and both margins are the same under a rotation)."""
+    n = len(x)
+    cells = Counter(zip(x, y))
+    bx, by = Counter(x), Counter(y)
+    return sum(k / n * math.log(k * n / (bx[a] * by[b])) for (a, b), k in cells.items())
+
+
+def _codes(values: list[Any]) -> list[int]:
+    index: dict[Any, int] = {}
+    return [index.setdefault(v, len(index)) for v in values]
+
+
+def _enum_shift_p(car: list[str], raw: list[str], clusters: list[int], key: str) -> float:
+    """Permutation p-value of the mutual information of the raw labels against the car's over the test pairs.
+
+    Each of PERMUTATIONS draws (seeded by ``key``) rotates the raw series inside every test cluster by its
+    own offset and then rotates the whole series by a tenth to nine tenths of its length. Both keep the
+    raw series' own runs; the whole-series rotation also moves values between clusters, so a mapping that
+    shows only between clusters is tested too, and the draws are not limited to the few hundred distinct
+    rotations of one series.
+    """
+    n = len(raw)
+    low = max(1, n // 10)
+    if n - low < low:
+        return 1.0
+    segments: list[tuple[int, int]] = []
+    for i, cluster in enumerate(clusters):
+        if not segments or cluster != clusters[segments[-1][0]]:
+            segments.append((i, i + 1))
+        else:
+            segments[-1] = (segments[-1][0], i + 1)
+    x, y = _codes(car), _codes(raw)
+    observed = _information(x, y)
+    rng = random.Random(zlib.crc32(key.encode("utf-8")))
+    hits = 0
+    for _ in range(PERMUTATIONS):
+        rotated: list[int] = []
+        for start, stop in segments:
+            part = y[start:stop]
+            k = rng.randrange(len(part))
+            rotated += part[k:] + part[:k]
+        k = rng.randint(low, n - low)
+        hits += _information(x, rotated[k:] + rotated[:k]) >= observed - 1e-12
+    return (1 + hits) / (1 + PERMUTATIONS)
+
+
+def _numeric_shift_p(clusters_xy: list[list[tuple[float, float]]], key: str) -> float:
+    """Permutation p-value of |r| of first differences, the raw series shifted in time within each test cluster.
+
+    Each draw shifts every cluster's raw series by its own offset (at least a tenth of the cluster,
+    either way) and pairs only the overlap, so no gap is crossed and no level jump is created.
+    """
+    def statistic(shifts: list[int]) -> float:
+        dx: list[float] = []
+        dy: list[float] = []
+        for points, k in zip(clusters_xy, shifts):
+            xs = [p[0] for p in points]
+            ys = [p[1] for p in points]
+            if k > 0:
+                xs, ys = xs[:-k], ys[k:]
+            elif k < 0:
+                xs, ys = xs[-k:], ys[:k]
+            dx += [b - a for a, b in zip(xs, xs[1:])]
+            dy += [b - a for a, b in zip(ys, ys[1:])]
+        r = _pearson(dx, dy)
+        return 0.0 if r is None else abs(r)
+
+    observed = statistic([0] * len(clusters_xy))
+    options = []
+    for points in clusters_xy:
+        size = len(points)
+        low = max(1, size // 10)
+        options.append([k for k in range(-(size - 3), size - 2) if abs(k) >= low] or [0])
+    if all(o == [0] for o in options):
+        return 1.0
+    rng = random.Random(zlib.crc32(key.encode("utf-8")))
+    hits = sum(statistic([rng.choice(o) for o in options]) >= observed - 1e-12 for _ in range(PERMUTATIONS))
+    return (1 + hits) / (1 + PERMUTATIONS)
+
+
+def _benjamini_hochberg(pvalues: list[float], q: float) -> list[bool]:
+    """Which p-values pass Benjamini-Hochberg at false discovery rate ``q``."""
+    m = len(pvalues)
+    order = sorted(range(m), key=lambda i: (pvalues[i], i))
+    cut = 0
+    for rank, i in enumerate(order, 1):
+        if pvalues[i] <= rank / m * q:
+            cut = rank
+    passed = set(order[:cut])
+    return [i in passed for i in range(m)]
+
+
+def _enum_held_out(work: dict[str, Any]) -> dict[str, Any]:
+    """The train half's value-to-reading mapping on the test half: coverage and balanced accuracy."""
+    votes: dict[str, Counter[str]] = {}
+    for raw, car in work["train"]:
+        votes.setdefault(raw, Counter())[car] += 1
+    mapping = {raw: max(sorted(c.items()), key=lambda item: item[1])[0] for raw, c in votes.items()}
+    test = list(zip(work["test_y"], work["test_x"]))
+    covered = [(raw, car) for raw, car in test if raw in mapping]
+    out: dict[str, Any] = {"test_n": len(test), "covered": len(covered), "coverage": share(len(covered), len(test))}
+    if not covered:
+        out.update(balanced_accuracy=None, majority_baseline=None, accuracy=None, majority_share=None, **{
+            "pass": False})
+        return out
+    by_car: Counter[str] = Counter(car for _, car in covered)
+    hits: Counter[str] = Counter(car for raw, car in covered if mapping[raw] == car)
+    balanced = sum(hits[c] / by_car[c] for c in by_car) / len(by_car)
+    baseline = 1 / len(by_car)
+    coverage = len(covered) / len(test)
+    out.update(balanced_accuracy=r3(balanced), majority_baseline=r3(baseline),
+               accuracy=r3(sum(hits.values()) / len(covered)), majority_share=r3(max(by_car.values()) / len(covered)),
+               **{"pass": len(by_car) >= 2 and balanced - baseline >= HELD_OUT_MIN_GAIN
+                  and coverage >= HELD_OUT_MIN_COVERAGE})
+    return out
+
+
+def _numeric_held_out(work: dict[str, Any]) -> dict[str, Any]:
+    """The train half's line on the test half: r and mean absolute error against the train mean's."""
+    slope, offset = work["line"]
+    points = work["test_points"]
+    out: dict[str, Any] = {"test_n": len(points)}
+    if len(points) < 2:
+        out.update(r=None, mae=None, mae_train_mean=None, **{"pass": False})
+        return out
+    predicted = [slope * x + offset for x, _ in points]
+    actual = [y for _, y in points]
+    r = _pearson(predicted, actual)
+    mae = sum(abs(p - a) for p, a in zip(predicted, actual)) / len(points)
+    mae_mean = sum(abs(work["train_mean"] - a) for a in actual) / len(points)
+    out.update(r=None if r is None else r3(r), mae=r3(mae), mae_train_mean=r3(mae_mean),
+               **{"pass": r is not None and r >= HELD_OUT_MIN_R and mae < mae_mean})
+    return out
 
 
 def _per_window(windows: dict[float, list[tuple[float, float | None, float | None]]],
@@ -2239,6 +2906,7 @@ def render(results: dict[str, Any]) -> str:
     lines += md_kv("Power level values", ref["power_level_values"])
     lines += md_kv("Lock values", ref["lock_values"])
     lines += render_extra(results)
+    lines += render_decode(results["decode"])
     lines += ["## 13. Limits", "", "| quantity | side | reason |", "|---|---|---|"]
     lines += [f"| {x['quantity']} | {x['side']} | {x['reason']} |" for x in results["limits"]] + [""]
     return "\n".join(lines)
@@ -2330,12 +2998,73 @@ def render_extra(results: dict[str, Any]) -> list[str]:
     return lines
 
 
+def render_decode(de: dict[str, Any]) -> list[str]:
+    """Section 18: raw BYD fields against the car."""
+    lines = ["## 18. Decode: raw BYD fields against the car", "", de["note"], ""]
+    lines += md_kv("Raw lines", {k: v for k, v in de["lines"].items() if k != "by_source_endpoint"})
+    lines += md_kv("Raw lines by source:endpoint", de["lines"]["by_source_endpoint"])
+    lines += md_kv("Clusters (train = even, test = odd)", de["clusters"])
+    lines += md_kv("Hypotheses and tests", de["tests"])
+    lines += md_tally("Failure codes (endpoint:code) x car state", de["codes_x_car_state"])
+    lines += ["**Constant fields** (one value over the whole window)", "", "| field | value | lines |", "|---|---|---|"]
+    lines += [f"| {name} | {c['value']} | {c['lines']} |" for name, c in de["constant_fields"].items()] + [""]
+    lines += md_kv("Fields with more than 20 distinct non-numeric values (distinct count)",
+                   de["unranked_fields_distinct"])
+    lines += ["**Enum fields: the car reading each predicts best** (chosen on the train half)", "",
+              "| field | car reading | verdict | p (test) | BH | n | train / test | test clusters | U train "
+              "| lambda train | held-out balanced accuracy / baseline / coverage |",
+              "|---|---|---|---|---|---|---|---|---|---|---|"]
+    for x in de["ranking_enum"]:
+        held = x["held_out"] or {}
+        lines.append(f"| {x['field']} | {x['reading']} | {x['verdict']} | {_cell(x['p_value'])} | "
+                     f"{'pass' if x['bh_pass'] else '-'} | {x['n']} | {x['n_train']} / {x['n_test']} | "
+                     f"{x['test_clusters']} | {_cell(x['u_train'])} | {_cell(x['lambda_train'])} | "
+                     f"{_cell(held.get('balanced_accuracy'))} / {_cell(held.get('majority_baseline'))} / "
+                     f"{_cell(held.get('coverage'))} |")
+    lines.append("")
+    for x in de["ranking_enum"]:
+        if x["verdict"] == "no association":
+            continue
+        table = de["enum_fields"][x["field"]]["hypotheses"][x["reading"]]
+        lines += md_tally(f"{x['field']} x {x['reading']} ({x['verdict']}; supported raw values "
+                          f"{json.dumps(table['raw_values_supported'])}; episodes per car value "
+                          f"{json.dumps(table['episodes_by_car_value'], sort_keys=True)})", table)
+    lines += ["**Numeric fields: the car number each fits best** (chosen on the train half; r of first "
+              "differences within clusters)", "",
+              "| field | car number | verdict | p (test) | BH | n | train / test | test clusters | r diff train "
+              "| slope / offset train | held-out r / MAE / MAE of train mean |",
+              "|---|---|---|---|---|---|---|---|---|---|---|"]
+    for x in de["ranking_numeric"]:
+        held = x["held_out"] or {}
+        lines.append(f"| {x['field']} | {x['reading']} | {x['verdict']} | {_cell(x['p_value'])} | "
+                     f"{'pass' if x['bh_pass'] else '-'} | {x['n']} | {x['n_train']} / {x['n_test']} | "
+                     f"{x['test_clusters']} | {_cell(x['r_diff_train'])} | {_cell(x['slope_train'])} / "
+                     f"{_cell(x['offset_train'])} | {_cell(held.get('r'))} / {_cell(held.get('mae'))} / "
+                     f"{_cell(held.get('mae_train_mean'))} |")
+    lines.append("")
+    lines += ["**Lags (secondary)**: the strongest fields with the car read earlier, on the pairs present at "
+              "every lag", "",
+              "| field x reading | cohort n | " + " | ".join(f"{lag} s" for lag in DECODE_LAGS_S) + " | best lag |",
+              "|---" * (len(DECODE_LAGS_S) + 3) + "|"]
+    for name, lag in de["lags_secondary"].items():
+        if "note" in lag:
+            lines.append(f"| {name} | {lag['cohort_n']} | " + " | ".join("-" for _ in DECODE_LAGS_S)
+                         + f" | {lag['note']} |")
+        else:
+            lines.append(f"| {name} | {lag['cohort_n']} | "
+                         + " | ".join(_cell(lag["by_lag_s"][str(s)]) for s in DECODE_LAGS_S)
+                         + f" | {lag['best_lag_s']} |")
+    lines.append("")
+    lines += md_dists("Times (_t fields): age at the raw line's t (s)", de["time_fields_age_s"])
+    return lines
+
+
 # --- entry point -----------------------------------------------------------------------------------
 
 
 def compare(path: Path, out_dir: Path) -> dict[str, Any]:
-    meta, car, cloud, skipped = read_pairs(path)
-    results = Analysis(meta, car, cloud, skipped).run()
+    meta, car, cloud, skipped, raw = read_pairs(path)
+    results = Analysis(meta, car, cloud, skipped, raw).run()
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "results.json").write_text(json.dumps(results, indent=1) + "\n", encoding="utf-8")
     (out_dir / "report.md").write_text(render(results), encoding="utf-8")

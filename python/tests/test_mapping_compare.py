@@ -11,8 +11,10 @@ from __future__ import annotations
 import json
 import math
 import os
+import random
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -44,6 +46,7 @@ class Pairs:
     def __init__(self, first_seen_t: float | None = None) -> None:
         self.car: list[dict[str, Any]] = []
         self.cloud: list[dict[str, Any]] = []
+        self.raw: list[dict[str, Any]] = []
         self.first_seen_t = first_seen_t
 
     def car_row(self, t: float, cadence: str, **fields: Any) -> None:
@@ -52,20 +55,36 @@ class Pairs:
     def cloud_row(self, t: float, source: str, kind: str, **fields: Any) -> None:
         self.cloud.append({"type": "cloud", "t": round(t, 3), "source": source, "kind": kind, **fields})
 
+    def raw_row(self, t: float, endpoint: str, fields: dict[str, Any] | None = None, source: str = "poll",
+                **extra: Any) -> None:
+        row = {"type": "raw", "t": round(t, 3), "source": source, "endpoint": endpoint, **extra}
+        if fields is not None:
+            row["fields"] = fields
+        self.raw.append(row)
+
     def meta(self) -> dict[str, Any]:
         rows = {key: 0 for key in ep.ROW_KINDS}
         for row in self.cloud:
             bucket = f"{row['source']}_{row['kind']}"
             rows[bucket if bucket in rows else f"{row['source']}_other"] += 1
         extra = {} if self.first_seen_t is None else {"first_seen_t": round(self.first_seen_t, 3)}
-        return {"type": "meta", "version": 1, "start": "2026-03-01T00:00:00Z", "car_days": 29, "cloud_days": 13,
+        raw_rows = {"poll": 0, "mqtt": 0, "other": 0}
+        endpoints = dict.fromkeys(pairs.RAW_ENDPOINTS, 0)
+        for row in self.raw:
+            raw_rows[row["source"]] += 1
+            endpoints[row["endpoint"]] += 1
+        return {"type": "meta", "version": pairs.VERSION, "start": "2026-03-01T00:00:00Z", "car_days": 29,
+                "cloud_days": 13,
                 "vin": pairs.SYNTHETIC_VIN, "model": "seal", "energy": "ev", "device_source": "car_app", **extra,
                 "stats": {"car_rows": len(self.car), "cloud_rows": rows, "dropped_car_keys": {},
                           "dropped_cloud_keys": {}, "invalid_values": {}, "dropped_details": 0,
-                          "unparsable_last_updated": 0, "cloud_fixes_matched": 0, "cloud_fixes_unmatched": 0}}
+                          "unparsable_last_updated": 0, "cloud_fixes_matched": 0, "cloud_fixes_unmatched": 0,
+                          "raw_rows": raw_rows, "raw_endpoints": endpoints, "raw_fields_dropped": {},
+                          "raw_values_invalid": {}, "raw_invalid": {}, "raw_dropped_codes": 0}}
 
     def lines(self) -> list[str]:
         rows = [self.meta()] + sorted(self.car, key=lambda r: r["t"]) + sorted(self.cloud, key=lambda r: r["t"])
+        rows += sorted(self.raw, key=lambda r: r["t"])
         out = []
         for row in rows:
             _validate(row)
@@ -886,3 +905,462 @@ def test_energy_drops_out_of_order_odometer_readings(tmp_path: Path) -> None:
     assert results["energy"]["odometer_readings_out_of_order_dropped"] == 1
     assert results["energy"]["odometer_backward_steps_persistent"] == 0
     assert results["energy"]["poll:ok"]["per_50km_window"]["all_endpoints"]["windows"] == 1
+
+
+# --- decode: raw BYD fields against the car ------------------------------------------------------------
+# Raw lines must pass the exporter's line check, so the synthetic fields use real realtime paths with made-up
+# meanings: lightStopStatus plays "any door open", trunkLidLower "the front-left door", powerGear the gear,
+# gl 1000 x motor power, tirePressUnit a constant, epb and rate noise.
+
+CLOSED = dict.fromkeys(("fl", "fr", "rl", "rr", "hood", "trunk"), "closed")
+DOOR_ORDER = ("fl", "fr", "trunk", "rr") * 2  # one door per block, so "any door open" beats every single door
+
+
+def _decode(b: Pairs) -> dict[str, Any]:
+    """The decode section alone, without writing files (the full run is tested elsewhere)."""
+    car = [{k: v for k, v in row.items() if k in compare.CAR_KEYS or k == "t"} for row in b.car]
+    return compare.Analysis(b.meta(), car, [], Counter(), [dict(row) for row in b.raw]).decode()
+
+
+def _hypotheses(de: dict[str, Any], field: str) -> dict[str, Any]:
+    record = de["enum_fields"].get(field) or de["numeric_fields"][field]
+    return record["hypotheses"]
+
+
+def _decode_scenario(seed: int = 7) -> tuple[Pairs, list[str]]:
+    """Eight blocks of irregular length, 15 min apart: on and parked (one door open a while), then a drive.
+
+    Returns the builder and the rate noise values (which must never reach an output).
+    """
+    rng = random.Random(seed)
+    b = Pairs()
+    noise_values: list[str] = []
+
+    def raw(t: float, doors: dict[str, str], gear: str, motor: float | None) -> None:
+        value = round(rng.uniform(-900, 900), 3)
+        noise_values.append(f"{value:.3f}")
+        fields: dict[str, Any] = {
+            "lightStopStatus": int("open" in doors.values()), "trunkLidLower": int(doors["fl"] == "open"),
+            "powerGear": 3 if gear == "D" else 1, "tirePressUnit": 1, "epb": rng.randint(0, 4), "rate": value,
+            "time_t": round(t - 0.5, 3),
+        }
+        if motor is not None:
+            fields["gl"] = round(motor * 1000)
+        b.raw_row(t, "realtime", fields)
+
+    t0 = 1000.0
+    for door in DOOR_ORDER:
+        steps = rng.randint(30, 50)
+        start = rng.randint(6, 12)
+        stop = start + rng.randint(10, 18)
+        for step in range(steps):
+            t = t0 + step * 30
+            doors = {**CLOSED, door: "open"} if start <= step < stop else dict(CLOSED)
+            b.car_row(t, "stationary", power_level="on", gear="P", speed_kph=0.0, soc_pct=80, doors=doors,
+                      charging_gun_raw=1, charger_state_raw=0, charging_type_raw=1)
+            raw(t + 1, doors, "P", None)
+        t0 += steps * 30
+        for step in range(rng.randint(200, 400)):
+            t = t0 + step * 2
+            motor = round(rng.uniform(-30, 80), 1)
+            b.car_row(t, "moving", power_level="on", gear="D", speed_kph=50.0, soc_pct=80, doors=dict(CLOSED),
+                      motor_power_kw=motor, charging_gun_raw=1, charger_state_raw=0, charging_type_raw=1)
+            if step % 2 == 0:
+                raw(t + 0.5, CLOSED, "D", motor)
+        t0 = t + 900
+    # While the car is unknown (a silent gap), a stale reply, and a failure without a body.
+    b.raw_row(t0 - 300, "realtime", {"tirePressUnit": 1})
+    b.raw_row(t0 - 900 + 5, "realtime", {"tirePressUnit": 1, "lightStopStatus": 1, "time_t": t0 - 900 + 5 - 400})
+    b.raw_row(t0 - 290, "energy", code="1008")
+    return b, noise_values
+
+
+def test_decode_finds_the_injected_relationships(tmp_path: Path) -> None:
+    b, _ = _decode_scenario()
+    results, report = b.run(tmp_path)
+    de = results["decode"]
+    with_fields = sum(1 for row in b.raw if "fields" in row)
+    paired = with_fields - 2  # all but the line while the car is unknown and the stale one
+    assert de["lines"] == {"raw_lines": with_fields + 1, "with_fields": with_fields, "paired_with_car": paired,
+                           "car_unknown": 1, "inferred_parked": 0, "stale_sample": 1, "sample_time_invalid": 0,
+                           "by_source_endpoint": {"poll:energy": 1, "poll:realtime": with_fields}}
+    assert de["clusters"] == {"total": 8, "train": 4, "test": 4}
+    assert de["codes_x_car_state"]["rows"] == {"energy:1008": {"unknown": 1}}
+    # A field 1 exactly when a door is open: any door, not a single one.
+    door = de["enum_fields"]["realtime:lightStopStatus"]
+    assert door["best_reading"] == "doors_any_open"
+    hyp = door["hypotheses"]["doors_any_open"]
+    assert hyp["rows"] == {"0": {"closed": hyp["rows"]["0"]["closed"]}, "1": {"open": hyp["rows"]["1"]["open"]}}
+    assert hyp["raw_values_supported"] == ["0", "1"] and hyp["clusters_by_raw_value"]["1"] == 8
+    assert hyp["train_gate"] and hyp["repeated"] and hyp["test_clusters"] == 4
+    assert hyp["tested"] and hyp["bh_pass"] and hyp["p_value"] < 0.01 and hyp["verdict"] == "predicts"
+    assert hyp["held_out"]["balanced_accuracy"] == 1.0 and hyp["held_out"]["coverage"] == 1.0
+    assert door["hypotheses"]["doors.fl"]["verdict"] != "predicts"
+    # The gear code predicts the gear.
+    gear = de["enum_fields"]["realtime:powerGear"]
+    assert gear["best_reading"] == "gear" and gear["hypotheses"]["gear"]["verdict"] == "predicts"
+    assert gear["hypotheses"]["gear"]["modal"] == {"1": {"car": "P", "share": 1.0}, "3": {"car": "D", "share": 1.0}}
+    # One door's field seen open in two (train) blocks only: unsupported, never a finding.
+    single = de["enum_fields"]["realtime:trunkLidLower"]
+    fl = single["hypotheses"]["doors.fl"]
+    assert fl["all_pairs"]["lambda"] == 1.0 and fl["verdict"] == "observation"  # perfect, but only twice
+    assert fl["raw_values_supported"] == ["0"] and not fl["train_gate"] and not fl.get("tested")
+    # 1000 x motor power.
+    motor = de["numeric_fields"]["realtime:gl"]
+    assert motor["best_reading"] == "motor_power_kw"
+    fit = motor["hypotheses"]["motor_power_kw"]
+    assert fit["slope"] == 1000.0 and fit["offset"] == 0.0 and fit["r_diff_train"] == 1.0
+    assert fit["episodes"] == 8 and fit["clusters"] == 8 and fit["verdict"] == "predicts"
+    assert fit["held_out"]["r"] == 1.0 and fit["held_out"]["mae"] == 0.0 and fit["held_out"]["pass"]
+    # A constant field is listed with its one value and nowhere else.
+    assert de["constant_fields"] == {"realtime:tirePressUnit": {"value": "1", "lines": paired + 2}}
+    age = de["time_fields_age_s"]["realtime:time"]
+    assert age["median"] == 0.5 and age["n"] == paired + 1
+    # The noise is never flagged, and nothing else predicts.
+    predicts = {(x["field"], x["reading"]) for x in de["ranking_enum"] + de["ranking_numeric"]
+                if x["verdict"] == "predicts"}
+    assert predicts == {("realtime:lightStopStatus", "doors_any_open"), ("realtime:powerGear", "gear"),
+                        ("realtime:gl", "motor_power_kw")}
+    assert de["tests"]["predicts"] == 3 and de["tests"]["hypotheses"] > 30 and de["tests"]["permutations"] == 2000
+    for field in ("realtime:epb", "realtime:rate"):
+        assert all(h["verdict"] == "no association" for h in _hypotheses(de, field).values()), field
+    assert de["lags_secondary"]["realtime:lightStopStatus x doors_any_open"]["best_lag_s"] == 0
+    assert "## 18. Decode: raw BYD fields against the car" in report
+    assert "| realtime:lightStopStatus | doors_any_open | predicts |" in report
+    assert f"| realtime:tirePressUnit | 1 | {paired + 2} |" in report
+
+
+def test_decode_outputs_carry_no_raw_numbers_or_times(tmp_path: Path) -> None:
+    b, noise = _decode_scenario()
+    results, _ = b.run(tmp_path)
+    outputs = [(tmp_path / "out" / name).read_text(encoding="utf-8") for name in ("results.json", "report.md")]
+    for text in outputs:
+        for value in noise:
+            assert value not in text, value
+        for row in b.raw:
+            assert json.dumps(row, separators=(",", ":")) not in text
+            if "fields" in row:
+                assert json.dumps(row["fields"]) not in text
+    assert _number_lists(results) == []
+    assert "values" not in _keys(results)
+
+
+def test_decode_is_deterministic() -> None:
+    b, _ = _decode_scenario(3)
+    assert _decode(b) == _decode(b)
+
+
+def test_decode_with_no_raw_lines_says_so(tmp_path: Path) -> None:
+    b = Pairs()
+    b.stationary(1000, 1300)
+    results, report = b.run(tmp_path)
+    de = results["decode"]
+    assert de["lines"]["raw_lines"] == 0 and de["ranking_enum"] == [] and de["constant_fields"] == {}
+    assert de["tests"]["hypotheses"] == 0 and "## 18. Decode" in report
+
+
+# 28 independent null fields: 14 slow enums and 14 numeric random walks, on real table paths.
+NULL_ENUMS = ("okLight", "epb", "ins", "pwr", "eps", "esp", "svs", "srs", "ect", "lightStopStatus", "trunkLidLower",
+              "sentryStatus", "airRunState", "flashChargeState")
+NULL_WALKS = {"gl": (-400_000, 400_000, 5000), "totalPower": (-900, 900, 20), "rate": (-900, 900, 20),
+              "elecPercent": (5, 95, 0.5), "enduranceMileage": (10, 1900, 5), "tempInCar": (-30, 70, 0.5),
+              "mainSettingTempNew": (16, 30, 0.2), "oilPercent": (5, 95, 0.5), "totalOil": (10, 90_000, 50),
+              "ectValue": (-30, 140, 1), "leftFrontTirepressure": (1, 400, 2), "rightFrontTirepressure": (1, 400, 2),
+              "leftRearTirepressure": (1, 400, 2), "rightRearTirepressure": (1, 400, 2)}
+
+
+def null_export(seed: int, blocks: int = 8) -> Pairs:
+    """A car that parks, opens doors and drives, in blocks 15 min apart, and 28 raw fields unrelated to it."""
+    rng = random.Random(seed)
+    b = Pairs()
+    enums = dict.fromkeys(NULL_ENUMS, 0)
+    enum_until = dict.fromkeys(NULL_ENUMS, 0.0)
+    walks = {key: rng.uniform(low, high) for key, (low, high, _) in NULL_WALKS.items()}
+    t, odometer, door_open, door_until = 1000.0, 12000.0, False, 0.0
+    speed, motor = 40.0, 10.0
+
+    def raw(at: float) -> None:
+        for key in NULL_ENUMS:
+            if at >= enum_until[key]:
+                enums[key], enum_until[key] = rng.randint(0, 2), at + rng.uniform(300, 2400)
+        for key, (low, high, step) in NULL_WALKS.items():
+            walks[key] = min(high, max(low, walks[key] + rng.gauss(0, step)))
+        b.raw_row(at, "realtime", {**enums, **{key: round(value, 2) for key, value in walks.items()}})
+
+    for _ in range(blocks):
+        for _ in range(rng.randint(15, 30)):  # parked, on, a door opening and closing slowly
+            if t >= door_until:
+                door_open, door_until = not door_open, t + rng.uniform(120, 900)
+            doors = {**CLOSED, "rr": "open"} if door_open else dict(CLOSED)
+            b.car_row(t, "stationary", power_level="on", gear="P", speed_kph=0.0, soc_pct=70, doors=doors,
+                      odometer_km=math.floor(odometer))
+            raw(t + 1)
+            t += 30
+        for step in range(rng.randint(60, 150)):  # a drive
+            speed = min(130.0, max(5.0, speed + rng.gauss(0, 3)))
+            motor = min(150.0, max(-40.0, motor + rng.gauss(0, 5)))
+            odometer += speed / 3600 * 2
+            b.car_row(t, "moving", power_level="on", gear="D", speed_kph=round(speed, 1), soc_pct=70,
+                      doors=dict(CLOSED), motor_power_kw=round(motor, 1), odometer_km=math.floor(odometer))
+            if step % 3 == 0:
+                raw(t + 0.5)
+            t += 2
+        t += 900
+    return b
+
+
+def test_unrelated_fields_are_never_said_to_predict() -> None:
+    """A small version of the null simulation (the 200-export run is a script; see the hand-over)."""
+    false_predicts = hypotheses = 0
+    for seed in range(6):
+        de = _decode(null_export(seed))
+        false_predicts += de["tests"]["predicts"]
+        hypotheses += de["tests"]["hypotheses"]
+    assert false_predicts == 0 and hypotheses > 6 * 28
+
+
+def test_a_mapping_that_flips_between_halves_does_not_predict() -> None:
+    """Train clusters: 1 = door open; test clusters: 1 = door closed. The test half alone is perfect too."""
+    b = Pairs()
+    t = 1000.0
+    for cluster in range(8):
+        flip = cluster % 2 == 1
+        for step in range(40):
+            door_open = 10 <= step < 25
+            doors = {**CLOSED, "fl": "open"} if door_open else dict(CLOSED)
+            b.car_row(t, "stationary", power_level="on", gear="P", speed_kph=0.0, doors=doors)
+            b.raw_row(t + 1, "realtime", {"lightStopStatus": int(door_open != flip)})
+            t += 30
+        t += 900
+    de = _decode(b)
+    hyp = de["enum_fields"]["realtime:lightStopStatus"]["hypotheses"]["doors_any_open"]
+    assert hyp["train_gate"] and hyp["tested"]
+    assert hyp["held_out"]["balanced_accuracy"] == 0.0 and not hyp["held_out"]["pass"]
+    assert hyp["verdict"] == "observation" and de["tests"]["predicts"] == 0
+
+
+def test_a_rising_counter_against_the_odometer_does_not_predict() -> None:
+    rng = random.Random(11)
+    b = Pairs()
+    t, odometer, counter = 1000.0, 12000.0, 0
+    for _ in range(8):
+        for step in range(300):
+            odometer += rng.uniform(5, 30) / 3600 * 2
+            b.car_row(t, "moving", power_level="on", gear="D", speed_kph=50.0, doors=dict(CLOSED),
+                      odometer_km=math.floor(odometer))
+            if step % 5 == 0:
+                counter += rng.choice((1, 2))
+                b.raw_row(t + 0.5, "realtime", {"totalMileage": counter})
+            t += 2
+        t += 900
+    de = _decode(b)
+    fit = de["numeric_fields"]["realtime:totalMileage"]["hypotheses"]["odometer_km"]
+    assert fit["r"] > 0.9  # the levels rise together...
+    assert abs(fit["r_diff_train"]) < 0.8 and not fit["train_gate"]  # ...their steps do not
+    assert fit["verdict"] != "predicts" and de["tests"]["predicts"] == 0
+
+
+def test_one_use_codes_against_an_alternating_door_do_not_predict() -> None:
+    b = Pairs()
+    t = 1000.0
+    for episode in range(16):
+        doors = {**CLOSED, "fl": "open"} if episode % 2 else dict(CLOSED)
+        for _ in range(8):
+            b.car_row(t, "stationary", power_level="on", gear="P", speed_kph=0.0, doors=doors)
+            b.raw_row(t + 1, "realtime", {"lightStopStatus": episode})  # a new code each episode
+            t += 60
+        t += 600
+    de = _decode(b)
+    hyp = de["enum_fields"]["realtime:lightStopStatus"]["hypotheses"]["doors_any_open"]
+    assert hyp["all_pairs"]["lambda"] == 1.0  # a perfect but meaningless mapping
+    assert hyp["raw_values_supported"] == [] and not hyp["train_gate"] and not hyp.get("tested")
+    assert hyp["verdict"] == "observation" and de["tests"]["predicts"] == 0
+
+
+def test_a_counter_within_one_short_sequence_does_not_predict() -> None:
+    b = Pairs()
+    for step in range(10):
+        b.car_row(1000 + step * 2, "moving", power_level="on", gear="D", speed_kph=10.0 + step * 2,
+                  doors=dict(CLOSED), motor_power_kw=20.0 + step)
+        b.raw_row(1000 + step * 2 + 0.5, "realtime", {"rate": step, "okLight": step % 9})
+    de = _decode(b)
+    fit = de["numeric_fields"]["realtime:rate"]["hypotheses"]["motor_power_kw"]
+    assert fit["r_diff_train"] is None and fit["clusters"] == 1 and not fit["repeated"]
+    assert de["tests"]["predicts"] == 0 and de["tests"]["tested_on_test_half"] == 0
+
+
+def test_a_periodic_field_in_step_with_a_periodic_door_is_not_significant() -> None:
+    """Perfect on both halves and held out, but every second rotation aligns it as well."""
+    b = Pairs()
+    t = 1000.0
+    for cluster in range(12):
+        doors = {**CLOSED, "fl": "open"} if cluster % 4 >= 2 else dict(CLOSED)
+        for _ in range(4):
+            b.car_row(t, "stationary", power_level="on", gear="P", speed_kph=0.0, doors=doors)
+            b.raw_row(t + 1, "realtime", {"lightStopStatus": int(cluster % 4 >= 2)})
+            t += 60
+        t += 900
+    de = _decode(b)
+    hyp = de["enum_fields"]["realtime:lightStopStatus"]["hypotheses"]["doors_any_open"]
+    assert hyp["tested"] and hyp["held_out"]["pass"]
+    assert hyp["p_value"] > 0.05 and not hyp["bh_pass"] and hyp["verdict"] == "observation"
+
+
+def test_an_r_just_under_the_threshold_is_not_passed() -> None:
+    rng = random.Random(3)
+    drives = [[(round(rng.uniform(-30, 80), 1), rng.gauss(0, 1)) for _ in range(40)] for _ in range(8)]
+
+    def values(k: float) -> list[list[tuple[float, float]]]:
+        return [[(x, round(1000 * x + k * z, 3)) for x, z in drive] for drive in drives]
+
+    def r_train(k: float) -> float:
+        dx: list[float] = []
+        dy: list[float] = []
+        for drive in values(k)[::2]:  # the even clusters are the train half
+            dx += [b[0] - a[0] for a, b in zip(drive, drive[1:])]
+            dy += [b[1] - a[1] for a, b in zip(drive, drive[1:])]
+        return compare._pearson(dx, dy)
+
+    low, high = 0.0, 1e6  # r falls as the noise grows: find r in (0.7995, 0.8)
+    for _ in range(200):
+        mid = (low + high) / 2
+        low, high = (mid, high) if r_train(mid) >= 0.7997 else (low, mid)
+    k = low
+    while r_train(k) >= 0.8:
+        k += 1.0
+    assert 0.7995 < r_train(k) < 0.8 and compare.r3(r_train(k)) == 0.8  # shows as 0.8, is under it
+    b = Pairs()
+    t = 1000.0
+    for drive in values(k):
+        for x, y in drive:
+            b.car_row(t, "moving", power_level="on", gear="D", speed_kph=50.0, doors=dict(CLOSED), motor_power_kw=x)
+            b.raw_row(t + 0.5, "realtime", {"gl": y})
+            t += 2
+        t += 1200
+    fit = _decode(b)["numeric_fields"]["realtime:gl"]["hypotheses"]["motor_power_kw"]
+    assert fit["r_diff_train"] == 0.8 and not fit["train_gate"] and fit["verdict"] != "predicts"
+
+
+def test_stale_gps_sentinels_and_inferred_pairs_are_kept_out() -> None:
+    b = Pairs()
+    _parked_gap(b)
+    for step in range(6):
+        b.raw_row(3000 + step * 600, "realtime", {"okLight": step % 2})  # inside the inferred parked gap
+    b.raw_row(1650, "realtime", {"okLight": 1, "time_t": 1650 - 301})  # 301 s old: stale
+    b.raw_row(1600, "realtime", {"okLight": 0, "time_t": 1600 - 299})  # 299 s old: paired at its sample time
+    # The car is known at the receive time, but BYD's fix time was 0: never paired at the receive time.
+    b.raw_row(1610, "gps", {"data.speed": 0, "data.gpsTimeStamp_stale": True})
+    b.raw_row(1620, "gps", {"data.speed": 0})  # no sample-time path at all: paired at its receive time
+    de = _decode(b)
+    assert de["lines"]["inferred_parked"] == 6 and de["lines"]["stale_sample"] == 1
+    assert de["lines"]["sample_time_invalid"] == 1 and de["lines"]["paired_with_car"] == 2
+    assert de["enum_fields"]["realtime:okLight"]["inferred_parked_pairs"] == 6
+
+
+def test_doors_any_open_is_closed_only_when_every_door_is_read() -> None:
+    b = Pairs()
+    b.car_row(1000, "stationary", power_level="on", doors={"fl": "closed"})
+    b.car_row(1060, "stationary", power_level="on", doors=dict(CLOSED))
+    b.car_row(1120, "stationary", power_level="on", doors={"fr": "open"})
+    analysis = compare.Analysis(b.meta(), [dict(row) for row in b.car], [], Counter(), [])
+    readings = [analysis._enum_readings(t, analysis.car.snapshot(t)) for t in (1001, 1061, 1121)]
+    assert "doors_any_open" not in readings[0] and readings[0]["doors.fl"] == "closed"
+    assert readings[1]["doors_any_open"] == "closed" and readings[2]["doors_any_open"] == "open"
+
+
+def test_a_sentinel_row_does_not_remove_a_field_from_the_fit() -> None:
+    b = Pairs()
+    t = 1000.0
+    for cluster in range(6):
+        for step in range(20):
+            motor = 5.0 + step + cluster
+            b.car_row(t, "moving", power_level="on", gear="D", speed_kph=50.0, doors=dict(CLOSED), motor_power_kw=motor)
+            value: Any = round(motor * 2, 1)
+            if step == 7:
+                value = "--"  # BYD's "no reading": excluded from the fit, row by row
+            elif step == 8:
+                value = -1  # the path's -1 sentinel
+            b.raw_row(t + 0.5, "realtime", {"nearestEnergyConsumption": value})
+            t += 2
+        t += 900
+    fit = _decode(b)["numeric_fields"]["realtime:nearestEnergyConsumption"]["hypotheses"]["motor_power_kw"]
+    assert fit["n"] == 6 * 18 and fit["slope"] == 2.0 and fit["r_diff_train"] == 1.0
+
+
+def test_lags_are_compared_on_one_cohort() -> None:
+    b = Pairs()
+    rng = random.Random(5)
+    t, state, history = 1000.0, "closed", []
+    for _ in range(600):
+        if rng.random() < 0.08:
+            state = "open" if state == "closed" else "closed"
+        doors = {**CLOSED, "fl": "open"} if state == "open" else dict(CLOSED)
+        b.car_row(t, "stationary", power_level="on", gear="P", speed_kph=0.0, doors=doors)
+        history.append((t, state))
+        late = next((s for tt, s in reversed(history) if tt <= t + 1 - 60), "closed")
+        b.raw_row(t + 1, "realtime", {"lightStopStatus": int(late == "open")})  # BYD 60 s behind
+        t += 30 if len(history) % 40 else 900
+    lag = _decode(b)["lags_secondary"]["realtime:lightStopStatus x doors_any_open"]
+    assert lag["best_lag_s"] == 60 and lag["by_lag_s"]["60"] > lag["by_lag_s"]["0"]
+    # The first rows after each gap have no car reading 120 s back: they are out of the cohort at every lag.
+    assert lag["cohort_n"] < 600 - 10
+    # Too few pairs at every lag: not comparable.
+    b = Pairs()
+    for step in range(12):
+        doors = {**CLOSED, "fl": "open"} if step % 4 < 2 else dict(CLOSED)
+        b.car_row(1000 + step * 30, "stationary", power_level="on", gear="P", doors=doors)
+        b.raw_row(1001 + step * 30, "realtime", {"lightStopStatus": int(step % 4 < 2)})
+    lag = _decode(b)["lags_secondary"]["realtime:lightStopStatus x doors_any_open"]
+    assert lag["note"] == "lag not comparable" and lag["cohort_n"] < compare.DECODE_MIN_N
+
+
+def test_tied_sample_times_with_null_values_do_not_crash() -> None:
+    b = Pairs()
+    t = 1000.0
+    for cluster in range(6):
+        for step in range(12):
+            b.car_row(t, "moving", power_level="on", gear="D", speed_kph=50.0, doors=dict(CLOSED),
+                      motor_power_kw=10.0 + step)
+            for value in (None, 10.0 + step, None):  # three replies with the same sample time
+                b.raw_row(t + 0.5, "realtime", {"gl": value, "okLight": None if value is None else step % 2,
+                                                "time_t": t})
+            t += 2
+        t += 900
+    de = _decode(b)
+    assert de["lines"]["paired_with_car"] == 6 * 12 * 3
+    assert "realtime:gl" in de["numeric_fields"]
+
+
+def test_invalid_raw_lines_are_counted_and_never_used(tmp_path: Path) -> None:
+    b = Pairs()
+    b.stationary(1000, 1300)
+    source = tmp_path / "pairs.jsonl"
+    bad = ('{"type":"raw","t":1100,"source":"poll","endpoint":"realtime","fields":{"latitude":52.123456}}\n'
+           '{"type":"raw","t":1100,"source":"mqtt","endpoint":"gps","fields":{"speed":1}}\n'
+           '{"type":"raw","t":1100,"source":"poll","endpoint":"realtime","fields":{"gl":1e999999999999999999}}\n')
+    source.write_text("".join(b.lines()) + bad, encoding="ascii")
+    results = compare.compare(source, tmp_path / "out")
+    assert results["inventory"]["skipped_lines"] == {"raw_invalid": 3}
+    assert results["decode"]["lines"]["raw_lines"] == 0
+    for name in ("results.json", "report.md"):
+        assert "52.123456" not in (tmp_path / "out" / name).read_text(encoding="utf-8")
+
+
+def test_decode_fits_tyres_against_every_slot_and_keeps_mixed_values_apart() -> None:
+    b = Pairs()
+    tyres = {"fl": 240, "fr": 236, "rl": 270, "rr": 274}
+    for step in range(40):
+        t = 1000 + step * 60
+        kpa = {w: v + (step % 7 if w == "rl" else step % 5) for w, v in tyres.items()}
+        b.car_row(t, "stationary", power_level="on", gear="P", speed_kph=0.0, tyre_kpa=kpa)
+        # BYD's rear-left in bar against the car's rl slot; a unit that is sometimes null.
+        b.raw_row(t + 1, "realtime", {"leftRearTirepressure": round(kpa["rl"] / 100, 2),
+                                      "enduranceMileageV2Unit": ["km", None, "--"][step % 3]})
+    de = _decode(b)
+    tyre = de["numeric_fields"]["realtime:leftRearTirepressure"]
+    assert tyre["best_reading"] == "tyre_kpa[rl]"
+    assert tyre["hypotheses"]["tyre_kpa[rl]"]["slope"] == 0.01 and tyre["hypotheses"]["tyre_kpa[rl]"]["r"] == 1.0
+    assert abs(tyre["hypotheses"]["tyre_kpa[fl]"]["r"]) < 0.8
+    mixed = de["enum_fields"]["realtime:enduranceMileageV2Unit"]
+    assert mixed["value_counts"] == {"--": 13, "km": 14, "null": 13}
+    assert "realtime:enduranceMileageV2Unit" not in de["numeric_fields"]

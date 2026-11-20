@@ -1,4 +1,4 @@
-"""Export one car's in-car-app telemetry and its BYD cloud events, anonymised, for local pairing.
+"""Export one car's in-car-app telemetry, its BYD cloud events and BYD's raw replies, anonymised, for local pairing.
 
 The API pod runs this module from one composed stdin script (``build_pod_script``): the
 script carries ``bench/replay/export_prod.py`` and this file, because the pod has no
@@ -26,14 +26,15 @@ from collections import Counter
 from collections.abc import AsyncIterator, Callable, Iterable, Iterator, Mapping
 from contextlib import aclosing
 from datetime import UTC, datetime, time, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, NamedTuple, TextIO
 
 from bench.replay import export_prod as ep
 
-VERSION = 1
+# 2: raw lines (byd_raw_replies) and their statistics in the meta line.
+VERSION = 2
 SYNTHETIC_VIN = "TESTVIN0000000001"
 # One day less than each table's retention (30 and 14 days): the oldest rows are deleted while an export runs.
 MAX_CAR_DAYS = 29
@@ -55,11 +56,13 @@ DETAIL = re.compile(r"[0-9]{1,5}|" + "|".join(DETAIL_WORDS))
 CAR_DROPPED = frozenset(("motorRpm", "motorRpmFront", "motorRpmRear", "slopeRaw", "acceleratorPct", "brakePct"))
 # ingest_log.slim_snapshot / slim_mqtt_patch keys with no cloud-line key:
 CLOUD_DROPPED = frozenset(("fuelPercent", "last50kmFuel", "placeKind", "lastStationaryPollAt", "openDriveStartAt"))
-PARTITION = re.compile(r"car_telemetry_p[0-9]{8}")
-# What a plan shows instead of a daily partition's name, which carries a real date.
+# A daily partition of car_telemetry or byd_raw_replies: its name carries a real date.
+PARTITION = re.compile(r"(car_telemetry|byd_raw_replies)_p[0-9]{8}")
+# What a plan shows instead.
 PARTITION_NAME = "car_telemetry_partition"
-TABLES = frozenset(("car_telemetry", "ingest_events", "cars", "car_app_devices"))
-PLAN_RELATIONS = TABLES | {PARTITION_NAME}
+RAW_PARTITION_NAME = "byd_raw_replies_partition"
+TABLES = frozenset(("car_telemetry", "ingest_events", "cars", "car_app_devices", "byd_raw_replies"))
+PLAN_RELATIONS = TABLES | {PARTITION_NAME, RAW_PARTITION_NAME}
 
 
 # --- the line schema -----------------------------------------------------------------------------
@@ -111,6 +114,12 @@ class Names(NamedTuple):
     def accepts(self, key: str) -> bool:
         """Whether a key may appear."""
         return key in self.allowed
+
+
+class RawFields(NamedTuple):
+    """The flat ``fields`` object of a raw line; keys and values are checked per endpoint (``_check_raw_fields``)."""
+
+    nullable: bool = False
 
 
 def _choice(*values: str, nullable: bool = False) -> Choice:
@@ -205,6 +214,256 @@ CLOUD_LINE: dict[str, Any] = {
 # Nothing is measured from a cloud position of exactly (0, 0): it would put the car on a known circle.
 ZERO_FORBIDDEN = ("gps_dist_m", "gps_dt_s", "gps_car_accuracy_m", "gps_car_speed_kph", "gps_step_m",
                   "gps_last_dist_m", "gps_last_age_s")
+
+# --- raw BYD replies (byd_raw_replies) ------------------------------------------------------------
+
+# The poll endpoints and MQTT event names backend/app/byd_raw.py records; any other endpoint is "other".
+RAW_ENDPOINTS = ("realtime", "energy", "charging", "gps", "hvac", "schedule", "vehicleInfo", "smartCharge",
+                 "energyConsumption", "remoteControl", "other")
+RAW_KNOWN_ENDPOINTS = RAW_ENDPOINTS[:-1]
+RAW_SOURCES = ("poll", "mqtt")
+# byd_raw.failure_code writes BYD's code, http_<status>, "crypto" or the exception's class name. Only BYD's
+# codes that openbyd and pyBYD map (_api/_common.py, _api/control.py, _constants.py, client.py), http_<3
+# digits>, "crypto" and "timeout" (TimeoutError) are written; any other code becomes "other" and is counted.
+RAW_BYD_CODES = ("1001", "1002", "1005", "1008", "1009", "1010", "5005", "5006", "5011", "6002", "6051", "8003")
+RAW_CODE_WORDS = (*RAW_BYD_CODES, "crypto", "timeout", "other")
+RAW_CODE = re.compile(r"http_[0-9]{3}|" + "|".join(RAW_CODE_WORDS))
+# Characters of the raw column's text; the backend stores a reply over ~64 KB as a size marker.
+RAW_MAX_TEXT = 128 * 1024
+# Leaves counted in one reply for the dropped-field count (a stored reply has at most 5,000 nodes).
+RAW_MAX_NODES = 10_000
+# Numbers BYD sends as strings ("3.1", "-1"); only on number paths, never anything longer.
+RAW_INT_TEXT = re.compile(r"-?[0-9]{1,9}")
+RAW_FLOAT_TEXT = re.compile(r"-?[0-9]{1,9}(?:\.[0-9]{1,9})?")
+RAW_EPOCH_TEXT = re.compile(r"[0-9]{10}|[0-9]{13}")
+RAW_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}(?:[T ][0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\.[0-9]{1,6})?)?"
+                      r"(?:Z|[+-][0-9]{2}(?::?[0-9]{2})?)?)?")
+# Epoch times 2015-01-01 .. 2040-01-01 UTC, in seconds or milliseconds, on a time path become shifted "_t" values.
+EPOCH_MIN_S = 1_420_070_400
+EPOCH_MAX_S = 2_208_988_800
+RAW_T_LIMIT = 30 * 366 * 86400
+# Why a raw reply gave no fields (meta.stats.raw_invalid); "rejected" is a line the check refused with fields.
+RAW_INVALID = ("undecodable", "not_object", "too_large", "rejected")
+
+
+class RawField(NamedTuple):
+    """What one literal raw path may carry, and how it is written.
+
+    ``kind`` is ``int``, ``float`` (rounded to 3 decimals, then checked against the range),
+    ``bool``, ``enum`` (one of ``values``) or ``time`` (an epoch in seconds or milliseconds,
+    2015-2040, or an ISO date, written as ``<path>_t``: seconds since the window start). On an
+    int or float path ``values`` lists the literal sentinel strings BYD sends there (``--``),
+    and a number sent as a short decimal string ("3.1") is written as the number.
+    """
+
+    kind: str
+    low: float = 0
+    high: float = 0
+    values: frozenset[str] = frozenset()
+
+
+def _int(low: float, high: float, *sentinels: str) -> RawField:
+    return RawField("int", low, high, frozenset(sentinels))
+
+
+def _float(low: float, high: float, *sentinels: str) -> RawField:
+    return RawField("float", low, high, frozenset(sentinels))
+
+
+def _enum(*values: str) -> RawField:
+    return RawField("enum", values=frozenset(values))
+
+
+BOOL = RawField("bool")
+TIME = RawField("time")
+CODE = _int(-1, 99)  # a BYD state, status or switch code (seen: -1..15)
+HOUR, MINUTE, HOURS = _int(-1, 23), _int(-1, 59), _int(-1, 48)
+PERCENT = _float(-1, 100)
+TEMPERATURE = _float(-129, 80)  # -129: BYD's "no reading"
+TYRE = _float(-1, 500)  # bar (seen 2.3-2.9), kPa or psi: the unit is tirePressUnit
+CONSUMPTION = _float(-1, 200, "--", "")  # kWh/100km or L/100km
+DISTANCE_UNIT = _enum("km", "mi", "mile", "miles", "--", "")
+POWER_UNIT = _enum("kW", "W", "--", "")
+ENERGY_UNIT = _enum("kWh/100km", "kW·h/100km", "kWh", "kW·h", "L/100km", "L", "kWh/100mi", "kWh/100miles",
+                    "--", "")
+
+
+def _codes(*names: str) -> dict[str, RawField]:
+    return dict.fromkeys(names, CODE)
+
+
+# The literal paths of each endpoint's reply that may leave the pod, with their kind and range. Built from
+# the key names in bydconnect-raw-capture's samples/dilink3 captures, this repository's parity/corpus and
+# pyBYD's models at parity/UPSTREAM_COMMIT (VehicleRealtimeData, ChargingStatus, SmartChargingSchedule,
+# HvacStatus, EnergyConsumption, GpsInfo, with their key aliases). No location, heading, altitude,
+# address, time zone, identifier, name, URL, price, free text or plan list is on it. A path is looked up
+# literally in the reply; nothing is ever derived from a key name the reply supplies.
+REALTIME_FIELDS: dict[str, RawField] = {
+    **_codes(
+        # doors, locks, windows (pyBYD DoorOpenState, LockState, WindowState)
+        "leftFrontDoor", "rightFrontDoor", "leftRearDoor", "rightRearDoor", "trunkLid", "backCover", "trunkLidLower",
+        "slidingDoor", "forehold", "leftFrontDoorLock", "rightFrontDoorLock", "leftRearDoorLock", "rightRearDoorLock",
+        "slidingDoorLock", "leftFrontWindow", "rightFrontWindow", "leftRearWindow", "rightRearWindow", "skylight",
+        # tyres
+        "leftFrontTireStatus", "rightFrontTireStatus", "leftRearTireStatus", "rightRearTireStatus", "tirePressUnit",
+        "tirepressureSystem", "rapidTireLeak",
+        # power, drive and warning lamps
+        "onlineState", "connectState", "vehicleState", "powerGear", "okLight", "epb", "eps", "esp", "abs",
+        "absWarning", "svs", "srs", "ect", "pwr", "ins", "powerSystem", "engineStatus", "oilPressureSystem",
+        "brakingSystem", "chargingSystem", "steeringSystem", "powerBattery", "powerBatteryConnection",
+        "lightStopStatus", "sentryStatus", "upgradeStatus",
+        # charging
+        "chargingState", "chargeState", "flashChargeState", "flashChargeConfig", "waitStatus", "bookingChargeState",
+        "batteryHeatState", "chargeHeatState",
+        # climate and seats
+        "airRunState", "mainSeatHeatState", "mainSeatVentilationState", "copilotSeatHeatState",
+        "copilotSeatVentilationState", "steeringWheelHeatState", "stearingWheelHeatState", "lrSeatHeatState",
+        "lrSeatVentilationState", "rrSeatHeatState", "rrSeatVentilationState", "lrThirdHeatState",
+        "lrThirdVentilationState", "rrThirdHeatState", "rrThirdVentilationState",
+    ),
+    "leftFrontWindowPct": PERCENT, "rightFrontWindowPct": PERCENT, "leftRearWindowPct": PERCENT,
+    "rightRearWindowPct": PERCENT,
+    "leftFrontTirepressure": TYRE, "rightFrontTirepressure": TYRE, "leftRearTirepressure": TYRE,
+    "rightRearTirepressure": TYRE, "leftFrontTirePressure": TYRE, "rightFrontTirePressure": TYRE,
+    "leftRearTirePressure": TYRE, "rightRearTirePressure": TYRE,
+    "chargeEndHour": HOUR, "chargeEndMinute": MINUTE, "bookingChargingHour": HOUR, "bookingChargingMinute": MINUTE,
+    "fullHour": HOURS, "fullMinute": MINUTE, "remainingHours": HOURS, "remainingMinutes": MINUTE,
+    "lessOneMin": BOOL,
+    "elecPercent": PERCENT, "oilPercent": PERCENT,
+    "enduranceMileage": _float(-1, 2000), "enduranceMileageV2": _float(-1, 2000), "evEndurance": _float(-1, 2000),
+    "oilEndurance": _float(-1, 2000),
+    "totalMileage": _float(-1, 1_000_000), "totalMileageV2": _float(-1, 1_000_000),
+    "enduranceMileageV2Unit": DISTANCE_UNIT, "totalMileageV2Unit": DISTANCE_UNIT,
+    "speed": _float(-1, 300),
+    "tempInCar": TEMPERATURE, "mainSettingTemp": TEMPERATURE, "mainSettingTempNew": TEMPERATURE,
+    "ectValue": _float(-129, 150),
+    # gl looks like watts (seen -39142.4..6253.2); rate and totalPower like kW (rate -999 is "idle"); bounded to
+    # what a car can draw or feed back.
+    "gl": _float(-500_000, 500_000), "rate": _float(-1000, 1000), "totalPower": _float(-1000, 1000),
+    "totalOil": _float(-1, 100_000),
+    "chargePower": _float(-1000, 1000, "--", ""), "chargePowerUnit": POWER_UNIT,
+    "energyConsumption": CONSUMPTION, "nearestEnergyConsumption": CONSUMPTION,
+    "nearestEnergyConsumptionUnit": ENERGY_UNIT,
+    "repairModeSwitch": _int(0, 1, "0", "1"), "smartJourneyState": _enum("0", "1", "2"),
+    "time": TIME, "timestamp": TIME,
+}
+# ChargingStatus (charging, smartCharge) and SmartChargingSchedule (schedule): the replies share their keys.
+CHARGING_FIELDS: dict[str, RawField] = {
+    **_codes(
+        "chargingState", "connectState", "waitStatus", "batteryHeatState", "flashChargeState", "flashChargeConfig",
+        "flashCharging", "flashBatteryPrepare", "trickleCharge", "dmChargeFull", "dmTrickleConfig", "evChargeFull",
+        "evTrickleConfig", "smartJourneyDto.acSwitch", "smartJourneyDto.batHeatSwitch",
+    ),
+    "soc": PERCENT, "elecPercent": PERCENT, "flashSoc": PERCENT, "dmSocLimit": PERCENT, "evSocLimit": PERCENT,
+    "fullHour": HOURS, "fullMinute": MINUTE, "chargeEndHour": HOUR, "chargeEndMinute": MINUTE,
+    "chargePower": _float(-1000, 1000, "--", ""), "chargePowerUnit": POWER_UNIT,
+    "smartChargeDto.chargeWay": _enum("e", "s"), "smartChargeDto.status": _enum("0", "1"),
+    "smartJourneyDto.chargeWay": _enum("e", "s"), "smartJourneyDto.status": _enum("0", "1"),
+    "updateTime": TIME, "time": TIME,
+}
+# HvacStatus: the keys come at the top level or under statusNow.
+_HVAC_KEYS: dict[str, RawField] = {
+    **_codes(
+        "acSwitch", "status", "airConditioningMode", "windMode", "windPosition", "cycleChoice", "airTempLevel",
+        "frontAirSumPattern", "timeChoice", "temp", "firstWarm", "firstWind", "secondWarm", "secondWind",
+        "whetherSupportAdjustTemp", "frontDefrostStatus", "electricDefrostStatus", "wiperHeatStatus",
+        "mainSeatHeatState", "mainSeatVentilationState", "copilotSeatHeatState", "copilotSeatVentilationState",
+        "steeringWheelHeatState", "stearingWheelHeatState", "lrSeatHeatState", "lrSeatVentilationState",
+        "rrSeatHeatState", "rrSeatVentilationState", "lrThirdHeatState", "lrThirdVentilationState",
+        "rrThirdHeatState", "rrThirdVentilationState", "rapidIncreaseTempState", "rapidDecreaseTempState",
+        "refrigeratorState", "refrigeratorDoorState",
+    ),
+    "mainSettingTemp": TEMPERATURE, "mainSettingTempNew": TEMPERATURE, "copilotSettingTemp": TEMPERATURE,
+    "copilotSettingTempNew": TEMPERATURE, "tempInCar": TEMPERATURE, "tempOutCar": TEMPERATURE,
+    "refrigeratorTemp": TEMPERATURE, "airConditionTempRange": TEMPERATURE, "vdeTempRangeMin": TEMPERATURE,
+    "vdeTempRangeMax": TEMPERATURE, "pm": _float(-1, 1000), "pm25StateOutCar": _float(-1, 1000),
+}
+HVAC_FIELDS: dict[str, RawField] = {**_HVAC_KEYS, **{f"statusNow.{key}": spec for key, spec in _HVAC_KEYS.items()}}
+# EnergyConsumption (energy, energyConsumption); the graphs are lists, indexed up to RAW_GRAPH_ITEMS.
+RAW_GRAPH_ITEMS = 12
+ENERGY_FIELDS: dict[str, RawField] = {
+    **{f"nearestEnergyConsumption.{key}": CONSUMPTION for key in (
+        "avgEvConsumption", "evConsumption", "avgOilConsumption", "oilConsumption", "avgEqOilConsumption")},
+    **{f"nearestEnergyConsumption.{key}": _float(-1, 100, "--", "") for key in (
+        "driveDistribution", "electDistribution", "airDistribution", "otherDistribution")},
+    **{f"nearestEnergyConsumption.{key}": ENERGY_UNIT for key in ("evUnit", "evValueUnit", "oilUnit", "oilValueUnit")},
+    "cumulativeEnergyConsumption.avgEvConsumption": CONSUMPTION,
+    "cumulativeEnergyConsumption.avgOilConsumption": CONSUMPTION,
+    "cumulativeEnergyConsumption.totalMileage": _float(-1, 1_000_000, "--", ""),
+    "cumulativeEnergyConsumption.mileageUnit": DISTANCE_UNIT,
+    "cumulativeEnergyConsumption.evUnit": ENERGY_UNIT, "cumulativeEnergyConsumption.oilUnit": ENERGY_UNIT,
+    **{f"{graph}.energyConsumption.{index}": CONSUMPTION
+       for graph in ("selfGraph", "autoModelGraph") for index in range(RAW_GRAPH_ITEMS)},
+    "selfGraph.energyConsumptionUnit": ENERGY_UNIT, "autoModelGraph.energyConsumptionUnit": ENERGY_UNIT,
+    "time": TIME, "timestamp": TIME,
+}
+# GpsInfo: only the speed and the fix time, never the position or direction.
+GPS_FIELDS: dict[str, RawField] = {
+    "speed": _float(-1, 300), "data.speed": _float(-1, 300), "gpsTimeStamp": TIME, "data.gpsTimeStamp": TIME,
+}
+# The table of each exact (source, endpoint) pair. Poll endpoints have their models' tables; pyBYD parses
+# vehicleInfo pushes as VehicleRealtimeData, smartCharge as ChargingStatus and energyConsumption as
+# EnergyConsumption; remoteControl keeps nothing. Any other pair (a push named gps, a poll named vehicleInfo)
+# is written as endpoint "other" and keeps no field.
+RAW_TABLES: dict[tuple[str, str], dict[str, RawField]] = {
+    ("poll", "realtime"): REALTIME_FIELDS, ("poll", "charging"): CHARGING_FIELDS,
+    ("poll", "schedule"): CHARGING_FIELDS, ("poll", "hvac"): HVAC_FIELDS, ("poll", "energy"): ENERGY_FIELDS,
+    ("poll", "gps"): GPS_FIELDS,
+    ("mqtt", "vehicleInfo"): REALTIME_FIELDS, ("mqtt", "smartCharge"): CHARGING_FIELDS,
+    ("mqtt", "energyConsumption"): ENERGY_FIELDS, ("mqtt", "remoteControl"): {},
+}
+# Each path's segments, list indexes as integers: looked up literally.
+RAW_SEGMENTS: dict[str, tuple[str | int, ...]] = {
+    path: tuple(int(part) if part.isdigit() else part for part in path.split("."))
+    for table in RAW_TABLES.values() for path in table
+}
+
+
+def raw_table(source: Any, endpoint: Any) -> Mapping[str, RawField]:
+    """The path table of an exact (source, endpoint) pair; empty for any other pair."""
+    return RAW_TABLES.get((source, endpoint), {})
+
+
+def _check_raw_value(spec: RawField, value: Any) -> str | None:
+    """The rule a parsed raw value breaks on a path of this spec (the same bounds the pod applies)."""
+    if value is None:
+        return None
+    if spec.kind == "bool":
+        return None if type(value) is bool else "wrong_type"
+    if type(value) is str and not isinstance(value, _Float):
+        return None if value in spec.values else "unexpected_string"
+    if spec.kind in ("enum", "time"):
+        return "wrong_type"
+    return _check(Num(spec.low, spec.high, integer=spec.kind == "int"), value)
+
+
+def _check_raw_fields(row: Mapping[str, Any]) -> str | None:
+    """Every field of a raw line is a literal path of its (source, endpoint) table, with a value that fits it.
+
+    A time path appears only as ``<path>_t`` (seconds since the window start) or ``<path>_stale: true``.
+    """
+    fields = row.get("fields")
+    if fields is None:
+        return None
+    table = raw_table(row["source"], row["endpoint"])
+    for key, value in fields.items():
+        if key.endswith("_t") and key[:-2] in table and table[key[:-2]].kind == "time":
+            rule = _check(Num(-RAW_T_LIMIT, RAW_T_LIMIT), value)
+        elif key.endswith("_stale") and key[:-6] in table and table[key[:-6]].kind == "time":
+            rule = None if value is True else "unexpected_string" if type(value) is str else "wrong_type"
+        elif key in table and table[key].kind != "time":
+            rule = _check_raw_value(table[key], value)
+        else:
+            return "unexpected_key"
+        if rule is not None:
+            return rule
+    return None
+
+
+RAW_LINE: dict[str, Any] = {
+    "type": _choice("raw"), "t": Num(0, MAX_T), "source": _choice(*RAW_SOURCES), "endpoint": _choice(*RAW_ENDPOINTS),
+    "code": Text(RAW_CODE), "truncated": Flag(), "fields": RawFields(),
+}
 STATS_FIELDS: dict[str, Any] = {
     "car_rows": COUNT,
     "cloud_rows": Obj({key: COUNT for key in ep.ROW_KINDS}, required=frozenset(ep.ROW_KINDS)),
@@ -212,6 +471,12 @@ STATS_FIELDS: dict[str, Any] = {
     "invalid_values": Names(INVALID_NAMES),
     "dropped_details": COUNT, "unparsable_last_updated": COUNT,
     "cloud_fixes_matched": COUNT, "cloud_fixes_unmatched": COUNT,
+    # raw lines: rows by source ("other" sources are not written), written lines by endpoint
+    "raw_rows": Obj({key: COUNT for key in (*RAW_SOURCES, "other")}, required=frozenset((*RAW_SOURCES, "other"))),
+    "raw_endpoints": Obj({key: COUNT for key in RAW_ENDPOINTS}, required=frozenset(RAW_ENDPOINTS)),
+    # raw fields not on the endpoint's path table, and values that did not fit their path, per endpoint
+    "raw_fields_dropped": Names(frozenset(RAW_ENDPOINTS)), "raw_values_invalid": Names(frozenset(RAW_ENDPOINTS)),
+    "raw_invalid": Names(frozenset(RAW_INVALID)), "raw_dropped_codes": COUNT,
 }
 META_LINE: dict[str, Any] = {
     "type": _choice("meta"), "version": Num(VERSION, VERSION, integer=True), "start": Text(ep.START),
@@ -224,6 +489,7 @@ META_LINE: dict[str, Any] = {
 LINES: dict[str, Obj] = {
     "car": Obj(CAR_LINE, frozenset(("type", "t"))),
     "cloud": Obj(CLOUD_LINE, frozenset(("type", "t", "source", "kind"))),
+    "raw": Obj(RAW_LINE, frozenset(("type", "t", "source", "endpoint"))),
     "meta": Obj(META_LINE, frozenset(META_LINE) - {"app_version", "first_seen_t"}),
 }
 RULES = (
@@ -266,15 +532,21 @@ def _check(spec: Any, value: Any) -> str | None:
         if isinstance(value, _Float):
             if spec.integer:
                 return "wrong_type"
-            # The spelling of a JSON number always parses, finite: NaN and Infinity are refused earlier.
-            number = Decimal(value)
+            # NaN and Infinity are refused earlier; an exponent Decimal cannot hold is out of range.
+            try:
+                number = Decimal(value)
+            except (InvalidOperation, ValueError):
+                return "out_of_range"
             if number.as_tuple().exponent < -3:
                 return "precise_number"
         elif type(value) is int:
             number = Decimal(value)
         else:
             return "wrong_type"
-        return None if spec.low <= number <= spec.high else "out_of_range"
+        try:
+            return None if spec.low <= number <= spec.high else "out_of_range"
+        except (InvalidOperation, ValueError):
+            return "out_of_range"
     if isinstance(spec, Flag):
         return None if type(value) is bool else "wrong_type"
     if isinstance(spec, (Choice, Text)):
@@ -290,6 +562,8 @@ def _check(spec: Any, value: Any) -> str | None:
             except ValueError:
                 return "unexpected_string"
         return None
+    if isinstance(spec, RawFields):
+        return None if type(value) is dict else "wrong_type"
     if type(value) is not dict:
         return "wrong_type"
     if isinstance(spec, Names):
@@ -316,7 +590,9 @@ def check_line(line: str) -> tuple[str, dict[str, Any]]:
     problem: a VIN (other than the synthetic one), UUID or e-mail anywhere in the text, a
     number with more than three decimals anywhere (so no coordinate can pass), invalid or
     duplicate-keyed JSON, a key outside the line type's whitelist, a string outside its
-    enum or pattern, a number outside its range, or a value of the wrong JSON type.
+    enum or pattern, a number outside its range, or a value of the wrong JSON type. On a raw
+    line every field must be a literal path of its endpoint's table (``RAW_TABLES``; a time
+    path only as ``<path>_t``) with a value of that path's kind and range.
     """
     kind = "unknown"
     try:
@@ -349,6 +625,10 @@ def check_line(line: str) -> tuple[str, dict[str, Any]]:
             raise _Reject(rule)
         if kind == "cloud" and row.get("gps_zero") is True and any(key in row for key in ZERO_FORBIDDEN):
             raise _Reject("unexpected_key")
+        if kind == "raw":
+            rule = _check_raw_fields(row)
+            if rule is not None:
+                raise _Reject(rule)
         return kind, row
     except _Reject as exc:
         raise ep._ExportError(f"{exc.rule} on {kind} line") from None
@@ -398,6 +678,126 @@ def _json_object(value: Any) -> Any:
 
 def _utc(stamp: datetime) -> datetime:
     return stamp.replace(tzinfo=UTC) if stamp.tzinfo is None else stamp.astimezone(UTC)
+
+
+def _epoch_t(value: int | float, start_s: int) -> int | float | None:
+    """Seconds from the window start to an epoch time (2015-2040, seconds or ms); None if not one."""
+    if EPOCH_MIN_S <= value < EPOCH_MAX_S:
+        return value - start_s if type(value) is int else round(value - start_s, 3)
+    if EPOCH_MIN_S * 1000 <= value < EPOCH_MAX_S * 1000:
+        if type(value) is int:
+            return round((value - start_s * 1000) / 1000, 3)
+        return round(value / 1000 - start_s, 3)
+    return None
+
+
+def _time_t(value: Any, start_s: int) -> int | float | None:
+    """A time path's value as seconds since the window start: an epoch (also as a 10 or 13 digit string) or an
+    ISO date (taken as UTC without an offset); None for anything else, such as BYD's 0 for "no time"."""
+    if type(value) is str:
+        if RAW_EPOCH_TEXT.fullmatch(value):
+            value = int(value)
+        elif RAW_DATE.fullmatch(value):
+            try:
+                t = round(_utc(datetime.fromisoformat(value)).timestamp() - start_s, 3)
+            except (ValueError, OverflowError):
+                return None
+            return t if abs(t) <= RAW_T_LIMIT else None
+        else:
+            return None
+    if type(value) not in (int, float) or (type(value) is float and not math.isfinite(value)):
+        return None
+    return _epoch_t(value, start_s)
+
+
+def raw_value(spec: RawField, value: Any, start_s: int) -> Any:
+    """The value as written on a path of this spec, or _INVALID. Floats are rounded first, then bounded."""
+    if value is None:
+        return None
+    if spec.kind == "bool":
+        return value if type(value) is bool else _INVALID
+    if spec.kind == "enum":
+        return value if type(value) is str and value in spec.values else _INVALID
+    if spec.kind == "time":
+        t = _time_t(value, start_s)
+        return _INVALID if t is None else t
+    if type(value) is str:
+        if value in spec.values:
+            return value
+        if not (RAW_INT_TEXT if spec.kind == "int" else RAW_FLOAT_TEXT).fullmatch(value):
+            return _INVALID
+        value = float(value) if "." in value else int(value)
+    if type(value) is float:
+        if not math.isfinite(value):
+            return _INVALID
+        if spec.kind == "int":
+            if not value.is_integer():
+                return _INVALID
+            value = int(value)
+        else:
+            value = round(value, 3)
+    elif type(value) is not int:
+        return _INVALID
+    return value if spec.low <= value <= spec.high else _INVALID
+
+
+_MISSING = object()
+
+
+def _lookup(raw: Any, segments: tuple[str | int, ...]) -> Any:
+    for segment in segments:
+        if type(segment) is int:
+            if type(raw) is not list or segment >= len(raw):
+                return _MISSING
+        elif type(raw) is not dict or segment not in raw:
+            return _MISSING
+        raw = raw[segment]
+    return raw
+
+
+def _leaves(raw: Any) -> int:
+    """Scalar leaves in a reply, counted up to RAW_MAX_NODES nodes."""
+    leaves = nodes = 0
+    stack = [raw]
+    while stack and nodes < RAW_MAX_NODES:
+        item = stack.pop()
+        nodes += 1
+        if type(item) is dict:
+            stack.extend(item.values())
+        elif type(item) is list:
+            stack.extend(item)
+        else:
+            leaves += 1
+    return leaves
+
+
+def flatten_raw(raw: Mapping[str, Any], source: str, endpoint: str, *, start_s: int,
+                ) -> tuple[dict[str, Any], int, int]:
+    """The reply's fields on the endpoint's path table, and the counts of fields dropped and values refused.
+
+    Every path of ``raw_table(source, endpoint)`` is looked up literally in the reply; a scalar
+    found there is written if it fits the path's kind and range (``raw_value``), else refused
+    and counted. A time path present with no usable time (BYD's 0, null, anything else) is
+    written as ``<path>_stale: true``, so the reply is not paired at its receive time. Every
+    other leaf of the reply is dropped and counted. No key name the reply supplies is ever
+    written: the written keys are the table's own paths. A pair without a table keeps nothing.
+    """
+    fields: dict[str, Any] = {}
+    found = invalid = 0
+    for path, spec in raw_table(source, endpoint).items():
+        value = _lookup(raw, RAW_SEGMENTS[path])
+        if value is _MISSING or type(value) in (dict, list):
+            continue
+        found += 1
+        converted = raw_value(spec, value, start_s)
+        if spec.kind == "time" and converted in (_INVALID, None):
+            invalid += 1
+            fields[f"{path}_stale"] = True
+        elif converted is _INVALID:
+            invalid += 1
+        else:
+            fields[f"{path}_t" if spec.kind == "time" else path] = converted
+    return fields, max(0, _leaves(raw) - found), invalid
 
 
 def _coordinates(place: Mapping[str, Any], lat_key: str, lng_key: str) -> tuple[float, float] | None:
@@ -490,6 +890,8 @@ class PairExport:
         self.cloud_start = until - timedelta(days=cloud_days)
         self.shift = timedelta(seconds=offset_s)
         self.shifted_start = min(self.car_start, self.cloud_start) + self.shift
+        # The real window start in epoch seconds, for raw epoch times; stays in the pod like the offset.
+        self.start_s = int(min(self.car_start, self.cloud_start).timestamp())
         self.car = car
         self.fixes: list[tuple[float, float, float, Any, Any]] = []
         self.fix_times: list[float] | None = None
@@ -500,6 +902,11 @@ class PairExport:
         self.dropped_cloud: Counter[str] = Counter()
         self.invalid: Counter[str] = Counter()
         self.counts: Counter[str] = Counter()
+        self.raw_rows: Counter[str] = Counter(dict.fromkeys((*RAW_SOURCES, "other"), 0))
+        self.raw_endpoints: Counter[str] = Counter(dict.fromkeys(RAW_ENDPOINTS, 0))
+        self.raw_dropped: Counter[str] = Counter()
+        self.raw_values_invalid: Counter[str] = Counter()
+        self.raw_invalid: Counter[str] = Counter()
 
     def _write(self, row: dict[str, Any]) -> None:
         line = ep.json_line(row)
@@ -730,6 +1137,70 @@ class PairExport:
         best = min(candidates, key=lambda i: (abs(self.fix_times[i] - when), i))
         return self.fixes[best] if abs(self.fix_times[best] - when) <= FIX_WINDOW_S else None
 
+    # byd_raw_replies
+
+    def add_raw(self, row: Mapping[str, Any]) -> None:
+        """Write the line for one byd_raw_replies row of the car (a poll endpoint's reply or failure, or a push)."""
+        at = _utc(row["at"])
+        if not self.car_start <= at < self.until:
+            raise ep._ExportError(OUTSIDE)
+        source = row.get("source")
+        if source not in RAW_SOURCES:
+            self.raw_rows["other"] += 1
+            return
+        self.raw_rows[source] += 1
+        # The real endpoint (an MQTT event name can be anything) stays in the pod; a pair without a table is "other".
+        endpoint = row.get("endpoint") if (source, row.get("endpoint")) in RAW_TABLES else "other"
+        self.raw_endpoints[endpoint] += 1
+        line: dict[str, Any] = {"type": "raw", "t": self._t(at), "source": source, "endpoint": endpoint}
+        code = row.get("code")
+        if code == "TimeoutError":
+            code = "timeout"
+        if code is not None:
+            if type(code) is str and RAW_CODE.fullmatch(code):
+                line["code"] = code
+            else:
+                line["code"] = "other"
+                self.counts["raw_dropped_codes"] += 1
+        if row.get("code_dropped"):
+            self.counts["raw_dropped_codes"] += 1
+        raw = row.get("raw")
+        if raw is not None:
+            self._raw_fields(line, raw, endpoint)
+        try:
+            text = ep.json_line(line)
+            check_line(text)
+        except ep._ExportError:
+            if "fields" not in line:
+                raise
+            # Never expected (the table and the check apply the same bounds), but a line the check
+            # refuses is written without its fields, checked again and counted; the export goes on.
+            del line["fields"]
+            self.raw_invalid["rejected"] += 1
+            text = ep.json_line(line)
+            check_line(text)
+        self.output.write(text)
+
+    def _raw_fields(self, line: dict[str, Any], raw: Any, endpoint: str) -> None:
+        if isinstance(raw, (str, bytes)) and len(raw) > RAW_MAX_TEXT:
+            self.raw_invalid["too_large"] += 1
+            return
+        value = _json_object(raw)
+        if value is _INVALID:
+            self.raw_invalid["undecodable"] += 1
+            return
+        if type(value) is not dict:
+            self.raw_invalid["not_object"] += 1
+            return
+        if value.get("_truncated") is True:
+            # The backend's marker for a reply cut at its node limit or replaced for its size.
+            line["truncated"] = True
+            value = {key: item for key, item in value.items() if key != "_truncated"}
+        fields, dropped, invalid = flatten_raw(value, line["source"], endpoint, start_s=self.start_s)
+        line["fields"] = fields
+        self.raw_dropped[endpoint] += dropped
+        self.raw_values_invalid[endpoint] += invalid
+
     def finish(self) -> None:
         """Write the meta line, the last line of the pod stream."""
         start = self.shifted_start.isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -754,6 +1225,12 @@ class PairExport:
             **{key: self.counts[key] for key in (
                 "dropped_details", "unparsable_last_updated", "cloud_fixes_matched", "cloud_fixes_unmatched",
             )},
+            "raw_rows": {key: self.raw_rows[key] for key in (*RAW_SOURCES, "other")},
+            "raw_endpoints": {key: self.raw_endpoints[key] for key in RAW_ENDPOINTS},
+            "raw_fields_dropped": {key: count for key, count in sorted(self.raw_dropped.items()) if count},
+            "raw_values_invalid": {key: count for key, count in sorted(self.raw_values_invalid.items()) if count},
+            "raw_invalid": dict(sorted(self.raw_invalid.items())),
+            "raw_dropped_codes": self.counts["raw_dropped_codes"],
         }
         self._write(meta)
 
@@ -818,8 +1295,39 @@ CLOUD_COUNT_SQL = f"""/* cloud_count */
         SELECT COUNT(*) AS row_count {ep.COUNTS}
         FROM ingest_events
         WHERE {CLOUD_WINDOW}"""
+
+# byd_raw_replies: one car, one UTC day per query (one daily partition), by its primary key
+# (car_id, at, endpoint, seq). A raw reply can be ~64 KB, so its pages are smaller.
+RAW_WINDOW = "car_id = :car AND at >= :lower AND at < :upper"
+RAW_PAGE_ROWS = 500
+_CODES_SQL = ", ".join(f"'{code}'" for code in (*RAW_BYD_CODES, "crypto"))
+SAFE_CODE = f"(code IN ({_CODES_SQL}) OR code ~ '^http_[0-9]{{3}}$')"
+_KNOWN_ENDPOINTS_SQL = ", ".join(f"'{name}'" for name in RAW_KNOWN_ENDPOINTS)
+RAW_COUNTS = "".join(
+    f", COUNT(*) FILTER (WHERE endpoint = '{name}') AS \"{name}\"" for name in RAW_KNOWN_ENDPOINTS
+) + f", COUNT(*) FILTER (WHERE endpoint NOT IN ({_KNOWN_ENDPOINTS_SQL})) AS \"other\""
+
+
+def raw_rows_sql(resume: bool) -> str:
+    """One page of the car's raw BYD replies in one day; codes outside the safe set stay in SQL."""
+    cursor = "AND (at, endpoint, seq) > (:after_at, :after_endpoint, :after_seq)" if resume else ""
+    return f"""/* raw_rows */
+        SELECT at, endpoint, seq, source,
+               CASE WHEN {SAFE_CODE} THEN code WHEN code = 'TimeoutError' THEN 'timeout'
+                    WHEN code IS NOT NULL THEN 'other' END AS code,
+               (code IS NOT NULL AND NOT {SAFE_CODE} AND code <> 'TimeoutError') AS code_dropped,
+               CAST(raw AS text) AS raw
+        FROM byd_raw_replies
+        WHERE {RAW_WINDOW} {cursor}
+        ORDER BY at, endpoint, seq LIMIT :limit"""
+
+
+RAW_COUNT_SQL = f"""/* raw_count */
+        SELECT COUNT(*) AS row_count{RAW_COUNTS}
+        FROM byd_raw_replies
+        WHERE {RAW_WINDOW}"""
 PLAN_SHAPES = ("identify", "metadata", "car_rows", "car_rows_resumed", "car_count", "cloud_rows",
-               "cloud_rows_resumed", "cloud_count")
+               "cloud_rows_resumed", "cloud_count", "raw_rows", "raw_rows_resumed", "raw_count")
 # ingest_events holds every customer's events, so this car's rows must come through its composite index.
 INGEST_INDEX = "ix_ingest_events_user_vin_received"
 INGEST_SCANS = frozenset(("Index Scan", "Index Only Scan", "Bitmap Heap Scan"))
@@ -861,6 +1369,7 @@ class PairQueries:
     def __init__(self, sessions: Any, statement: Callable[[str], Any], page_rows: int, pause_ms: int) -> None:
         self.runner = ep.ExportQueries(sessions, statement, page_rows, pause_ms)
         self.page_rows = page_rows
+        self.raw_page_rows = min(page_rows, RAW_PAGE_ROWS)
 
     async def _query(self, sql: str, params: Mapping[str, Any]) -> list[Mapping[str, Any]]:
         return await self.runner._query(sql, params)
@@ -878,16 +1387,18 @@ class PairQueries:
     async def _paged(
         self, windows: Iterable[tuple[datetime, datetime]], build: Callable[[bool], str],
         params: Mapping[str, Any], cursor: Callable[[Mapping[str, Any]], dict[str, Any]], *, gated: bool = False,
+        limit: int | None = None,
     ) -> AsyncIterator[Mapping[str, Any]]:
         run = self._gated if gated else self._query
+        limit = limit or self.page_rows
         for lower, upper in windows:
             after: dict[str, Any] | None = None
             while True:
                 page = await run(build(after is not None),
-                                 {**params, "lower": lower, "upper": upper, "limit": self.page_rows, **(after or {})})
+                                 {**params, "lower": lower, "upper": upper, "limit": limit, **(after or {})})
                 for row in page:
                     yield row
-                if len(page) < self.page_rows:
+                if len(page) < limit:
                     break
                 after = cursor(page[-1])
                 del page
@@ -931,6 +1442,28 @@ class PairQueries:
         return self._paged(day_windows(start, until), cloud_rows_sql, {"user": user, "vin": vin},
                            lambda row: {"after_first": row["received_at"], "after_second": row["id"]}, gated=True)
 
+    def raw_rows(self, car: Any, start: datetime, until: datetime) -> AsyncIterator[Mapping[str, Any]]:
+        """The car's raw BYD replies, oldest first, a (smaller) page at a time."""
+        return self._paged(day_windows(start, until), raw_rows_sql, {"car": car},
+                           lambda row: {"after_at": row["at"], "after_endpoint": row["endpoint"],
+                                        "after_seq": row["seq"]},
+                           limit=self.raw_page_rows)
+
+    async def raw_counts(
+        self, car: Any, start: datetime, until: datetime,
+    ) -> tuple[dict[str, int], list[dict[str, int]], int]:
+        """Raw replies of the car by endpoint, the same per UTC day (oldest first), and the days that have any."""
+        totals: Counter[str] = Counter(dict.fromkeys(RAW_ENDPOINTS, 0))
+        by_day: list[dict[str, int]] = []
+        days = 0
+        for lower, upper in day_windows(start, until):
+            rows = await self._query(RAW_COUNT_SQL, {"car": car, "lower": lower, "upper": upper})
+            counts = {key: int(rows[0][key]) for key in RAW_ENDPOINTS}
+            totals.update(counts)
+            by_day.append({key: count for key, count in counts.items() if count})
+            days += int(rows[0]["row_count"]) > 0
+        return {key: totals[key] for key in RAW_ENDPOINTS}, by_day, days
+
     async def car_counts(self, car: Any, start: datetime, until: datetime) -> tuple[int, int]:
         """Telemetry rows of the car in the window, and the number of UTC days that have any."""
         total = days = 0
@@ -957,7 +1490,8 @@ class PairQueries:
     ) -> dict[str, list[dict[str, Any]]]:
         """Plan nodes (type, relation, index, estimated rows) of first and resumed pages. No ANALYZE.
 
-        A daily partition's name carries a real date, so it is replaced by PARTITION_NAME.
+        A daily partition's name carries a real date, so it is replaced by PARTITION_NAME or
+        RAW_PARTITION_NAME.
         """
         car_params = {"lower": car_window[0], "upper": car_window[1]}
         cloud_params = {"user": user, "vin": vin, "lower": cloud_window[0], "upper": cloud_window[1]}
@@ -973,16 +1507,21 @@ class PairQueries:
                                                           "after_first": cloud_window[0],
                                                           "after_second": uuid.UUID(int=0)}),
             "cloud_count": (CLOUD_COUNT_SQL, cloud_params),
+            "raw_rows": (raw_rows_sql(False), {"car": car, **car_params, "limit": self.raw_page_rows}),
+            "raw_rows_resumed": (raw_rows_sql(True), {"car": car, **car_params, "limit": self.raw_page_rows,
+                                                      "after_at": car_window[0], "after_endpoint": "",
+                                                      "after_seq": 0}),
+            "raw_count": (RAW_COUNT_SQL, {"car": car, **car_params}),
         }
         plans = {}
         for shape in PLAN_SHAPES:
             nodes = await self._plan(*statements[shape])
             for node in nodes:
                 if isinstance(node["relation"], str) and PARTITION.fullmatch(node["relation"]):
-                    node["relation"] = PARTITION_NAME
+                    node["relation"] = PARTITION.sub(r"\1_partition", node["relation"])
                 # A partition's own indexes are named after it (car_telemetry_p20260228_pkey).
                 if isinstance(node["index"], str):
-                    node["index"] = PARTITION.sub(PARTITION_NAME, node["index"])
+                    node["index"] = PARTITION.sub(r"\1_partition", node["index"])
             plans[shape] = nodes
         return plans
 
@@ -1015,7 +1554,8 @@ SAFE_MESSAGES = frozenset(
 )
 
 
-_SAFE_RULE = re.compile(rb"(?:" + b"|".join(rule.encode() for rule in RULES) + rb") on (?:car|cloud|meta|unknown) line")
+_SAFE_RULE = re.compile(rb"(?:" + b"|".join(rule.encode() for rule in RULES)
+                        + rb") on (?:car|cloud|raw|meta|unknown) line")
 _SAFE_FAILURE = re.compile(rb"mapping export failed: ([A-Za-z_][A-Za-z_0-9]{0,79})")
 
 
@@ -1036,7 +1576,7 @@ def _is_count(value: Any) -> bool:
 
 
 def checked_plans(result: Any) -> dict[str, list[dict[str, Any]]]:
-    """Accept only node type, relation (the four tables or PARTITION_NAME), index and row estimate.
+    """Accept only node type, relation (the five tables or a partition name), index and row estimate.
 
     A dated partition name anywhere in a relation or index is refused, even if the pod did not rewrite it.
     """
@@ -1062,9 +1602,15 @@ def checked_plans(result: Any) -> dict[str, list[dict[str, Any]]]:
 
 DRY_RUN_KEYS = frozenset((
     "cars", "device_sources", "car_rows", "car_days_with_rows", "cloud_rows", "cloud_days_with_rows", "plans",
-    "ingest_events_plan_ok",
+    "ingest_events_plan_ok", "raw_rows", "raw_rows_by_day", "raw_days_with_rows",
 ))
 DEVICE_SOURCES = frozenset(("car_app", "simulator", "other", "none"))
+
+
+def _raw_day_counts(days: Any) -> bool:
+    return (type(days) is list and len(days) <= MAX_CAR_DAYS + 1
+            and all(type(day) is dict and set(day) <= set(RAW_ENDPOINTS) and all(map(_is_count, day.values()))
+                    for day in days))
 
 
 def checked_dry_run(result: Any) -> dict[str, Any]:
@@ -1073,9 +1619,12 @@ def checked_dry_run(result: Any) -> dict[str, Any]:
         not isinstance(result, dict) or set(result) != DRY_RUN_KEYS
         or not isinstance(result["device_sources"], dict) or set(result["device_sources"]) != DEVICE_SOURCES
         or not isinstance(result["cloud_rows"], dict) or set(result["cloud_rows"]) != ep.ROW_KINDS.keys()
+        or not isinstance(result["raw_rows"], dict) or set(result["raw_rows"]) != set(RAW_ENDPOINTS)
+        or not _raw_day_counts(result["raw_rows_by_day"])
         or not all(_is_count(value) for value in (
             result["cars"], result["car_rows"], result["car_days_with_rows"], result["cloud_days_with_rows"],
-            *result["device_sources"].values(), *result["cloud_rows"].values(),
+            result["raw_days_with_rows"], *result["device_sources"].values(), *result["cloud_rows"].values(),
+            *result["raw_rows"].values(),
         ))
         or type(result["ingest_events_plan_ok"]) is not bool
     ):
@@ -1113,12 +1662,14 @@ async def run_export(
             raise ep._ExportError(INDEX_GATE)
         car_rows, car_days = await queries.car_counts(car_id, car_start, until)
         cloud_rows, cloud_days = await queries.cloud_counts(car.user_id, car.vin, cloud_start, until)
+        raw_rows, raw_by_day, raw_days = await queries.raw_counts(car_id, car_start, until)
         sources = dict.fromkeys(sorted(DEVICE_SOURCES), 0)
         sources[car.device_source or "none"] = 1
         output.write(ep.json_line(checked_dry_run({
             "cars": 1, "device_sources": sources, "car_rows": car_rows, "car_days_with_rows": car_days,
             "cloud_rows": cloud_rows, "cloud_days_with_rows": cloud_days, "plans": plans,
-            "ingest_events_plan_ok": ingest_plans_ok(plans),
+            "ingest_events_plan_ok": ingest_plans_ok(plans), "raw_rows": raw_rows, "raw_rows_by_day": raw_by_day,
+            "raw_days_with_rows": raw_days,
         })))
         return
 
@@ -1138,6 +1689,10 @@ async def run_export(
     async with aclosing(queries.cloud_rows(car.user_id, car.vin, cloud_start, until)) as rows:
         async for row in rows:
             export.add_cloud(row)
+    # byd_raw_replies keeps 30 days like car_telemetry, so it is read over the car window.
+    async with aclosing(queries.raw_rows(car_id, car_start, until)) as rows:
+        async for row in rows:
+            export.add_raw(row)
     export.finish()
 
 
@@ -1258,7 +1813,8 @@ def _window_end(meta: Mapping[str, Any]) -> int:
 
 
 def _window_start(meta: Mapping[str, Any], kind: str) -> int:
-    days = meta["car_days"] if kind == "car" else meta["cloud_days"]
+    # Raw replies are read over the car window.
+    days = meta["cloud_days"] if kind == "cloud" else meta["car_days"]
     return _window_end(meta) - days * 86400
 
 
@@ -1293,7 +1849,9 @@ def verify(path: Path) -> tuple[dict[str, Any], Counter[str]]:
             raise ep._ExportError(f"out_of_range on {kind} line")
     stats = meta["stats"]
     cloud = sum(count for key, count in stats["cloud_rows"].items() if key != "other")
-    if lines["car"] != stats["car_rows"] or lines["cloud"] != cloud:
+    raw = sum(stats["raw_rows"][source] for source in RAW_SOURCES)
+    if (lines["car"] != stats["car_rows"] or lines["cloud"] != cloud or lines["raw"] != raw
+            or sum(stats["raw_endpoints"].values()) != raw):
         raise ep._ExportError("count_mismatch on meta line")
     return meta, lines
 
@@ -1350,17 +1908,18 @@ def _fetch(args: argparse.Namespace) -> dict[str, Any]:
             raise ep._ExportError("an export for this shifted start date and duration already exists")
         folded.rename(destination)
     return {"file": destination.name, "start": meta["start"], "car_lines": lines["car"],
-            "cloud_lines": lines["cloud"], "stats": meta["stats"]}
+            "cloud_lines": lines["cloud"], "raw_lines": lines["raw"], "stats": meta["stats"]}
 
 
 def _parse(argv: list[str], local: bool) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m bench.mapping.export_pairs" + (" fetch" if local else ""),
-        description=("Fetch, check and keep one car's paired export (runs the pod side through kubectl)."
+        description=("Fetch, check and keep one car's paired export: car telemetry, cloud events and raw BYD "
+                     "replies (runs the pod side through kubectl)."
                      if local else "Pod side: write one car's paired export as JSON lines on stdout."),
     )
     parser.add_argument("--car-days", type=int, default=MAX_CAR_DAYS,
-                        help=f"car_telemetry days ending at --until (1-{MAX_CAR_DAYS})")
+                        help=f"car_telemetry and byd_raw_replies days ending at --until (1-{MAX_CAR_DAYS})")
     parser.add_argument("--cloud-days", type=int, default=MAX_CLOUD_DAYS,
                         help=f"ingest_events days ending at --until (1-{MAX_CLOUD_DAYS})")
     parser.add_argument("--until", type=ep._until, help="window end, ISO with a timezone (default: now - 10 min)")

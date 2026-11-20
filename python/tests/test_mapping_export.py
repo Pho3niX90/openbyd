@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import sys
+from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -56,9 +57,13 @@ BUCKETS = ("poll_ok", "poll_error", "poll_skip", "poll_other", "mqtt_vehicleInfo
            "mqtt_smartCharge", "mqtt_energyConsumption", "mqtt_other", "other")
 SAFE_DETAIL = re.compile(r"[0-9]{1,5}|session_expired|received|min_gap|busy|lock|not_selected|car_unlinked|"
                          r"missing_vin|exception|upstream")
+SAFE_CODE = re.compile(r"1001|1008|6051|http_[0-9]{3}|crypto")
+ENDPOINTS = ("realtime", "energy", "charging", "gps", "hvac", "schedule", "vehicleInfo", "smartCharge",
+             "energyConsumption", "remoteControl")
 PLAN_RELATIONS = {
     "identify": "car_telemetry", "metadata": "cars", "car_rows": "car_telemetry_p20260228",
     "car_count": "car_telemetry_p20260228", "cloud_rows": "ingest_events", "cloud_count": "ingest_events",
+    "raw_rows": "byd_raw_replies_p20260228", "raw_count": "byd_raw_replies_p20260228",
 }
 INDEXES = {"cloud_rows": "ix_ingest_events_user_vin_received", "cloud_count": "ix_ingest_events_user_vin_received"}
 
@@ -114,7 +119,7 @@ class FakeDB:
 
     def __init__(self, tables, *, json_as_text=False, fail_on=None, scans=None):
         self.tables = {name: list(tables.get(name, ()))
-                       for name in ("car_telemetry", "ingest_events", "cars", "car_app_devices")}
+                       for name in ("car_telemetry", "ingest_events", "cars", "car_app_devices", "byd_raw_replies")}
         self.json_as_text = json_as_text  # the plans, as some drivers return json: the data columns are always text
         self.fail_on = fail_on
         # statement tag -> the scan node type its plan shows, or a function of the statement's parameters
@@ -217,6 +222,34 @@ class FakeDB:
         for row in self._cloud(p):
             counts[bucket(row["source"], row["kind"])] += 1
         return [{"row_count": sum(counts.values()), **counts}]
+
+    def _raw(self, p):
+        return [row for row in self.tables["byd_raw_replies"]
+                if row["car_id"] == p["car"] and p["lower"] <= row["at"] < p["upper"]]
+
+    def raw_rows(self, p):
+        rows = sorted(self._raw(p), key=lambda row: (row["at"], row["endpoint"], row["seq"]))
+        if "after_at" in p:
+            cursor = (p["after_at"], p["after_endpoint"], p["after_seq"])
+            rows = [row for row in rows if (row["at"], row["endpoint"], row["seq"]) > cursor]
+        found = []
+        for row in rows[:p["limit"]]:
+            code = row.get("code")
+            safe = code is not None and SAFE_CODE.fullmatch(code) is not None
+            timeout = code == "TimeoutError"
+            found.append({
+                "at": row["at"], "endpoint": row["endpoint"], "seq": row["seq"], "source": row["source"],
+                "code": code if safe else "timeout" if timeout else None if code is None else "other",
+                "code_dropped": code is not None and not safe and not timeout,
+                "raw": self._text(row.get("raw")),
+            })
+        return found
+
+    def raw_count(self, p):
+        counts = dict.fromkeys(ENDPOINTS + ("other",), 0)
+        for row in self._raw(p):
+            counts[row["endpoint"] if row["endpoint"] in ENDPOINTS else "other"] += 1
+        return [{"row_count": sum(counts.values()), **counts}]
 '''
 _fake = {}
 exec(compile(FAKE_DB, "fake_db", "exec"), _fake)
@@ -261,6 +294,99 @@ POLL = {
 }
 
 
+RAW_MS = int((BASE + timedelta(seconds=5)).timestamp()) * 1000  # an unshifted epoch time in milliseconds
+RAW_S = int(BASE.timestamp())  # and in seconds
+# A realtime reply as the DiLink captures show them (their key names, values of the same kind), with the
+# fields the decode is for, and what the backend leaves in that may not leave the pod.
+REALTIME = {
+    "onlineState": 1, "connectState": -1, "vehicleState": 0, "powerGear": 3, "okLight": 1, "epb": 0, "ins": -1,
+    "pwr": 2, "eps": 0, "esp": 0, "abs": 0, "svs": 0, "srs": 0, "ect": 0, "ectValue": -1, "sentryStatus": 2,
+    "chargeState": 15, "chargingState": -1, "flashChargeState": 2, "flashChargeConfig": 0, "chargeEndHour": 22,
+    "chargeEndMinute": 30, "lightStopStatus": 0, "trunkLid": 0, "trunkLidLower": -1, "gl": -27313.2, "rate": -999,
+    "totalPower": 5.1, "chargePower": "6.3", "chargePowerUnit": "kW",
+    "leftFrontDoor": 0, "rightFrontDoor": 1, "leftRearDoor": 0, "rightRearDoor": 0, "leftFrontDoorLock": 2,
+    "rightFrontDoorLock": 2, "leftRearDoorLock": 2, "rightRearDoorLock": 2, "leftFrontWindow": 1,
+    "rightFrontWindow": 0, "leftRearWindow": 0, "rightRearWindow": 0, "skylight": -1, "leftFrontWindowPct": 40,
+    "rightFrontWindowPct": 0, "leftRearWindowPct": 0, "rightRearWindowPct": 0,
+    "leftFrontTirepressure": 2.4, "rightFrontTirepressure": 2.3, "leftRearTirepressure": 2.8,
+    "rightRearTirepressure": 2.7, "leftFrontTireStatus": 0, "rightFrontTireStatus": 0, "leftRearTireStatus": 0,
+    "rightRearTireStatus": 0, "tirePressUnit": 1, "tirepressureSystem": 0, "rapidTireLeak": -1,
+    "elecPercent": 87, "enduranceMileage": 454, "enduranceMileageV2Unit": "km", "totalMileage": 32131, "speed": 39,
+    "tempInCar": 23, "mainSettingTemp": 18, "mainSettingTempNew": 18.0, "airRunState": 1, "lessOneMin": False,
+    "nearestEnergyConsumption": "19.3", "nearestEnergyConsumptionUnit": "kW\u00b7h/100km",
+    "repairModeSwitch": "0", "time": RAW_MS,
+    # Not on the table: a time zone and a plan list with a name, a user id and a start time.
+    "vehicleTimeZone": "Africa/Johannesburg",
+    "standByCarList": [{"planName": "Alice morning", "userId": "98033", "startTime": "07:15"}],
+}
+REALTIME_FIELDS = {key: value for key, value in REALTIME.items()
+                   if key not in ("vehicleTimeZone", "standByCarList", "time")}
+REALTIME_FIELDS.update(chargePower=6.3, nearestEnergyConsumption=19.3, time_t=151205.0)
+GPS_REPLY = {"data": {"latitude": CLOUD_LAT, "longitude": LNG, "direction": 270.25, "altitude": 12.5,
+                      "speed": 50, "gpsTimeStamp": RAW_S, "satellites": 9}, "res": 2}
+COMPACT_UUID = UUID(int=0x1234_5678_9ABC_DEF0_1234_5678_9ABC_DEF0).hex
+# Payloads that tried to get a position, a heading, a place, an identifier or a date past the blocklist the
+# first design used. Each must be dropped (or have its value refused) and counted, never written, never abort.
+LEAKS = [
+    ("realtime", {"gpsInfo": {"y": 52.123456, "x": 4.654321}}),
+    ("realtime", {"pos": {"x": 52.123456, "y": 4.654321}}),
+    ("vehicleInfo", {"mapX": 52.123456, "mapY": 4.654321}),
+    ("realtime", {"pt": [52.123456, 4.654321]}),
+    ("realtime", {"pairs": [[52.123456, 4.654321], [52.124456, 4.654321]]}),
+    ("realtime", {"track": [[52.123456, 4.654321]]}),
+    ("realtime", {"latE6": 52123456, "value": 52123456, "gl": 52123456, "totalMileage": 4654321}),
+    ("realtime", {"note": "52.123:4.654", "chargePowerUnit": "52.123:4.654", "enduranceMileageV2Unit": "52.123"}),
+    ("vehicleInfo", {"headingDeg": 270.25, "yaw": 270.25, "compass": "NW", "elevationM": 12.5}),
+    ("realtime", {"place": "Sea Point", "city": "Cape Town", "nearestEnergyConsumptionUnit": "Sea Point"}),
+    ("realtime", {"d20261101": 1, "u123456789012": 1, COMPACT_UUID: 1, PRIVATE_VIN: 1}),
+    ("realtime", {"ownerRef": 7654321, "vehicleState": 7654321, "okLight": 20261120}),
+    ("realtime", {"time": 20261120, "timestamp": "20-Nov-26", "dateText": "2026-11-20"}),
+    ("charging", {"updateTime": "20-Nov-26", "soc": "52.123:4.654", "chargePower": "1e-05"}),
+    ("gps", {"speed": {"speed": [52.123456, 4.654321]}, "data": {"speed": {"x": 52.123456}, "latitude": 52.123456,
+                                                                "longitude": 4.654321, "direction": 270.25}}),
+    ("gps", {"data": {"speed": [52.123456]}, "speed.speed.0": 52.123456}),
+    ("hvac", {"statusNow": {"tempOutCar": "Cape Town", "pm": 52123456, "position": 52.123456}}),
+    ("remoteControl", {"res": 2, "latitude": 52.123456}),
+    ("privateEventName", {"okLight": 1, "lat": 52.123456}),
+    ("realtime", {"gl": 99999999.9996, "totalPower": -99999999.9996, "rate": "1e-5", "speed": float("nan")}),
+    ("realtime", {"repairModeSwitch": str(UUID(int=5)), "chargePowerUnit": "user@example.com", "okLight": PRIVATE_VIN}),
+]
+# Strings none of which may appear in any output line.
+LEAK_TOKENS = ("123456", "654321", "124456", "52.123", "4.654", "52123", "Sea Point", "Cape Town", "NW", "270.25",
+               "20261120", "20261101", "Nov", "d2026", "u123456789012", COMPACT_UUID, PRIVATE_VIN, "7654321",
+               "99999999", "100000000", "1e-0", "example.com", str(UUID(int=5)), "Johannesburg", "Alice", "07:15",
+               "98033", str(RAW_S), str(RAW_MS))
+
+
+def _raw_row(at, endpoint, raw=None, *, source="poll", code=None, seq=0, car=CAR_ID):
+    return {"car_id": car, "at": at, "endpoint": endpoint, "seq": seq, "source": source, "code": code, "raw": raw}
+
+
+def _leak_rows():
+    return [_raw_row(BASE + timedelta(seconds=20 + index), endpoint, raw,
+                     source="mqtt" if endpoint in ("vehicleInfo", "remoteControl", "privateEventName") else "poll")
+            for index, (endpoint, raw) in enumerate(LEAKS)]
+
+
+def _raw_rows():
+    return [
+        _raw_row(UNTIL - timedelta(days=1, hours=2), "realtime", {"okLight": 0}),
+        _raw_row(BASE + timedelta(seconds=10), "realtime", REALTIME),
+        _raw_row(BASE + timedelta(seconds=10), "gps", GPS_REPLY),
+        _raw_row(BASE + timedelta(seconds=10), "energy", code="1008"),
+        _raw_row(BASE + timedelta(seconds=10), "charging", code="BydSecret user@example.com"),
+        _raw_row(BASE + timedelta(seconds=11), "vehicleInfo", {"speed": 51, "time": RAW_MS + 1000, "yaw": 270.25},
+                 source="mqtt"),
+        _raw_row(BASE + timedelta(seconds=11), "vehicleInfo", {"speed": 52}, source="mqtt", seq=1),
+        _raw_row(BASE + timedelta(seconds=12), "privateEventName", {"value": 3}, source="mqtt"),
+        _raw_row(BASE + timedelta(seconds=13), "hvac", '{"tempInCar": '),
+        _raw_row(BASE + timedelta(seconds=13), "schedule", [1, 2]),
+        _raw_row(BASE + timedelta(seconds=14), "realtime", {"_truncated": True, "bytes": 70000}),
+        _raw_row(BASE + timedelta(seconds=15), "realtime", {"x": 1}, source="webhook"),
+        _raw_row(BASE + timedelta(seconds=16), "realtime", {"x": 2}, car=OTHER_CAR),
+    ]
+
+
 def _tables():
     return {
         "car_telemetry": [
@@ -293,6 +419,7 @@ def _tables():
                   "model_key_source": "name", "is_hybrid": False, "powertrain": "ev", "deleted_at": None}],
         "car_app_devices": [{"car_id": CAR_ID, "source": "car_app", "app_version": "1.4.2",
                              "first_seen_at": UNTIL - timedelta(days=40)}],
+        "byd_raw_replies": _raw_rows(),
     }
 
 
@@ -358,25 +485,38 @@ FULL_CLOUD = {
     "gps_dt_s": 28.5, "gps_car_accuracy_m": 4.5, "gps_car_speed_kph": 50.5, "gps_step_m": 222,
     "gps_last_dist_m": 111, "gps_last_age_s": 28.5,
 }
+FULL_RAW = {
+    "type": "raw", "t": 40.5, "source": "poll", "endpoint": "realtime", "code": "1008", "truncated": True,
+    "fields": {"okLight": 1, "gl": -500_000, "totalPower": 1000, "rate": -999, "time_t": -30 * 366 * 86400,
+               "timestamp_stale": True, "lessOneMin": False, "chargePower": "--", "chargePowerUnit": "kW",
+               "nearestEnergyConsumptionUnit": "kW\u00b7h/100km", "speed": None, "leftFrontTirepressure": 2.345,
+               "vehicleState": 99, "connectState": -1, "repairModeSwitch": 1},
+}
 FULL_META = {
-    "type": "meta", "version": 1, "start": "2026-02-27T15:34:31Z", "car_days": 29, "cloud_days": 13, "vin": VIN,
+    "type": "meta", "version": 2, "start": "2026-02-27T15:34:31Z", "car_days": 29, "cloud_days": 13, "vin": VIN,
     "model": "seal", "energy": "ev", "device_source": "car_app", "app_version": "1.4.2-debug", "first_seen_t": -86400.5,
     "stats": {
         "car_rows": 3, "cloud_rows": dict.fromkeys(ep.ROW_KINDS, 0), "dropped_car_keys": {"motorRpm": 2},
         "dropped_cloud_keys": {"placeKind": 1}, "invalid_values": {"gear": 1, "charging_soc": 1},
         "dropped_details": 1, "unparsable_last_updated": 0, "cloud_fixes_matched": 1, "cloud_fixes_unmatched": 0,
+        "raw_rows": {"poll": 1, "mqtt": 0, "other": 2}, "raw_endpoints": dict.fromkeys(pairs.RAW_ENDPOINTS, 0),
+        "raw_fields_dropped": {"realtime": 3, "gps": 4}, "raw_values_invalid": {"realtime": 1},
+        "raw_invalid": {"undecodable": 1, "rejected": 1}, "raw_dropped_codes": 1,
     },
 }
-FULL = {"car": FULL_CAR, "cloud": FULL_CLOUD, "meta": FULL_META}
+FULL = {"car": FULL_CAR, "cloud": FULL_CLOUD, "raw": FULL_RAW, "meta": FULL_META}
 
 
 def test_full_lines_cover_every_key_and_pass():
     assert set(FULL_CAR) == set(pairs.CAR_LINE) and set(FULL_CLOUD) == set(pairs.CLOUD_LINE)
-    assert set(FULL_META) == set(pairs.META_LINE)
+    assert set(FULL_META) == set(pairs.META_LINE) and set(FULL_RAW) == set(pairs.RAW_LINE)
+    assert set(FULL_META["stats"]) == set(pairs.STATS_FIELDS)
     for kind, row in FULL.items():
         assert pairs.check_line(ep.json_line(row))[0] == kind
     minimal = {"type": "cloud", "t": 0, "source": "mqtt", "kind": "other"}
     assert pairs.check_line(ep.json_line(minimal))[0] == "cloud"
+    minimal = {"type": "raw", "t": 0, "source": "mqtt", "endpoint": "other"}
+    assert pairs.check_line(ep.json_line(minimal))[0] == "raw"
 
 
 def _with(kind, path, value):
@@ -445,7 +585,23 @@ _DELETE = object()
     ("meta", "app_version", "build 7", "unexpected_string"),
     ("meta", "start", "2026-02-30T00:00:00Z", "unexpected_string"),
     ("meta", "start", "2026-02-27T15:34:31+00:00", "unexpected_string"),
-    ("meta", "version", 2, "out_of_range"),
+    ("meta", "version", 1, "out_of_range"),
+    ("meta", "stats.raw_rows.poll", _DELETE, "missing_key"),
+    ("meta", "stats.raw_endpoints.other", _DELETE, "missing_key"),
+    ("meta", "stats.raw_endpoints.privateEvent", 1, "unexpected_key"),
+    ("meta", "stats.raw_fields_dropped", {"latitude": 1}, "unexpected_key"),
+    ("meta", "stats.raw_values_invalid", {"okLight": 1}, "unexpected_key"),
+    ("meta", "stats.raw_invalid", {"other": 1}, "unexpected_key"),
+    ("raw", "endpoint", "privateEvent", "unexpected_string"),
+    ("raw", "source", "webhook", "unexpected_string"),
+    ("raw", "code", "BydSecretError", "unexpected_string"),
+    ("raw", "code", "123456", "unexpected_string"),
+    ("raw", "code", "user@example.com", "email"),
+    ("raw", "endpoint", _DELETE, "missing_key"),
+    ("raw", "truncated", 1, "wrong_type"),
+    ("raw", "fields", [], "wrong_type"),
+    ("raw", "fields", None, "unexpected_null"),
+    ("raw", "extra", 1, "unexpected_key"),
     ("meta", "car_days", 30, "out_of_range"),
     ("meta", "cloud_days", 14, "out_of_range"),
     ("meta", "energy", "diesel", "unexpected_string"),
@@ -471,6 +627,149 @@ _DELETE = object()
 def test_checker_rejects(kind, path, value, rule):
     with pytest.raises(ep._ExportError, match=rf"^{rule} on {kind} line$"):
         pairs.check_line(_with(kind, path, value))
+
+
+MQTT_EVENTS = ("vehicleInfo", "smartCharge", "energyConsumption", "remoteControl")
+
+
+def _raw_line(fields, endpoint="realtime", source=None):
+    source = source or ("mqtt" if endpoint in MQTT_EVENTS else "poll")
+    return ep.json_line({"type": "raw", "t": 1, "source": source, "endpoint": endpoint, "fields": fields})
+
+
+@pytest.mark.parametrize(("endpoint", "fields", "rule"), [
+    # Only the literal paths of the endpoint's table.
+    ("realtime", {"latitude": 52.123}, "unexpected_key"),
+    ("realtime", {"gpsInfo.y": 52.123}, "unexpected_key"),
+    ("realtime", {"pt.0": 52.123}, "unexpected_key"),
+    ("realtime", {"mapX": 52}, "unexpected_key"),
+    ("realtime", {"headingDeg": 270}, "unexpected_key"),
+    ("realtime", {"ownerRef": 7}, "unexpected_key"),
+    ("realtime", {"d20261101": 1}, "unexpected_key"),
+    ("realtime", {"data.speed": 1}, "unexpected_key"),
+    ("realtime", {"statusNow.tempOutCar": 20}, "unexpected_key"),
+    ("realtime", {"okLight_t": 1}, "unexpected_key"),
+    ("realtime", {"time": 12.5}, "unexpected_key"),
+    ("realtime", {"selfGraph.energyConsumption.0": 1}, "unexpected_key"),
+    ("energy", {"selfGraph.energyConsumption.12": 1}, "unexpected_key"),
+    ("gps", {"data.latitude": 52.123}, "unexpected_key"),
+    ("gps", {"data.direction": 270}, "unexpected_key"),
+    ("gps", {"speed.speed.0": 1}, "unexpected_key"),
+    ("gps", {"okLight": 1}, "unexpected_key"),
+    ("remoteControl", {"res": 2}, "unexpected_key"),
+    ("other", {"okLight": 1}, "unexpected_key"),
+    # Each path's kind and range.
+    ("realtime", {"time_t": RAW_S}, "out_of_range"),
+    ("realtime", {"time_t": "x"}, "wrong_type"),
+    ("realtime", {"time_t": None}, "unexpected_null"),
+    ("realtime", {"time_stale": False}, "wrong_type"),
+    ("realtime", {"time_stale": "yes"}, "unexpected_string"),
+    ("realtime", {"okLight_stale": True}, "unexpected_key"),
+    ("realtime", {"gl": 500_000.001}, "out_of_range"),
+    ("realtime", {"totalPower": 1000.5}, "out_of_range"),
+    ("realtime", {"okLight": 100}, "out_of_range"),
+    ("realtime", {"repairModeSwitch": 2}, "out_of_range"),
+    ("realtime", {"okLight": 256}, "out_of_range"),
+    ("realtime", {"vehicleState": 7654321}, "out_of_range"),
+    ("realtime", {"okLight": 1.5}, "wrong_type"),
+    ("realtime", {"okLight": True}, "wrong_type"),
+    ("realtime", {"okLight": "1"}, "unexpected_string"),
+    ("realtime", {"gl": 1_000_000.001}, "out_of_range"),
+    ("realtime", {"gl": 52123456}, "out_of_range"),
+    ("realtime", {"gl": 52.123456}, "precise_number"),
+    ("realtime", {"chargePower": "3.1"}, "unexpected_string"),
+    ("realtime", {"chargePowerUnit": "MW"}, "unexpected_string"),
+    ("realtime", {"chargePowerUnit": "52.123:4.654"}, "unexpected_string"),
+    ("realtime", {"nearestEnergyConsumptionUnit": "Sea Point"}, "unexpected_string"),
+    ("realtime", {"chargePowerUnit": 1}, "wrong_type"),
+    ("realtime", {"lessOneMin": 0}, "wrong_type"),
+    ("realtime", {"okLight": [1]}, "wrong_type"),
+    # The text scan still applies.
+    ("realtime", {"repairModeSwitch": PRIVATE_VIN}, "vin"),
+    ("realtime", {"repairModeSwitch": str(UUID(int=5))}, "uuid"),
+    ("realtime", {"chargePowerUnit": "a@example.com"}, "email"),
+    # Fine:
+    ("realtime", {"okLight": 1, "gl": -39142.4, "time_t": 12.5, "lessOneMin": None, "chargePowerUnit": "kW",
+                  "chargePower": "--", "rate": -999, "speed": 39}, None),
+    ("gps", {"data.speed": 50, "data.gpsTimeStamp_t": 12.5, "speed": 1, "gpsTimeStamp_stale": True}, None),
+    ("realtime", {"repairModeSwitch": "1", "time_stale": True}, None),
+    ("hvac", {"statusNow.tempOutCar": 20, "tempOutCar": -129, "statusNow.status": 2}, None),
+    ("energy", {"selfGraph.energyConsumption.11": 19.3, "nearestEnergyConsumption.driveDistribution": "--"}, None),
+    ("smartCharge", {"chargingState": 15, "updateTime_t": 1, "smartJourneyDto.chargeWay": "s"}, None),
+    ("remoteControl", {}, None),
+])
+def test_checker_rejects_raw_fields(endpoint, fields, rule):
+    if rule is None:
+        assert pairs.check_line(_raw_line(fields, endpoint))[0] == "raw"
+        return
+    with pytest.raises(ep._ExportError, match=rf"^{rule} on raw line$"):
+        pairs.check_line(_raw_line(fields, endpoint))
+
+
+@pytest.mark.parametrize("number", ["1e999999999999999999999", "1.5E+999999999999999999999", "-1e9999999999999999999"])
+def test_an_unrepresentable_decimal_is_an_ordinary_rejection(number):
+    for line in (f'{{"type":"car","t":{number}}}\n',
+                 f'{{"type":"raw","t":1,"source":"poll","endpoint":"realtime","fields":{{"gl":{number}}}}}\n'):
+        with pytest.raises(ep._ExportError, match=r"^out_of_range on (car|raw) line$"):
+            pairs.check_line(line)
+
+
+def test_raw_tables_follow_the_exact_source_and_endpoint():
+    assert pairs.raw_table("poll", "gps") is pairs.GPS_FIELDS and pairs.raw_table("mqtt", "gps") == {}
+    assert pairs.raw_table("mqtt", "vehicleInfo") is pairs.REALTIME_FIELDS
+    assert pairs.raw_table("poll", "vehicleInfo") == {}
+    for source, endpoint in (("mqtt", "gps"), ("poll", "smartCharge"), ("mqtt", "realtime")):
+        with pytest.raises(ep._ExportError, match="^unexpected_key on raw line$"):
+            pairs.check_line(_raw_line({"speed": 1}, endpoint, source))
+    export = _bare_export()
+    export.add_raw(_raw_row(BASE, "gps", {"data": {"speed": 50, "gpsTimeStamp": RAW_S}}, source="mqtt"))
+    export.add_raw(_raw_row(BASE, "vehicleInfo", {"speed": 50}, source="poll"))
+    export.add_raw(_raw_row(BASE, "gps", {"data": {"speed": 50, "gpsTimeStamp": 0}}))
+    export.finish()
+    rows = _lines(export.output.getvalue())
+    # A push named gps and a poll named vehicleInfo are "other" and keep nothing.
+    assert rows[0] == {"type": "raw", "t": 151200.0, "source": "mqtt", "endpoint": "other", "fields": {}}
+    assert rows[1] == {"type": "raw", "t": 151200.0, "source": "poll", "endpoint": "other", "fields": {}}
+    # BYD's 0 for "no fix time" is written as a marker, so the reply is never paired at its receive time.
+    assert rows[2]["fields"] == {"data.speed": 50, "data.gpsTimeStamp_stale": True}
+    assert rows[-1]["stats"]["raw_endpoints"]["other"] == 2
+
+
+def test_every_path_on_the_tables_passes_at_its_bounds():
+    for (source, endpoint), table in pairs.RAW_TABLES.items():
+        for value in ("low", "high"):
+            fields = {}
+            for path, spec in table.items():
+                if spec.kind == "time":
+                    fields[f"{path}_t"] = -pairs.RAW_T_LIMIT if value == "low" else pairs.RAW_T_LIMIT
+                elif spec.kind == "bool":
+                    fields[path] = value == "high"
+                elif spec.kind == "enum":
+                    fields[path] = sorted(spec.values)[0 if value == "low" else -1]
+                else:
+                    fields[path] = getattr(spec, value)
+            assert pairs.check_line(_raw_line(fields, endpoint, source))[0] == "raw"
+    # No location, heading, identifier or place path is on any table.
+    paths = {path.lower() for table in pairs.RAW_TABLES.values() for path in table}
+    for word in ("lat", "lng", "lon", "direction", "heading", "altitude", "zone", "vin", "serial", "user", "plan",
+                 "name", "url", "price", "position", "address"):
+        assert not [path for path in paths if word in path.split(".")[-1] and not path.endswith(
+            ("ventilationstate", "windposition"))], word
+    assert not [path for table in pairs.RAW_TABLES.values() for path in table if path.endswith(("Id", "ID", ".id"))]
+
+
+@pytest.mark.parametrize("value", [99999999.9996, -99999999.9996, 1e-5, 1e300, float("inf"), "1e-5", "52.123:4.5"])
+def test_the_pod_and_the_check_agree_on_bounds(value):
+    """Round first, then bound, with the bound the check uses: a value either fits both or neither."""
+    spec = pairs.RawField("float", -100_000_000, 100_000_000)
+    converted = pairs.raw_value(spec, value, 0)
+    if converted is pairs._INVALID:
+        assert not isinstance(value, float) or abs(value) > 1e8 or value != value
+        return
+    assert pairs._check_raw_value(spec, json.loads(json.dumps(converted), parse_float=pairs._Float)) is None
+    assert abs(converted) <= 100_000_000
+    narrow = pairs.RawField("float", -1_000_000, 1_000_000)
+    assert pairs.raw_value(narrow, value, 0) is pairs._INVALID or abs(value) < 1
 
 
 @pytest.mark.parametrize("key", pairs.ZERO_FORBIDDEN)
@@ -537,8 +836,10 @@ def _export(tables=None, **changes):
 
 def test_rows_become_lines_without_coordinates_or_identifiers():
     db, stream = _export()
-    for secret in (*PRIVATE_DIGITS, PRIVATE_VIN, CAR_ID, str(USER), str(OTHER_USER), "api-private",
-                   "private text", "example.com", "quiet", "home", "270.25", str(OFFSET)):
+    for secret in (*PRIVATE_DIGITS, PRIVATE_VIN, CAR_ID, OTHER_CAR, str(USER), str(OTHER_USER), "api-private",
+                   "private text", "example.com", "quiet", "home", "270.25", str(OFFSET), str(RAW_S), str(RAW_MS),
+                   str(RAW_S)[:6], "2026-03-01", "Johannesburg", "Alice", "privateEventName", "BydSecret",
+                   "webhook", "612345678", str(UUID(int=7)), "V1234", "kWh/100km"):
         assert secret not in stream
     data_lines = stream.rsplit("\n", 2)[0]  # the meta line counts dropped keys by name, like slopeRaw
     assert "altitude" not in stream and "heading" not in stream and "slope" not in data_lines
@@ -595,9 +896,139 @@ def test_rows_become_lines_without_coordinates_or_identifiers():
         "dropped_cloud_keys": {"fuelPercent": 1, "lastStationaryPollAt": 1, "placeKind": 1},
         "invalid_values": {"gear": 1, "has_fix": 1},
         "dropped_details": 2, "unparsable_last_updated": 1, "cloud_fixes_matched": 2, "cloud_fixes_unmatched": 1,
+        **RAW_STATS,
     }
     assert meta["model"] == "seal" and meta["energy"] == "ev" and meta["device_source"] == "car_app"
     assert meta["app_version"] == "1.4.2" and meta["vin"] == VIN
+
+
+RAW_STATS = {
+    "raw_rows": {"poll": 8, "mqtt": 3, "other": 1},
+    "raw_endpoints": {**dict.fromkeys(pairs.RAW_ENDPOINTS, 0), "realtime": 3, "energy": 1, "charging": 1, "gps": 1,
+                      "hvac": 1, "schedule": 1, "vehicleInfo": 2, "other": 1},
+    # realtime: the time zone and the plan's three leaves, and the truncated reply's size; gps: the position,
+    # direction, altitude, satellites and res; vehicleInfo: a heading; other: everything.
+    "raw_fields_dropped": {"realtime": 5, "gps": 6, "vehicleInfo": 1, "other": 1},
+    "raw_values_invalid": {},
+    "raw_invalid": {"not_object": 1, "undecodable": 1},
+    "raw_dropped_codes": 1,
+}
+
+
+def test_raw_replies_keep_only_their_table_paths():
+    _, stream = _export()
+    raw = [row for row in _lines(stream) if row["type"] == "raw"]
+    # Oldest first, by the primary key's order; the other car's and the webhook row are not written.
+    assert [(row["t"], row["endpoint"]) for row in raw] == [
+        (79200.0, "realtime"), (151210.0, "charging"), (151210.0, "energy"), (151210.0, "gps"),
+        (151210.0, "realtime"), (151211.0, "vehicleInfo"), (151211.0, "vehicleInfo"), (151212.0, "other"),
+        (151213.0, "hvac"), (151213.0, "schedule"), (151214.0, "realtime")]
+    first, charging, energy, gps, realtime, push, second_push, other, hvac, schedule, truncated = raw
+    assert first == {"type": "raw", "t": 79200.0, "source": "poll", "endpoint": "realtime", "fields": {"okLight": 0}}
+    # The failure's BYD code is kept; a free-text code never leaves SQL: it is "other" (and counted).
+    assert charging == {"type": "raw", "t": 151210.0, "source": "poll", "endpoint": "charging", "code": "other"}
+    assert energy == {"type": "raw", "t": 151210.0, "source": "poll", "endpoint": "energy", "code": "1008"}
+    # The gps endpoint keeps speed and its fix time, shifted like every t (BASE is t 151200).
+    assert gps["fields"] == {"data.speed": 50, "data.gpsTimeStamp_t": 151200}
+    # Every decode target of a realistic reply is kept, numbers sent as strings become numbers.
+    assert realtime["fields"] == REALTIME_FIELDS
+    for target in ("okLight", "epb", "ins", "pwr", "chargeState", "flashChargeState", "chargeEndHour",
+                   "chargeEndMinute", "lightStopStatus", "trunkLidLower", "gl", "rate", "totalPower", "powerGear",
+                   "vehicleState", "leftFrontTireStatus", "leftFrontWindow", "leftFrontWindowPct", "rightFrontDoor",
+                   "leftFrontDoorLock", "leftFrontTirepressure", "tirePressUnit", "skylight", "sentryStatus"):
+        assert target in realtime["fields"], target
+    assert push == {"type": "raw", "t": 151211.0, "source": "mqtt", "endpoint": "vehicleInfo",
+                    "fields": {"speed": 51, "time_t": 151206.0}}
+    assert second_push["fields"] == {"speed": 52}
+    # An event without a table keeps nothing; its fields are only counted.
+    assert other == {"type": "raw", "t": 151212.0, "source": "mqtt", "endpoint": "other", "fields": {}}
+    assert "fields" not in hvac and "fields" not in schedule
+    assert truncated == {"type": "raw", "t": 151214.0, "source": "poll", "endpoint": "realtime", "truncated": True,
+                         "fields": {}}
+    assert {key: _lines(stream)[-1]["stats"][key] for key in RAW_STATS} == RAW_STATS
+
+
+def _leak_tables():
+    tables = _tables()
+    tables["byd_raw_replies"] = _leak_rows()
+    return tables
+
+
+def test_leak_payloads_are_dropped_and_counted_never_written():
+    _, stream = _export(_leak_tables())
+    for token in LEAK_TOKENS:
+        assert token not in stream, token
+    for line in stream.splitlines(keepends=True):
+        pairs.check_line(line)
+    raw = [row for row in _lines(stream) if row["type"] == "raw"]
+    assert len(raw) == len(LEAKS)
+    kept = {key: value for row in raw for key, value in row.get("fields", {}).items()}
+    # None of these replies has a value that fits its path; a time path with none is only marked stale.
+    assert kept == {"time_stale": True, "timestamp_stale": True, "updateTime_stale": True}
+    stats = _lines(stream)[-1]["stats"]
+    assert sum(stats["raw_fields_dropped"].values()) > 30 and sum(stats["raw_values_invalid"].values()) >= 20
+    assert stats["raw_invalid"] == {}
+
+
+def test_leak_payloads_never_abort_the_composed_pod_script(tmp_path):
+    result, _ = _pod(tmp_path, _leak_tables())
+    assert result.returncode == 0, result.stderr
+    stream = result.stdout.decode("ascii")
+    for token in LEAK_TOKENS:
+        assert token not in stream, token
+    assert [pairs.check_line(line)[0] for line in stream.splitlines(keepends=True)].count("raw") == len(LEAKS)
+
+
+def test_a_line_the_check_refuses_is_written_without_its_fields(monkeypatch):
+    export = _bare_export()
+    # Simulate a table value the check would refuse: the pod retries without fields and counts it.
+    monkeypatch.setattr(pairs, "raw_value", lambda spec, value, start_s: 52.123456)
+    export.add_raw(_raw_row(BASE, "realtime", {"okLight": 1}))
+    export.finish()
+    rows = _lines(export.output.getvalue())
+    assert rows[0] == {"type": "raw", "t": 151200.0, "source": "poll", "endpoint": "realtime"}
+    assert rows[-1]["stats"]["raw_invalid"] == {"rejected": 1}
+
+
+def test_flatten_reads_literal_paths_and_converts_times():
+    raw = {"time": "2026-03-01T06:00:00+02:00", "okLight": 2.0, "gl": "12.3456", "rate": "-999", "speed": True,
+           "chargePower": "--", "chargePowerUnit": "kW", "lessOneMin": 1, "statusNow": {"tempOutCar": 20},
+           "leftFrontDoor": [0], "extra": {"a": [1, 2, {"b": 3}]}}
+    fields, dropped, invalid = pairs.flatten_raw(raw, "poll", "realtime", start_s=RAW_S)
+    assert fields == {"time_t": -7200.0, "okLight": 2, "gl": 12.346, "rate": -999, "chargePower": "--",
+                      "chargePowerUnit": "kW"}
+    # speed (a boolean) and lessOneMin (a number) are refused; statusNow.tempOutCar, the door list's item and
+    # extra's three leaves are not on the realtime table.
+    assert (dropped, invalid) == (5, 2)
+    pairs.check_line(_raw_line(fields))
+    assert pairs.flatten_raw({"time": str(RAW_MS), "timestamp": 0}, "poll", "realtime", start_s=RAW_S) == (
+        {"time_t": 5.0, "timestamp_stale": True}, 0, 1)
+    assert pairs.flatten_raw({"time": None}, "poll", "realtime", start_s=RAW_S) == ({"time_stale": True}, 0, 1)
+    assert pairs.flatten_raw({"updateTime": RAW_S + 0.25}, "mqtt", "smartCharge", start_s=RAW_S)[0] == {
+        "updateTime_t": 0.25}
+    graph = {"selfGraph": {"energyConsumption": [str(index) for index in range(14)]}}
+    fields, dropped, _ = pairs.flatten_raw(graph, "mqtt", "energyConsumption", start_s=RAW_S)
+    assert len(fields) == pairs.RAW_GRAPH_ITEMS and dropped == 2
+    assert pairs.flatten_raw({"okLight": 1}, "mqtt", "remoteControl", start_s=0) == ({}, 1, 0)
+    assert pairs.flatten_raw({"repairModeSwitch": 1}, "poll", "realtime", start_s=0)[0] == {"repairModeSwitch": 1}
+
+
+def test_a_raw_reply_too_large_to_read_is_counted_not_parsed():
+    export = _bare_export()
+    export.add_raw(_raw_row(BASE, "realtime", '{"a": "' + "x" * pairs.RAW_MAX_TEXT + '"}'))
+    export.add_raw(_raw_row(BASE, "realtime", "[" * 60_000 + "]" * 60_000))  # RecursionError
+    export.add_raw(_raw_row(BASE, "realtime", '"text"'))
+    export.add_raw(_raw_row(BASE, "realtime", {"okLight": 1}, code="TimeoutError"))
+    export.add_raw(_raw_row(BASE, "realtime", None, code="free text"))
+    with pytest.raises(ep._ExportError, match=f"^{pairs.OUTSIDE}$"):
+        export.add_raw(_raw_row(UNTIL, "realtime"))
+    export.finish()
+    rows = _lines(export.output.getvalue())
+    assert [set(row) for row in rows[:3]] == [{"type", "t", "source", "endpoint"}] * 3
+    assert rows[3]["code"] == "timeout" and rows[3]["fields"] == {"okLight": 1} and rows[4]["code"] == "other"
+    stats = rows[-1]["stats"]
+    assert stats["raw_invalid"] == {"too_large": 1, "undecodable": 1, "not_object": 1}
+    assert stats["raw_dropped_codes"] == 1 and stats["raw_rows"] == {"poll": 5, "mqtt": 0, "other": 0}
 
 
 def test_nearest_fix_prefers_the_closer_then_the_earlier_and_stops_at_600_seconds():
@@ -634,7 +1065,7 @@ def test_a_car_fix_at_zero_zero_is_never_measured_from():
     tables["ingest_events"] = [_event(1, BASE + timedelta(seconds=5), payload={
         "gps": {"latitude": CLOUD_LAT, "longitude": LNG}})]
     _, stream = _export(tables)
-    car, cloud, meta = _lines(stream)
+    car, cloud, *raw, meta = _lines(stream)
     assert car["has_fix"] is False and meta["stats"]["invalid_values"] == {"has_fix": 1}
     assert cloud["gps_present"] is True and cloud["gps_zero"] is False
     assert not set(pairs.ZERO_FORBIDDEN) & set(cloud) and meta["stats"]["cloud_fixes_unmatched"] == 1
@@ -928,15 +1359,17 @@ def _assert_read_only(db):
         assert not FORBIDDEN.search(re.sub(r"'[^']*'", "''", sql)) and ";" not in sql
         assert set(re.findall(r"\b(?:FROM|JOIN)\s+([A-Za-z_]+)", sql)) <= pairs.TABLES
         assert "latitude" not in sql and "actor" not in sql
-        if "FROM car_telemetry" in sql:
+        if "FROM car_telemetry" in sql or "FROM byd_raw_replies" in sql:
             assert "at >= :lower AND at < :upper" in sql
             assert params["upper"] - params["lower"] <= timedelta(days=1)
             assert params["lower"].date() == (params["upper"] - timedelta(microseconds=1)).date()
         if "FROM ingest_events" in sql:
             assert "user_id = :user AND vin = :vin AND received_at >= :lower AND received_at < :upper" in sql
             assert params["upper"] - params["lower"] <= timedelta(days=1)
+        if "FROM byd_raw_replies" in sql:
+            assert "car_id = :car AND at >= :lower AND at < :upper" in sql
         if "LIMIT :limit" in sql:
-            assert 1 <= params["limit"] <= 5000
+            assert 1 <= params["limit"] <= (pairs.RAW_PAGE_ROWS if "byd_raw_replies" in sql else 5000)
     return tags
 
 
@@ -956,25 +1389,26 @@ def test_every_statement_is_a_bounded_read_only_select(mode):
     explains = [transaction[4][0] for transaction in db.transactions if transaction[4][0].startswith("EXPLAIN")]
     resumed = [sql for sql in explains if ":after" in sql]
     # The printed resumed-page forms are planned with their keyset cursors; no page resumes here.
-    assert len(resumed) == (0 if mode in ("export", "two_cars") else 2)
+    assert len(resumed) == (0 if mode in ("export", "two_cars") else 3)
     assert all("AND at > :after" in sql or "(received_at, id) > (:after_first, :after_second)" in sql
-               for sql in resumed)
+               or "(at, endpoint, seq) > (:after_at, :after_endpoint, :after_seq)" in sql for sql in resumed)
     # Identification never pages.
     assert not any(":after" in sql for sql, _ in (t[4] for t in db.transactions) if "/* identify */" in sql)
     gated_rows = ["explain cloud_rows", "cloud_rows"] * 2  # each ingest statement right after its own plan
     if mode == "export":
-        assert tags == [*identify, "metadata", *["car_rows"] * 3, *gated_rows]
+        assert tags == [*identify, "metadata", *["car_rows"] * 3, *gated_rows, *["raw_rows"] * 3]
     elif mode == "two_cars":
         assert tags == identify
     else:
         plans = [f"explain {shape.removesuffix('_resumed')}" for shape in pairs.PLAN_SHAPES]
-        counts = ["car_count"] * 3 + ["explain cloud_count", "cloud_count"] * 2 if mode == "dry_run" else []
+        counts = (["car_count"] * 3 + ["explain cloud_count", "cloud_count"] * 2 + ["raw_count"] * 3
+                  if mode == "dry_run" else [])
         assert tags == [*identify, "metadata", *plans, *counts]
         # The dry run reads no row payloads: only counts, ids and the car's metadata are selected.
         for transaction in db.transactions:
             sql = transaction[4][0]
             if not sql.startswith("EXPLAIN"):
-                assert not re.search(r"\b(?:payload|data|detail)\b", sql)
+                assert not re.search(r"\b(?:payload|data|detail|raw|code)\b", sql)
     for transaction in db.transactions:
         sql = transaction[4][0]
         if "/* cloud_rows */" in sql:
@@ -985,18 +1419,24 @@ def test_every_statement_is_a_bounded_read_only_select(mode):
                     in sql)
         if "/* car_rows */" in sql:
             assert "CAST(data AS text) AS data" in sql
+        if "/* raw_rows */" in sql:
+            assert ("CASE WHEN (code IN ('1001', '1002', '1005', '1008', '1009', '1010', '5005', '5006', '5011', "
+                    "'6002', '6051', '8003', 'crypto') OR code ~ '^http_[0-9]{3}$') THEN code WHEN code = "
+                    "'TimeoutError' THEN 'timeout'\n"
+                    "                    WHEN code IS NOT NULL THEN 'other' END AS code") in sql
+            assert "CAST(raw AS text) AS raw" in sql and "ORDER BY at, endpoint, seq LIMIT :limit" in sql
         if "/* metadata */" in sql:
             assert "CASE WHEN cars.model_key_source IN ('vin', 'name') THEN cars.model_key END" in sql
 
 
 @pytest.mark.parametrize(("mode", "until", "statements"), [
-    ("export", UNTIL, 30 + 1 + 30 + 2 * 14),
-    ("dry_run", UNTIL, 30 + 1 + 8 + 30 + 2 * 14),
-    ("explain", UNTIL, 30 + 1 + 8),
-    ("export", datetime(2026, 3, 1, tzinfo=UTC), 29 + 1 + 29 + 2 * 13),
+    ("export", UNTIL, 30 + 1 + 30 + 2 * 14 + 30),
+    ("dry_run", UNTIL, 30 + 1 + 11 + 30 + 2 * 14 + 30),
+    ("explain", UNTIL, 30 + 1 + 11),
+    ("export", datetime(2026, 3, 1, tzinfo=UTC), 29 + 1 + 29 + 2 * 13 + 29),
 ])
 def test_the_number_of_statements_with_default_windows(mode, until, statements):
-    """The counts the README gives, with one page per day: 89, 97 and 39 at the defaults."""
+    """The counts the README gives, with one page per day: 119, 130 and 42 at the defaults."""
     db = FakeDB(_tables())
     _run(db, car_days=29, cloud_days=13, until=until, dry_run=mode == "dry_run", explain=mode == "explain")
     assert len(db.transactions) == statements
@@ -1023,6 +1463,29 @@ def test_pages_resume_from_the_keyset_cursor_and_pause_between_queries(pauses):
     rows = _lines(stream)
     assert [row["t"] for row in rows if row["type"] == "car"] == [108000.0 + index for index in range(5)]
     assert rows[-1]["stats"]["cloud_rows"]["poll_ok"] == 3
+
+
+def test_raw_pages_resume_from_the_primary_key_cursor():
+    tables = _tables()
+    same = BASE + timedelta(seconds=10)
+    tables["byd_raw_replies"] = [_raw_row(same, endpoint, {"speed": seq}, seq=seq)
+                                 for endpoint in ("realtime", "gps") for seq in (1, 0)]
+    db = FakeDB(tables)
+    stream = _run(db, page_rows=3)
+    pages = [params for sql, params in (t[4] for t in db.transactions) if "/* raw_rows */" in sql]
+    assert [page["limit"] for page in pages] == [3] * len(pages)
+    resumed = [page for page in pages if "after_at" in page]
+    assert [(page["after_at"], page["after_endpoint"], page["after_seq"]) for page in resumed] == [
+        (same, "realtime", 0)]
+    raw = [row for row in _lines(stream) if row["type"] == "raw"]
+    assert [(row["endpoint"], row["fields"]) for row in raw] == [
+        ("gps", {"speed": 0}), ("gps", {"speed": 1}), ("realtime", {"speed": 0}), ("realtime", {"speed": 1})]
+    assert _lines(stream)[-1]["stats"]["raw_fields_dropped"] == {}
+    # A page never holds more than RAW_PAGE_ROWS raw replies, however large --page-rows is.
+    db = FakeDB(_tables())
+    _run(db, page_rows=5000)
+    assert {params["limit"] for sql, params in (t[4] for t in db.transactions) if "/* raw_rows */" in sql} == {
+        pairs.RAW_PAGE_ROWS}
 
 
 def test_the_first_error_stops_the_run_and_no_query_follows():
@@ -1269,10 +1732,18 @@ def test_dry_run_prints_only_counts_and_checked_plans():
             ("identify", "car_telemetry"), ("metadata", "cars"), ("car_rows", "car_telemetry_partition"),
             ("car_rows_resumed", "car_telemetry_partition"), ("car_count", "car_telemetry_partition"),
             ("cloud_rows", "ingest_events"), ("cloud_rows_resumed", "ingest_events"),
-            ("cloud_count", "ingest_events"))},
+            ("cloud_count", "ingest_events"), ("raw_rows", "byd_raw_replies_partition"),
+            ("raw_rows_resumed", "byd_raw_replies_partition"), ("raw_count", "byd_raw_replies_partition"))},
         "ingest_events_plan_ok": True,
+        # Every source is counted (the webhook row too); the other car is not.
+        "raw_rows": {**dict.fromkeys(pairs.RAW_ENDPOINTS, 0), "realtime": 4, "energy": 1, "charging": 1, "gps": 1,
+                     "hvac": 1, "schedule": 1, "vehicleInfo": 2, "other": 1},
+        "raw_rows_by_day": [{}, {"realtime": 1}, {"realtime": 3, "energy": 1, "charging": 1, "gps": 1, "hvac": 1,
+                                                  "schedule": 1, "vehicleInfo": 2, "other": 1}],
+        "raw_days_with_rows": 2,
     }
     assert PRIVATE_VIN not in stream and "52.123456" not in stream and "20260228" not in stream
+    assert "privateEventName" not in stream
     assert pairs.checked_dry_run(result) == result
     tables["car_app_devices"][0]["source"] = "simulator"
     assert json.loads(_run(FakeDB(tables), dry_run=True))["device_sources"]["simulator"] == 1
@@ -1299,6 +1770,8 @@ def _plans():
     # A dated partition anywhere in an index name, even one the pod failed to rewrite.
     (lambda plans: plans["identify"][0].update(index="car_telemetry_p20260228_pkey"), pairs.INVALID_NODE),
     (lambda plans: plans["identify"][0].update(index="ix_car_telemetry_p20260228_at"), pairs.INVALID_NODE),
+    (lambda plans: plans["raw_rows"][0].update(relation="byd_raw_replies_p20260228"), pairs.INVALID_NODE),
+    (lambda plans: plans["raw_rows"][0].update(index="byd_raw_replies_p20260228_pkey"), pairs.INVALID_NODE),
     (lambda plans: plans["identify"][0].update(node="Scan " + PRIVATE_VIN), pairs.INVALID_NODE),
     (lambda plans: plans["identify"][0].update(index="ix_" + PRIVATE_VIN), pairs.INVALID_NODE),
     (lambda plans: plans["identify"][0].update(relation=7), pairs.INVALID_NODE),
@@ -1322,7 +1795,8 @@ def test_plans_are_checked(edit, message):
 def _dry_run():
     return {"cars": 1, "device_sources": dict.fromkeys(pairs.DEVICE_SOURCES, 0), "car_rows": 3,
             "car_days_with_rows": 1, "cloud_rows": dict.fromkeys(ep.ROW_KINDS, 0), "cloud_days_with_rows": 0,
-            "plans": _plans(), "ingest_events_plan_ok": True}
+            "plans": _plans(), "ingest_events_plan_ok": True, "raw_rows": dict.fromkeys(pairs.RAW_ENDPOINTS, 0),
+            "raw_rows_by_day": [{}, {"realtime": 2}], "raw_days_with_rows": 1}
 
 
 @pytest.mark.parametrize("edit", [
@@ -1339,6 +1813,14 @@ def _dry_run():
     lambda result: result["cloud_rows"].update(poll_ok=1.0),
     lambda result: result.update(plans={}),
     lambda result: result.clear(),
+    lambda result: result["raw_rows"].pop("other"),
+    lambda result: result["raw_rows"].update(privateEvent=1),
+    lambda result: result.update(raw_days_with_rows=-1),
+    lambda result: result.update(raw_rows_by_day="x"),
+    lambda result: result.update(raw_rows_by_day=[{"privateEvent": 1}]),
+    lambda result: result.update(raw_rows_by_day=[{"realtime": 1.5}]),
+    lambda result: result.update(raw_rows_by_day=[[1]]),
+    lambda result: result.update(raw_rows_by_day=[{}] * 31),
 ])
 def test_dry_run_counts_are_checked(edit):
     result = _dry_run()
@@ -1419,13 +1901,14 @@ def test_composed_pod_script_runs_end_to_end(tmp_path):
     for secret in (*PRIVATE_DIGITS, PRIVATE_VIN, CAR_ID, str(USER)):
         assert secret not in stream
     kinds = [pairs.check_line(line)[0] for line in stream.splitlines(keepends=True)]
-    assert kinds[-1] == "meta" and kinds.count("car") == 4 and kinds.count("cloud") == 10
+    assert kinds[-1] == "meta" and kinds.count("car") == 4 and kinds.count("cloud") == 10 and kinds.count("raw") == 11
+    assert "privateEventName" not in stream and str(RAW_MS) not in stream
     pod = tmp_path / "stream.jsonl"
     pod.write_bytes(result.stdout)
     folded = tmp_path / "folded.jsonl"
     pairs.fold(pod, folded)
     meta, lines = pairs.verify(folded)
-    assert lines == {"car": 4, "cloud": 10} and meta["car_days"] == 2
+    assert lines == {"car": 4, "cloud": 10, "raw": 11} and meta["car_days"] == 2
     # The same lines as an in-process run, apart from the random start.
     local = _lines(_run(FakeDB(_tables())))
     assert _lines(stream)[:-1] == local[:-1]
@@ -1494,9 +1977,10 @@ def test_fetch_keeps_a_checked_file_with_the_meta_line_first(tmp_path, monkeypat
     report = pairs._fetch(_args(out_dir=tmp_path))
     files = [path.name for path in tmp_path.iterdir()]
     assert files == ["pairs-2026-03-26-2d.jsonl"] and report["file"] == files[0]
-    assert report["car_lines"] == 4 and report["cloud_lines"] == 10 and report["start"] == "2026-03-26T15:34:31Z"
+    assert report["car_lines"] == 4 and report["cloud_lines"] == 10 and report["raw_lines"] == 11
+    assert report["start"] == "2026-03-26T15:34:31Z"
     lines = (tmp_path / files[0]).read_text(encoding="ascii").splitlines()
-    assert json.loads(lines[0])["type"] == "meta" and len(lines) == 15
+    assert json.loads(lines[0])["type"] == "meta" and len(lines) == 26
     assert calls[0][12:] == ["--car-days", "2", "--cloud-days", "1", "--page-rows", "2000", "--pause-ms", "200",
                              "--max-minutes", "15", "--until", UNTIL.isoformat()]
     with pytest.raises(ep._ExportError, match="already exists"):
@@ -1538,12 +2022,29 @@ def test_fetch_removes_its_scratch_file_on_failure(tmp_path, monkeypatch, edit, 
 
 def test_verify_accepts_the_window_edges(tmp_path):
     meta = {**FULL_META, "car_days": 2, "cloud_days": 1, "stats": {
-        **FULL_META["stats"], "car_rows": 2, "cloud_rows": {**dict.fromkeys(ep.ROW_KINDS, 0), "poll_ok": 1}}}
+        **FULL_META["stats"], "car_rows": 2, "cloud_rows": {**dict.fromkeys(ep.ROW_KINDS, 0), "poll_ok": 1},
+        "raw_rows": {"poll": 0, "mqtt": 1, "other": 0}, "raw_endpoints": {**FULL_META["stats"]["raw_endpoints"],
+                                                                           "remoteControl": 1}}}
     lines = [meta, {"type": "car", "t": 0}, {"type": "car", "t": 172800},
-             {"type": "cloud", "t": 86400, "source": "poll", "kind": "ok"}]
+             {"type": "cloud", "t": 86400, "source": "poll", "kind": "ok"},
+             {"type": "raw", "t": 0, "source": "mqtt", "endpoint": "remoteControl"}]
     path = tmp_path / "edges.jsonl"
     path.write_bytes("".join(ep.json_line(line) for line in lines).encode())
-    assert pairs.verify(path)[1] == {"car": 2, "cloud": 1}
+    assert pairs.verify(path)[1] == {"car": 2, "cloud": 1, "raw": 1}
+    # Raw lines follow the car window: here the shorter one.
+    meta = {**meta, "car_days": 1, "cloud_days": 2}
+    lines = [meta, {"type": "car", "t": 86400}, {"type": "car", "t": 172800},
+             {"type": "cloud", "t": 0, "source": "poll", "kind": "ok"},
+             {"type": "raw", "t": 86399.5, "source": "mqtt", "endpoint": "remoteControl"}]
+    path.write_bytes("".join(ep.json_line(line) for line in lines).encode())
+    with pytest.raises(ep._ExportError, match="^out_of_range on raw line$"):
+        pairs.verify(path)
+    # And the meta line's raw counts must match the raw lines.
+    lines[-1] = {**lines[-1], "t": 86400}
+    lines[0] = {**meta, "stats": {**meta["stats"], "raw_rows": {"poll": 0, "mqtt": 2, "other": 0}}}
+    path.write_bytes("".join(ep.json_line(line) for line in lines).encode())
+    with pytest.raises(ep._ExportError, match="^count_mismatch on meta line$"):
+        pairs.verify(path)
 
 
 def test_fetch_stops_a_hung_kubectl_and_removes_its_scratch_file(tmp_path, monkeypatch):

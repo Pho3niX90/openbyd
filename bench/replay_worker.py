@@ -40,6 +40,7 @@ import asyncio
 import json
 import os
 import random
+import re
 import secrets
 import shutil
 import socket
@@ -426,24 +427,47 @@ def _field_differs(field_name: str, a: Any, b: Any, tolerances: dict[str, float]
 
 
 def _match(reference: list[dict[str, Any]], other: list[dict[str, Any]], tolerance: float) -> list[tuple[int | None, int | None]]:
-    """Pair items by start time: each reference item with the nearest unpaired other item whose start
-    is within ``tolerance``, in start order. Unpaired items appear with None on the other side."""
+    """Pair the items of two runs by start time, keeping their order.
+
+    Both lists are sorted by start. Of all pairings that keep that order and only pair starts
+    within ``tolerance``, this takes the one with the most pairs, and among those the one whose
+    starts are closest in total, so a neighbouring item is never taken from the one it belongs
+    to. Unpaired items appear with None on the other side; an item without a start is unpaired.
+    """
+    n, m = len(reference), len(other)
+
+    def gap(i: int, j: int) -> float | None:
+        a, b = reference[i]["start"], other[j]["start"]
+        if a is None or b is None:
+            return None
+        distance = abs(a - b)
+        return distance if distance <= tolerance + 1e-9 else None
+
+    # best[i][j]: (pairs, -total gap) for reference[i:] against other[j:].
+    best = [[(0, 0.0)] * (m + 1) for _ in range(n + 1)]
+    for i in range(n - 1, -1, -1):
+        for j in range(m - 1, -1, -1):
+            options = [best[i + 1][j], best[i][j + 1]]
+            distance = gap(i, j)
+            if distance is not None:
+                pairs_after, gap_after = best[i + 1][j + 1]
+                options.append((pairs_after + 1, gap_after - distance))
+            best[i][j] = max(options)
     pairs: list[tuple[int | None, int | None]] = []
-    used: set[int] = set()
-    for i, item in enumerate(reference):
-        best, best_gap = None, None
-        for j, candidate in enumerate(other):
-            if j in used or item["start"] is None or candidate["start"] is None:
-                continue
-            gap = abs(item["start"] - candidate["start"])
-            if gap <= tolerance + 1e-9 and (best_gap is None or gap < best_gap):
-                best, best_gap = j, gap
-        if best is None:
+    i = j = 0
+    while i < n and j < m:
+        distance = gap(i, j)
+        if distance is not None and best[i][j] == (best[i + 1][j + 1][0] + 1, best[i + 1][j + 1][1] - distance):
+            pairs.append((i, j))
+            i, j = i + 1, j + 1
+        elif best[i][j] == best[i + 1][j]:
             pairs.append((i, None))
+            i += 1
         else:
-            used.add(best)
-            pairs.append((i, best))
-    pairs.extend((None, j) for j in range(len(other)) if j not in used)
+            pairs.append((None, j))
+            j += 1
+    pairs.extend((k, None) for k in range(i, n))
+    pairs.extend((None, k) for k in range(j, m))
     return pairs
 
 
@@ -918,10 +942,10 @@ def run_one(variant: Variant, repeat: int, scenario: Scenario, args: argparse.Na
     problems: list[str] = []
     if not port_free(HEALTH_PORT):
         raise SystemExit(f"port {HEALTH_PORT} is in use: another worker is running; the harness would scrape it")
-    store.start()
     replay = None
     worker = None
     try:
+        store.start()
         replay = ReplayServer(args, run_dir / "ca.pem", f"replay_server-{tag}")
         settings = {
             "BYD_SETTINGS_ENV_FILE": "",
@@ -958,6 +982,8 @@ def run_one(variant: Variant, repeat: int, scenario: Scenario, args: argparse.Na
                     slots_full_s = time.monotonic() - launched_at
                     break
                 time.sleep(args.scrape_seconds)
+            if slots_full_s is None:
+                problems.append(f"the worker did not hold a slot for every account within {args.claim_timeout:.0f} s; the replay was started anyway")
         origin = replay.start()
         stats_at_start = replay.stats()
         before = common.process_snapshot(process)
@@ -1107,6 +1133,14 @@ def run_one(variant: Variant, repeat: int, scenario: Scenario, args: argparse.Na
             problems.append(f"{name} is {seen}, expected {expected}: the variant's setting did not take effect")
     if not clean:
         problems.append("the worker did not stop cleanly within 150 s and was killed")
+    elif guard.get("exit_code") not in (0, None):
+        problems.append(f"the worker exited with code {guard.get('exit_code')}")
+    compared = sum((metrics.get("shadow") or {}).values()) if isinstance(metrics.get("shadow"), dict) else 0
+    wants_shadow = float(variant.env.get("BYD_SHADOW_SAMPLE_RATE", "0") or 0) > 0
+    if wants_shadow and not compared:
+        problems.append("shadow parsing was asked for but no reply was compared: the variant ran without it")
+    if not wants_shadow and compared:
+        problems.append(f"shadow parsing was off but {compared:.0f} replies were compared")
     if stats.get("logins", 0) < accounts:
         problems.append(f"only {stats.get('logins')} logins for {accounts} accounts")
     if raw["polls_ok_total"] == 0:
@@ -1144,21 +1178,25 @@ def aggregate(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def compare_runs(rows: list[dict[str, Any]], tolerances: dict[str, float] = TOLERANCES) -> list[dict[str, Any]]:
-    """Every run's detections against the first run's."""
-    if not rows:
-        return []
-    reference = rows[0]
+    """Every run's detections against every other run's.
+
+    ``same_variant`` marks two repeats of one variant: what they differ in is what two runs of
+    the same code differ in (they never poll at the same instants), the yardstick for reading
+    the differences between variants.
+    """
     out = []
-    for row in rows[1:]:
-        differences = compare_detections(reference["detections"], row["detections"], tolerances)
-        out.append(
-            {
-                "reference": f"{reference['variant']}#{reference['repeat']}",
-                "other": f"{row['variant']}#{row['repeat']}",
-                "equal": not differences,
-                "differences": differences,
-            }
-        )
+    for index, reference in enumerate(rows):
+        for row in rows[index + 1 :]:
+            differences = compare_detections(reference["detections"], row["detections"], tolerances)
+            out.append(
+                {
+                    "reference": f"{reference['variant']}#{reference['repeat']}",
+                    "other": f"{row['variant']}#{row['repeat']}",
+                    "same_variant": reference["variant"] == row["variant"],
+                    "equal": not differences,
+                    "differences": differences,
+                }
+            )
     return out
 
 
@@ -1220,8 +1258,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         if not common.example("replay_server").exists():
             raise SystemExit(f"{common.example('replay_server')} is missing: build it or drop --skip-build")
     scenario = read_scenario(args.scenario)
+    name = args.scenario.name if scenario.header.get("source") == "synthetic" else "a scenario that is not synthetic"
     print(
-        f"replay_worker: {args.scenario.name}: {len(scenario.accounts)} accounts, {len(scenario.cars)} cars, "
+        f"replay_worker: {name}: {len(scenario.accounts)} accounts, {len(scenario.cars)} cars, "
         f"{len(keys)} variant(s) x {args.repeats}, {args.minutes} min each, store {'local' if args.local_store else 'docker'}",
         flush=True,
     )
@@ -1287,6 +1326,9 @@ def difference_summary(differences: list[dict[str, Any]]) -> dict[str, int]:
     return dict(sorted(out.items()))
 
 
+_PUBLIC_DETAIL = re.compile(r"[0-9]{1,5}|[a-z_]{1,24}")
+
+
 def publishable(results: dict[str, Any]) -> dict[str, Any]:
     """The results with everything about a single car taken out, for a scenario exported from production.
 
@@ -1305,19 +1347,29 @@ def publishable(results: dict[str, Any]) -> dict[str, Any]:
     rows = []
     for row in results["rows"]:
         cars_with = {kind: sum(1 for items in per_vin.values() if items) for kind, per_vin in row["detections"].items()}
+        public = {key: value for key, value in row.items() if key != "log"}
+        store = dict(row["store"])
+        # The worker's own words for why a poll failed or was skipped: a code or a fixed word is kept.
+        store["ingest"] = [
+            {**item, "detail": item["detail"] if item["detail"] is None or _PUBLIC_DETAIL.fullmatch(str(item["detail"])) else "other"}
+            for item in store["ingest"]
+        ]
         rows.append(
             {
-                **row,
+                **public,
+                "store": store,
                 "detections": {kind: {} for kind in row["detections"]},
                 "cars_with_detections": cars_with,
                 "roundtrip": {**row["roundtrip"], "mismatches": [], "mismatches_listed": len(row["roundtrip"]["mismatches"])},
             }
         )
     out["rows"] = rows
+    out["settings"] = {key: value for key, value in results["settings"].items() if key != "merged_from"}
     out["comparison"] = [
         {
             "reference": entry["reference"],
             "other": entry["other"],
+            "same_variant": entry.get("same_variant"),
             "equal": entry["equal"],
             "differences": [],
             "difference_count": len(entry["differences"]),
@@ -1346,6 +1398,11 @@ def merge_results(documents: list[dict[str, Any]], names: list[str]) -> dict[str
             raise SystemExit(f"{name}: settings differ from {names[0]}: {differing}")
         if document["backend"].get("backend_commit") != base["backend"].get("backend_commit"):
             raise SystemExit(f"{name}: not the same backend commit as {names[0]}")
+        if document["backend"].get("packages") != base["backend"].get("packages"):
+            raise SystemExit(f"{name}: the backend's packages (pyBYD, openbyd, ...) are not the versions of {names[0]}")
+    starts = [row["origin"]["wall_unix_ms"] for document in documents for row in document["rows"]]
+    if len(set(starts)) != len(starts):
+        raise SystemExit("the same run appears twice in the files to merge")
     seen: dict[str, int] = {}
     rows = []
     variant_table: dict[str, Any] = {}
@@ -1377,10 +1434,13 @@ def write(results: dict[str, Any], args: argparse.Namespace, private_dir: Path) 
     """Write the results: complete for a synthetic scenario; otherwise the complete file goes to
     ``private_dir`` and ``bench/results`` gets :func:`publishable`."""
     if is_private(results):
-        complete = common.write_results("replay_worker", args.quick, results)
+        # The complete document is never written inside the repository, not even for a moment.
+        private_dir = private_dir.resolve()
+        if common.ROOT in (private_dir, *private_dir.parents):
+            raise SystemExit(f"{private_dir} is inside the repository: give --private-dir a directory outside it")
         private_dir.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(complete), private_dir / complete.name)
-        print(f"wrote {private_dir / complete.name} (complete, private)")
+        complete = common.write_results("replay_worker", args.quick, results, directory=private_dir)
+        print(f"wrote {complete} (complete, private)")
         results = publishable(results)
     path = common.write_results("replay_worker", args.quick, results)
     if args.quick:

@@ -240,6 +240,13 @@ def _difference_row(diff: dict[str, Any]) -> list[str]:
     ]  # fmt: skip
 
 
+def _runs_per_variant(settings: dict[str, Any]) -> str:
+    counts = settings.get("repeats_by_variant")
+    if not counts or len(set(counts.values())) == 1:
+        return f"{settings['repeats']} run(s) per variant"
+    return "runs per variant: " + ", ".join(f"{key} {count}" for key, count in counts.items())
+
+
 def render_replay_worker(result: dict[str, Any]) -> list[str]:
     settings, scenario, backend = result["settings"], result["scenario"], result["backend"]
     header, counts = scenario["header"], scenario["counts"]
@@ -249,7 +256,7 @@ def render_replay_worker(result: dict[str, Any]) -> list[str]:
         f"Scenario `{scenario['file']}` ({header.get('source')}, {counts.get('account', 0)} accounts, {counts.get('car', 0)} cars, "
         f"{counts.get('state', 0)} states, {counts.get('push', 0)} pushes, {counts.get('error', 0)} errors over "
         f"{header.get('duration_s', 0) / 3600:.1f} h), replayed from second {settings['start_at']} at speed {settings['speed']:g} "
-        f"for {settings['minutes']:g} min of wall time per run, {settings['repeats']} run(s) per variant, interleaved. "
+        f"for {settings['minutes']:g} min of wall time per run, {_runs_per_variant(settings)}, interleaved. "
         f"Backend `{backend.get('backend_commit', '?')[:10]}` ({backend.get('backend_branch')})"
         f"{' with uncommitted changes' if backend.get('backend_dirty') else ''}, Python {backend.get('backend_python')}, "
         f"pyBYD {packages.get('pybyd')}, openbyd {packages.get('openbyd')}. Store: {settings['store']}.",
@@ -257,8 +264,9 @@ def render_replay_worker(result: dict[str, Any]) -> list[str]:
         "CPU is user + system seconds of the worker process from the replay's start to the end of the window (logins "
         "before the start are not in it), per account. Memory per account is the peak resident size over accounts. "
         "Loop lag is the worker's own `bydconnect_worker_event_loop_lag_seconds` histogram over the window: median / p99 "
-        "interpolated within buckets, and the bucket bound of the largest wake-up. With several runs the cells show the "
-        "median and the range; the other columns are from the median run.",
+        "interpolated within buckets, and the bucket bound of the largest wake-up. Drives and charges are those the "
+        "worker closed in the window, with the ones still open when it ended in brackets. With several runs the cells "
+        "show the median and the range; the other columns are from the median run.",
         "",
     ]
     by_variant: dict[str, list[dict[str, Any]]] = {}
@@ -267,7 +275,7 @@ def render_replay_worker(result: dict[str, Any]) -> list[str]:
     header_row = [
         "Variant", "CPU s / account", "CPU ms / account / min", "Peak RSS (MiB)", "Memory / account (KiB)", "Threads",
         "Loop lag p50 / p99 / max", "Hydrates (mean)", "BYD requests", "Logins", "Pushes sent / missed",
-        "Polls stored", "MQTT rows", "Drives", "Charges", "Round trip", "Guard blocked",
+        "Polls stored", "MQTT rows", "Drives (+open)", "Charges (+open)", "Round trip", "Guard blocked",
     ]  # fmt: skip
     body = []
     for key, rows in by_variant.items():
@@ -293,8 +301,8 @@ def render_replay_worker(result: dict[str, Any]) -> list[str]:
                 f"{mqtt.get('pushes_sent')} / {mqtt.get('pushes_missed')}",
                 str(run["store"]["polls_ok"]),
                 str(run["store"]["mqtt_rows"]),
-                str(run["detection_counts"]["drives"]),
-                str(run["detection_counts"]["charges"]),
+                f"{run['detection_counts']['drives']} (+{run['store']['open_at_end']['drives']})",
+                f"{run['detection_counts']['charges']} (+{run['store']['open_at_end']['charges']})",
                 "-" if rate is None else f"{rate:.1%} of {run['roundtrip']['values_checked']}",
                 str(run["guard"].get("blocked_total")),
             ]
@@ -304,12 +312,41 @@ def render_replay_worker(result: dict[str, Any]) -> list[str]:
     lines += ["### Detected drives and charges", ""]
     tolerances = settings["tolerances"]
     lines += [
-        "Every run's closed drives and charges, per VIN, compared with the first run's. Tolerances (replay seconds; km, "
-        "kWh and SoC in their units): " + ", ".join(f"{name} {value:g}" for name, value in tolerances.items()) + ". "
-        "Each difference is listed; none is averaged away.",
+        "Every run's closed drives and charges, per VIN, compared with every other run's. Tolerances (replay seconds; "
+        "km, kWh and SoC in their units): " + ", ".join(f"{name} {value:g}" for name, value in tolerances.items()) + ". "
+        "Each difference is listed; none is averaged away. Two repeats of the same variant never poll at the same "
+        "instants either, so what they differ in is the yardstick for the differences between variants.",
         "",
     ]
-    for entry in result["comparison"]:
+    groups = [
+        ("Between variants", [e for e in result["comparison"] if not e.get("same_variant")]),
+        ("Between repeats of one variant", [e for e in result["comparison"] if e.get("same_variant")]),
+    ]
+    summary = []
+    for label, entries in groups:
+        if entries:
+            counts = [e.get("difference_count", len(e["differences"])) for e in entries]
+            summary.append(
+                [label, str(len(entries)), str(sum(1 for e in entries if e["equal"])), str(sum(counts)), f"{min(counts)} to {max(counts)}"]
+            )
+    if summary:
+        lines += table(["Pairs of runs", "Pairs", "Same detections", "Differences in all", "Differences per pair"], summary) + [""]
+    if result.get("redacted"):
+        # How many differences of each sort, never which car.
+        lines += table(
+            ["Runs", "Pair", "Differences", "Cars", "Of which"],
+            [
+                [
+                    f"{entry['other']} vs {entry['reference']}",
+                    "repeats" if entry.get("same_variant") else "variants",
+                    str(entry["difference_count"]),
+                    str(entry["cars_differing"]),
+                    ", ".join(f"{number} {name}" for name, number in entry["difference_summary"].items()) or "same",
+                ]
+                for entry in result["comparison"]
+            ],
+        ) + [""]
+    for entry in [] if result.get("redacted") else result["comparison"]:
         if entry["equal"]:
             lines += [f"- {entry['other']} vs {entry['reference']}: **same** drives and charges.", ""]
             continue

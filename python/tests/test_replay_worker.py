@@ -263,7 +263,12 @@ def test_compare_runs_and_aggregate():
         _row("python_cipher", 2, _variant(**{f"drives.{VIN1}.1.km": 13.0}), cpu=12.0),
     ]
     comparison = rw.compare_runs(rows)
-    assert [(c["other"], c["equal"]) for c in comparison] == [("rust_cipher#1", True), ("python_cipher#2", False)]
+    # Every pair of runs, and which pairs are two repeats of the same variant.
+    assert [(c["reference"], c["other"], c["same_variant"], c["equal"]) for c in comparison] == [
+        ("python_cipher#1", "rust_cipher#1", False, True),
+        ("python_cipher#1", "python_cipher#2", True, False),
+        ("rust_cipher#1", "python_cipher#2", False, False),
+    ]
     summary = rw.aggregate(rows)
     assert summary["python_cipher"]["runs"] == 2
     assert summary["python_cipher"]["figures"]["measured.cpu_s"]["median"] == 11.0
@@ -271,6 +276,21 @@ def test_compare_runs_and_aggregate():
     problems, warnings = rw.check({"rows": rows, "comparison": comparison})
     assert problems == []
     assert any("python_cipher#2 differ" in w for w in warnings)
+
+
+def test_pairing_keeps_neighbours_apart():
+    def items(*starts):
+        return [{"start": start, "end": None if start is None else start + 600.0} for start in starts]
+
+    # Greedy nearest-first would give 1020 to 1000 and leave 1250 and 750 unpaired.
+    assert rw._match(items(1000.0, 1250.0), items(750.0, 1020.0), 300.0) == [(0, 0), (1, 1)]
+    # An extra item is left alone; of two equally near candidates the earlier one is taken.
+    assert rw._match(items(100.0, 500.0), items(90.0, 110.0, 480.0), 300.0) == [(0, 0), (None, 1), (1, 2)]
+    assert rw._match(items(100.0, 500.0), items(60.0, 110.0, 480.0), 300.0) == [(None, 0), (0, 1), (1, 2)]
+    assert rw._match(items(100.0), items(900.0), 300.0) == [(0, None), (None, 0)]
+    assert rw._match(items(), items(5.0), 300.0) == [(None, 0)]
+    # An item without a start is never paired.
+    assert rw._match(items(None, 50.0), items(60.0), 300.0) == [(0, None), (1, 0)]
 
 
 # ---------------------------------------------------------------------------
@@ -407,7 +427,7 @@ def _row(variant: str, repeat: int, detections: dict[str, Any], cpu: float = 5.0
         },
         "metrics": {"loop_lag_s": lag, "hydrate_seconds": {"all": {"count": 9, "mean": 0.4}}},
         "replay": {"stats": {"requests": 120, "logins": 3, "by_endpoint": {"/app/account/login": 3}, "by_code": {"0": 117, "1008": 3}, "mqtt": {"pushes_sent": 10, "pushes_missed": 0}}},
-        "store": {"polls_ok": 30, "mqtt_rows": 10},
+        "store": {"polls_ok": 30, "mqtt_rows": 10, "open_at_end": {"drives": 1, "charges": 0}},
         "detections": detections,
         "detection_counts": rw.detection_counts(detections),
         "roundtrip": rw.roundtrip_check([_poll(1030, online=True, currentSoc=71.0)], SCENARIO, ORIGIN),
@@ -662,6 +682,8 @@ def test_results_of_a_real_scenario_are_published_without_any_car(tmp_path, monk
     other = {**drive, "end": 1300.0}
     mismatch = {"vin": "TESTVIN0000000001", "t": 5.0, "field": "odometer", "endpoint": "realtime", "stored": 45001.2, "expected": [1.0]}
 
+    clock = iter(range(1000, 2000))
+
     def row(variant, repeat, item):
         return {
             "variant": variant, "label": variant, "repeat": repeat, "problems": [],
@@ -672,6 +694,14 @@ def test_results_of_a_real_scenario_are_published_without_any_car(tmp_path, monk
             "derived": {name: 1.0 for _group, name in rw.AGGREGATED if _group == "derived"},
             "measured": {name: 1.0 for _group, name in rw.AGGREGATED if _group == "measured"},
             "metrics": {"loop_lag_s": {"p99": 0.01}},
+            "origin": {"wall_unix_ms": next(clock), "start_at": 0, "speed": 1.0},
+            "log": "worker-export-x.log",
+            "store": {"ingest": [
+                {"source": "poll", "kind": "error", "detail": "1008", "count": 2},
+                {"source": "poll", "kind": "skip", "detail": "min_gap", "count": 1},
+                {"source": "poll", "kind": "error", "detail": "Timeout talking to 10.0.0.9", "count": 1},
+                {"source": "poll", "kind": "ok", "detail": None, "count": 5},
+            ]},
         }  # fmt: skip
 
     def document(rows, source="export"):
@@ -695,15 +725,23 @@ def test_results_of_a_real_scenario_are_published_without_any_car(tmp_path, monk
         ("python_cipher", 1), ("rust_cipher", 1), ("python_cipher", 2), ("rust_cipher", 2),
     ]  # fmt: skip
     assert merged["settings"]["repeats"] == 2 and merged["variants"]["rust_cipher"]["runs"] == 2
-    assert [entry["equal"] for entry in merged["comparison"]] == [False, True, True]
+    assert [(entry["other"], entry["same_variant"], entry["equal"]) for entry in merged["comparison"]] == [
+        ("rust_cipher#1", False, False), ("python_cipher#2", True, True), ("rust_cipher#2", False, True),
+        ("python_cipher#2", False, False), ("rust_cipher#2", True, False), ("rust_cipher#2", False, True),
+    ]  # fmt: skip
+    with pytest.raises(SystemExit, match="packages"):
+        rw.merge_results([first, {**second, "backend": {"backend_commit": "abc", "packages": {"pybyd": "9"}}}], ["a.json", "b.json"])
+    with pytest.raises(SystemExit, match="same run appears twice"):
+        rw.merge_results([first, first], ["a.json", "a.json"])
     with pytest.raises(SystemExit, match="settings differ"):
         rw.merge_results([first, {**second, "settings": {**second["settings"], "minutes": 5}}], ["a.json", "b.json"])
 
     published = rw.publishable(merged)
     text = json.dumps(published)
     assert rw.is_private(merged) and published["redacted"]
-    for secret in ("TESTVIN0000000001", "45001.2", "45013.5", "12.3", "export-x", "2026-01-05T00:00:00Z"):
+    for secret in ("TESTVIN0000000001", "45001.2", "45013.5", "12.3", "export-x", "2026-01-05T00:00:00Z", "10.0.0.9", "a.json"):
         assert secret not in text
+    assert [item["detail"] for item in published["rows"][0]["store"]["ingest"]] == ["1008", "min_gap", "other", None]
     assert published["rows"][0]["detection_counts"] == {"drives": 1, "charges": 0}
     assert published["rows"][0]["cars_with_detections"] == {"drives": 1, "charges": 0}
     assert published["comparison"][0]["difference_summary"] == {"drives field end": 1}
@@ -722,10 +760,23 @@ def test_results_of_a_real_scenario_are_published_without_any_car(tmp_path, monk
     monkeypatch.setattr(rw.common, "machine_info", lambda: {})
     monkeypatch.setattr(rw.common, "versions_info", lambda: {})
     private = tmp_path / "private"
+    written: list[Path] = []
+    original = rw.common.write_results
+
+    def recording(name, quick, payload, *, directory=None):
+        path = original(name, quick, payload, directory=directory)
+        written.append(path)
+        return path
+
+    monkeypatch.setattr(rw.common, "write_results", recording)
     path = rw.write(merged, argparse.Namespace(quick=False, scratch=tmp_path), private)
     assert path.parent == results_dir and "TESTVIN" not in path.read_text(encoding="utf-8")
     (kept,) = private.glob("replay_worker-*.json")
     assert "45001.2" in kept.read_text(encoding="utf-8")
+    # The complete document went straight to the private directory; only the public one to bench/results.
+    assert [item.parent for item in written] == [private, results_dir]
+    with pytest.raises(SystemExit, match="inside the repository"):
+        rw.write(merged, argparse.Namespace(quick=False, scratch=tmp_path), rw.common.ROOT / "bench" / "results")
 
 
 def test_stats_delta_counts_the_measured_window():

@@ -143,9 +143,13 @@ def versions_info() -> dict[str, Any]:
     }
 
 
-def write_results(name: str, quick: bool, payload: dict[str, Any]) -> Path:
-    """Write ``bench/results/<name>-<timestamp>[-quick].json`` with the date, machine and commits."""
-    RESULTS.mkdir(parents=True, exist_ok=True)
+def write_results(name: str, quick: bool, payload: dict[str, Any], *, directory: Path | None = None) -> Path:
+    """Write ``bench/results/<name>-<timestamp>[-quick].json`` with the date, machine and commits.
+
+    ``directory`` is another place to write it (results that must stay out of the repository).
+    """
+    results = RESULTS if directory is None else directory
+    results.mkdir(parents=True, exist_ok=True)
     now = dt.datetime.now().astimezone()
     document = {
         "benchmark": name,
@@ -155,7 +159,7 @@ def write_results(name: str, quick: bool, payload: dict[str, Any]) -> Path:
         "versions": versions_info(),
         **payload,
     }
-    path = RESULTS / f"{name}-{now:%Y%m%d-%H%M%S}{'-quick' if quick else ''}.json"
+    path = results / f"{name}-{now:%Y%m%d-%H%M%S}{'-quick' if quick else ''}.json"
     path.write_text(json.dumps(document, indent=1) + "\n", encoding="utf-8")
     return path
 

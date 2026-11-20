@@ -1,3 +1,7 @@
+// The build script compiles this file too (`build.rs` includes it by path, to
+// read the same table file): keep it free of other modules of the crate
+// except `crate::Error`.
+
 use std::sync::OnceLock;
 
 use crate::Error;
@@ -47,6 +51,12 @@ pub struct Tables<'a> {
 
 impl Tables<'static> {
     /// The tables shipped with this crate.
+    ///
+    /// Pass this value itself to the cipher functions: they recognise it by
+    /// address and use the round tables folded at build time, which are
+    /// about ten times faster. A copy of it, or the same file parsed again
+    /// with [`Tables::from_bytes`], gives the same output through the
+    /// vendor's own steps.
     pub fn embedded() -> &'static Tables<'static> {
         static PARSED: OnceLock<Tables<'static>> = OnceLock::new();
         PARSED
@@ -61,6 +71,9 @@ impl Tables<'static> {
 
 impl<'a> Tables<'a> {
     /// Reads a table file.
+    ///
+    /// For the file shipped with this crate use [`Tables::embedded`], which
+    /// the cipher runs about ten times faster.
     pub fn from_bytes(data: &'a [u8]) -> Result<Self, Error> {
         let bad = |why: String| Error::BadTables(why);
 

@@ -22,7 +22,7 @@ use chrono::NaiveTime;
 use serde::{Serialize, Serializer};
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields, PyDateTime};
+use super::base::{self, BydModel, Fields, Plan, PyDateTime};
 use crate::coerce::{self, ValidationError};
 use crate::parity::Outcome;
 use crate::pyjson::{py_int_from_str, py_str};
@@ -189,7 +189,8 @@ impl BydModel for SmartChargeDto {
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
         let values = capture_charge_until_full(raw);
-        let mut fields = Fields::cleaned(&values, CHARGE_KEY_ALIASES)?;
+        static PLAN: Plan = Plan::new(CHARGE_KEY_ALIASES);
+        let mut fields = Fields::planned(&PLAN, &values, &[])?;
         let model = Self {
             raw: fields.raw(),
             start_time: fields.get("start_time", None, |v| Ok(parse_hhmm(v))),
@@ -262,7 +263,8 @@ impl BydModel for SmartJourneyDto {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, JOURNEY_KEY_ALIASES)?;
+        static PLAN: Plan = Plan::new(JOURNEY_KEY_ALIASES);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             use_vehicle_time: fields.get("use_vehicle_time", None, |v| Ok(parse_hhmm(v))),
@@ -330,7 +332,8 @@ impl BydModel for SmartChargingSchedule {
     }
 
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, SCHEDULE_KEY_ALIASES)?;
+        static PLAN: Plan = Plan::new(SCHEDULE_KEY_ALIASES);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),
@@ -377,7 +380,8 @@ impl BydModel for AcCurrentLimit {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),

@@ -9,7 +9,7 @@
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields};
+use super::base::{self, BydModel, Fields, Plan};
 use crate::coerce::{self, ValidationError};
 use crate::parity::Outcome;
 
@@ -33,7 +33,8 @@ impl BydModel for PushSwitch {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             r#type: fields.opt("type", coerce::int),
@@ -81,7 +82,8 @@ impl BydModel for PushNotificationState {
     }
 
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             vin: fields.get("vin", String::new(), coerce::string),

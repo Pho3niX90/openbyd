@@ -25,3 +25,10 @@ workspace = true
 [[bench]]
 name = "protocol"
 harness = false
+
+[[bench]]
+name = "allocations"
+harness = false
+
+[dev-dependencies]
+dhat = "0.3.3"

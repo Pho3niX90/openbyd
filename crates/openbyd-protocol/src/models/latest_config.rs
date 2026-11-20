@@ -12,7 +12,7 @@ use std::collections::BTreeSet;
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
-use super::base::{self, BydModel, Fields};
+use super::base::{self, BydModel, Fields, Plan};
 use super::command_gating::known_command_function_nos;
 use crate::coerce::{self, ValidationError};
 use crate::parity::{Args, Outcome, ParityError};
@@ -396,7 +396,8 @@ impl BydModel for LatestConfigFunction {
 
     // No validator reads the context, so nested nodes get none.
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             code: fields.get("code", String::new(), coerce::string),
@@ -453,7 +454,8 @@ impl BydModel for VehicleLatestConfig {
     }
 
     fn parse(raw: &Value, context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let model = Self {
             raw: fields.raw(),
             widget_config_id: fields.get("widget_config_id", String::new(), coerce::string),
@@ -717,7 +719,8 @@ impl BydModel for VehicleCapabilities {
     }
 
     fn parse(raw: &Value, _context: &Value) -> Result<Self, ValidationError> {
-        let mut fields = Fields::cleaned(raw, &[])?;
+        static PLAN: Plan = Plan::new(&[]);
+        let mut fields = Fields::planned(&PLAN, raw, &[])?;
         let strings = |value: &Value| coerce::list(value, coerce::string);
         let model = Self {
             raw: fields.raw(),

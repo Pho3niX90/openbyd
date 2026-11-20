@@ -6,7 +6,8 @@ use serde::Serialize;
 use serde_json::{Map, Value, json};
 
 use super::base::{
-    self, BydModel, Fields, PyDateTime, PyEnum, enum_call, enum_field, py_equals_int, py_truthy,
+    self, BydModel, Fields, Plan, PyDateTime, PyEnum, enum_call, enum_field, py_equals_int,
+    py_truthy,
 };
 use super::vehicle::EnergyType;
 
@@ -682,7 +683,7 @@ pub fn context_energy_type(context: &Value) -> Result<EnergyType, ValidationErro
 /// original combined string stays in `raw`, which is stashed here before
 /// anything is rebound.
 ///
-/// Returns the keys it adds or replaces; [`Fields::cleaned_with_changes`]
+/// Returns the keys it adds or replaces; [`Fields::planned`]
 /// lays them over the input, which is also what `raw` gets.
 fn split_hybrid_legs(
     original: &Map<String, Value>,
@@ -1465,7 +1466,8 @@ impl BydModel for VehicleRealtimeData {
             Value::Object(input) => split_hybrid_legs(input, context)?,
             _ => Vec::new(),
         };
-        let mut fields = Fields::cleaned_with_changes(raw, &changes, KEY_ALIASES)?;
+        static PLAN: Plan = Plan::new(KEY_ALIASES);
+        let mut fields = Fields::planned(&PLAN, raw, &changes)?;
         let float = coerce::float;
         let int = coerce::int;
         let string = coerce::string;

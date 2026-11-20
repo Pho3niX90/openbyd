@@ -70,11 +70,11 @@ the cost of the many small allocations a parse makes.
 
 `openbyd.models.parse("VehicleRealtimeData", raw)` with the full synthetic
 reply (141 keys), Windows 11, Python 3.12, mimalloc. The stage rows come
-from a build with a timer around each stage and a counting allocator (the
-local branch `perf/profile-harness`, not merged; `perf/profile-harness-after`
-is the same profiler on the code after the two changes below). The stages
-add up to the wall time of the instrumented loop within 0.1 us; that build
-is about 3 us slower overall than a normal one.
+from a scratch build with a timer around each stage and a counting
+allocator, before and after the two changes below; it is not in the
+repository (the library carries no profiling code). The stages add up to
+the wall time of the instrumented loop within 0.1 us; that build is about
+3 us slower overall than a normal one.
 
 | Stage | Before (us) | After (us) | Rust allocations before / after |
 |---|---:|---:|---|
@@ -88,10 +88,12 @@ is about 3 us slower overall than a normal one.
 | dropping the model and the dump | 2.51 | 1.59 | |
 | **Total (instrumented loop)** | **38.2** | **27.3** | |
 
-On a normal build the whole call went from about 34 us to about 25 us
-(`bench/profile_realtime.py`: 24.8 us minimum after); pyBYD's
-`model_validate` plus `model_dump(mode="json")` takes about 85 us on the
-same machine.
+On a normal build the whole call went from about 36.7 us to about 26.7 us
+(medians; 34 to 25 us by the fastest of many short runs), and pyBYD's
+`model_validate` plus `model_dump(mode="json")` takes about 98 us on the
+same machine: see "VehicleRealtimeData at every level" in
+[`bench/README.md`](../../../bench/README.md), which also has Linux and
+the real replies.
 
 What changed:
 
@@ -99,8 +101,10 @@ What changed:
   itself (`BydModel::parse_reply`), the bindings build the dump's `raw`
   from the caller's dict (`convert::round_tripped`: new containers, exact
   immutable leaves shared, the same result as the `Value` round trip)
-  instead of converting the parsed `Value` back. The client's replies
-  arrive as JSON text and still take the `Value` path.
+  instead of converting the parsed `Value` back. The two reads of the
+  caller's dict happen with the garbage collector paused, so nothing can
+  change it in between. The client's replies arrive as JSON text and still
+  take the `Value` path.
 - **Key plans.** A model's fields are read through its `Plan`
   (`models/base/plan.rs`): after the first successful parse, one pass over
   the reply fills a slot per key a field can ask for, and each field read
@@ -116,10 +120,15 @@ What changed:
   straight from the dict), which changes how every model reads its input.
 - The dump of the fields (about 6 us: a Python object per value and a dict
   insert per field) and the before-validator (about 2.5 us).
-- In the client, the model is a small part of a call: one
-  `get_vehicle_realtime` against the fake server spends far more on the
-  envelope cipher (about 0.4 ms to decode the realtime reply) and the
-  round trips than on the model.
+- In the client, the model is a small part of a call. One
+  `get_vehicle_realtime` against the fake server (two requests) took about
+  1.5 ms, of which the envelope cipher was the largest part of the client's
+  CPU: about 0.55 ms to decode the realtime reply's envelope alone. With
+  the cipher's tables folded (`openbyd-crypto`) that decode is about 66 us
+  and the call about 0.64 ms. What is left of a call is mostly the two
+  round trips and the hop from the Rust runtime back to the event loop,
+  about 0.1 ms per awaited call on Windows (most of it waking the loop
+  and resuming the coroutine; measured, not yet reduced).
 
 ### Reproducing
 
@@ -132,8 +141,6 @@ cargo bench -p openbyd-protocol --bench allocations
 `profile_realtime.py` times `openbyd.models.parse`, the input conversion
 alone (`_Value(raw)`), building `raw` from a `Value` (`_Value.to_python()`,
 which the client still does), and pyBYD's validate, dump and dump without
-`raw`. The per-stage table needs the instrumented build: check out
-`perf/profile-harness-after`, build the extension with
-`--features testing,profile` (`maturin build`, then install the wheel) and
-run `prof_py.py` (kept on `perf/profile-harness` as
-`crates/openbyd-perf/prof_py.py`; a scratch script).
+`raw`. The per-stage table needs timers inside the library, which are not
+kept: time a stage by putting `std::time::Instant` around it in a scratch
+build, or compare the rows above with a stage removed.

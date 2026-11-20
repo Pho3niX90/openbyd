@@ -249,13 +249,13 @@ def test_unplug_lags_on_polls_and_push(tmp_path: Path) -> None:
     results, report = b.run(tmp_path)
     unplug = results["plug_charging"]["transitions"]["unplug"]
     assert unplug["car_transitions"] == 1
-    assert unplug["poll"]["delay_s"]["values"] == [600]
+    assert unplug["poll"]["delay_s"]["median"] == 600
     assert unplug["poll"]["old_state_shown_after_transition"] == 1
-    assert unplug["push"]["delay_s"]["values"] == [20]
+    assert unplug["push"]["delay_s"]["median"] == 20
     assert unplug["push"]["old_state_shown_after_transition"] == 0
     stop = results["plug_charging"]["transitions"]["charge_stop"]
-    assert stop["poll"]["delay_s"]["values"] == [600]
-    assert stop["push"]["delay_s"]["values"] == [20]
+    assert stop["poll"]["delay_s"]["median"] == 600
+    assert stop["push"]["delay_s"]["median"] == 20
     assert unplug["poll"]["delay_s"]["states"] == {"parked_off": 1}
     table = results["plug_charging"]["mqtt:smartCharge"]["no_flag"]["charging.connect_state x charging_gun_raw"]
     assert table["rows"] == {"0": {"1": 1}, "1": {"2": 1}}
@@ -425,6 +425,43 @@ def test_outputs_carry_no_input_times_or_rows(tmp_path: Path) -> None:
             assert json.dumps(row) not in text
 
 
+ALLOWED_NUMBER_LISTS = {"speed_lags_s", "value_lags_s", "tied_lags_s"}
+
+
+def _number_lists(node: Any, key: str = "") -> list[str]:
+    """Keys of every list of bare numbers in a JSON tree, other than the allowed constant ranges."""
+    found = []
+    if isinstance(node, dict):
+        for k, v in node.items():
+            found += _number_lists(v, k)
+    elif isinstance(node, list):
+        if node and all(type(x) in (int, float) for x in node) and key not in ALLOWED_NUMBER_LISTS:
+            found.append(key)
+        for x in node:
+            found += _number_lists(x, key)
+    return found
+
+
+def _keys(node: Any) -> set[str]:
+    if isinstance(node, dict):
+        return set(node) | {k for v in node.values() for k in _keys(v)}
+    if isinstance(node, list):
+        return {k for v in node for k in _keys(v)}
+    return set()
+
+
+def test_no_per_event_lists_are_written(tmp_path: Path) -> None:
+    b = Pairs()
+    b.charging(1000, 3000)
+    b.parked(3000, 6000)  # one unplug: a single derived delay
+    b.cloud_row(3300, "poll", "ok", asleep=False,
+                charging={"is_charging": False, "is_connected": False, "connect_state": None})
+    results, report = b.run(tmp_path)
+    assert _number_lists(results) == []
+    assert "values" not in _keys(results)
+    assert "- values" not in report
+
+
 def test_deterministic_and_command_line(tmp_path: Path) -> None:
     b = _full_scenario()
     source = tmp_path / "pairs.jsonl"
@@ -497,8 +534,8 @@ def test_rounding_rule_agreement(tmp_path: Path) -> None:
     results, _ = b.run(tmp_path)
     s = results["soc"]["mqtt:vehicleInfo soc"]
     assert s["with_decimals"] == 5
-    assert s["agreement_by_rounding_rule"]["rows"] == {"exact": {"differ": 5}, "floor": {"agree": 5},
-                                                       "round_half_up": {"differ": 5}}
+    assert s["rounding_rules"]["pairs"] == 5
+    assert s["rounding_rules"]["rule_evaluations_agreeing"] == {"round_half_up": 0, "floor": 5, "exact": 0}
     assert s["better_rounding_rule"] == "floor"
 
 
@@ -513,8 +550,8 @@ def test_vehicle_info_charge_power_as_charge_signal(tmp_path: Path) -> None:
     b.cloud_row(4030, "mqtt", "vehicleInfo", charge_power_kw=0)
     results, report = b.run(tmp_path)
     tr = results["plug_charging"]["transitions"]
-    assert tr["charge_start"]["push_vehicleInfo_power"]["delay_s"]["values"] == [40]
-    assert tr["charge_stop"]["push_vehicleInfo_power"]["delay_s"]["values"] == [30]
+    assert tr["charge_start"]["push_vehicleInfo_power"]["delay_s"]["median"] == 40
+    assert tr["charge_stop"]["push_vehicleInfo_power"]["delay_s"]["median"] == 30
     assert tr["cloud_rows"] == {"poll": 0, "push": 0, "push_vehicleInfo_power": 4}
     assert "push_vehicleInfo_power" not in tr["plug_in"]
     assert "push_vehicleInfo_power" in report
@@ -559,8 +596,8 @@ def test_pushes_after_car_changes_and_while_parked(tmp_path: Path) -> None:
     b.cloud_row(3500, "mqtt", "vehicleInfo", soc=60, vehicle_on=False, charge_power_kw=None)
     results, report = b.run(tmp_path)
     pu = results["pushes"]
-    assert pu["first_cloud_row_after_car_event"]["power_on"]["mqtt:vehicleInfo"]["delay_s"]["values"] == [25]
-    assert pu["first_cloud_row_after_car_event"]["power_off"]["mqtt:vehicleInfo"]["delay_s"]["values"] == [500]
+    assert pu["first_cloud_row_after_car_event"]["power_on"]["mqtt:vehicleInfo"]["delay_s"]["median"] == 25
+    assert pu["first_cloud_row_after_car_event"]["power_off"]["mqtt:vehicleInfo"]["delay_s"]["median"] == 500
     assert pu["vehicleInfo_while_car_off_not_moving_by_state"] == {"parked_off": 1}
     assert pu["vehicleInfo_while_car_off_keys_with_values"] == {"soc": 1, "vehicle_on": 1}
     assert pu["vehicleInfo_to_nearest_remoteControl_s"]["min"] == 1.5
@@ -617,8 +654,8 @@ def test_online_latency_after_power_off(tmp_path: Path) -> None:
     b.cloud_row(2700, "poll", "ok", online=False, asleep=True)
     results, _ = b.run(tmp_path)
     res = results["online_latency"]["poll:ok"]
-    assert res["asleep_true_after_power_off"]["delay_s"]["values"] == [700]
-    assert res["online_false_after_power_off"]["delay_s"]["values"] == [700]
+    assert res["asleep_true_after_power_off"]["delay_s"]["median"] == 700
+    assert res["online_false_after_power_off"]["delay_s"]["median"] == 700
     since = res["hours_since_car_power_off_when_cloud_says"]
     assert since["online_true"]["n"] == 1 and since["online_true"]["median"] == round(100 / 3600, 3)
 
@@ -726,3 +763,126 @@ def test_clusters_and_drives_are_counted(tmp_path: Path) -> None:
     assert gps["driving_segments"] == 2
     assert gps["ratio_car_over_gps_by_gps_speed_band"]["20-60"]["median"] == 1.0
     assert "days / clusters / drives" in report
+
+
+# --- fix round 3 ----------------------------------------------------------------------------------------
+
+
+def test_across_gap_reversal_closes_the_window(tmp_path: Path) -> None:
+    b = Pairs()
+    b.stationary(1000, 2000)  # unplugged
+    b.charging(2000, 2400)  # plug-in at 2000 (timed), rows until 2340
+    b.parked(5000, 7000)  # after a silent gap the car is unplugged: an across-gap unplug
+    b.cloud_row(5100, "poll", "ok", asleep=False,
+                charging={"is_charging": True, "is_connected": True, "connect_state": None})
+    results, report = b.run(tmp_path)
+    plug_in = results["plug_charging"]["transitions"]["plug_in"]
+    assert plug_in["car_transitions"] == 1
+    assert plug_in["poll"]["shown"] == 0
+    assert plug_in["poll"]["categories"]["no_rows"]["events"] == 1
+    assert plug_in["poll"]["right_censored_no_row_before_window_closed"] == {"next_reversal_time_uncertain": 1}
+    assert results["plug_charging"]["transitions"]["unplug"]["time_uncertain_across_a_gap_not_measured"] == 1
+
+
+def test_power_window_closes_at_an_across_gap_change(tmp_path: Path) -> None:
+    b = Pairs()
+    b.stationary(1000, 2000)  # on
+    b.parked(2000, 2600)  # power off at 2000 (timed)
+    b.stationary(6000, 7000)  # on again after a silent gap: time-uncertain power-on
+    b.cloud_row(6100, "poll", "ok", online=False, asleep=True)  # after the car is back on: not credited
+    results, _ = b.run(tmp_path)
+    res = results["online_latency"]["poll:ok"]["asleep_true_after_power_off"]
+    assert res["delay_s"]["n"] == 0
+    assert res["right_censored_no_row_before_window_closed"] == {"next_reversal_time_uncertain": 1}
+    assert results["online_latency"]["time_uncertain_power_changes_across_a_gap"] == 1
+
+
+def test_lag_fit_uses_a_common_cohort(tmp_path: Path) -> None:
+    b = Pairs()
+    b.charging(0, 3200, soc_pct=60)  # rows every 60 s up to 3180
+    b.charging(3300, 4000, soc_pct=60, odometer_km=12346)  # a 120 s hole that cannot be inferred
+    for t in (3000, 3100, 3200):
+        b.cloud_row(t, "mqtt", "vehicleInfo", soc=60)
+    b.cloud_row(3300, "mqtt", "vehicleInfo", soc=61)  # disagrees; has no car value at a 20 s lag
+    results, _ = b.run(tmp_path)
+    best = results["soc"]["mqtt:vehicleInfo soc"]["best_fit_lag_while_changing"]
+    assert (best["n_samples"], best["cohort_n"], best["excluded_missing_car_value"]) == (4, 3, 1)
+    assert best["best_lag_s"] == 0 and best["determined"] is False
+    assert {c["matched"] for c in best["matched_by_lag"]} == {3}
+
+
+def test_speed_lag_uses_a_common_cohort_and_unrounded_error(tmp_path: Path) -> None:
+    def speed(t: float) -> float:
+        return 60 + 40 * math.sin(2 * math.pi * t / 180)
+
+    b = Pairs()
+    b.drive(2000, 5600, speed)
+    for k in range(40):
+        t = 2400 + 23 * k
+        b.cloud_row(t, "mqtt", "vehicleInfo", speed_kph=round(speed(t - 30), 1))
+    b.cloud_row(2010, "mqtt", "vehicleInfo", speed_kph=10.0)  # no car speed 30+ s earlier: excluded
+    results, _ = b.run(tmp_path)
+    best = results["speed"]["mqtt:vehicleInfo"]["best_lag"]
+    assert best["best_lag_s"] == 30 and best["cohort_n"] == 40 and best["excluded_missing_car_value"] == 1
+    assert {c["n"] for c in best["curve"]} == {40}
+
+
+def test_energy_skips_backward_steps_and_splits_endpoint_age(tmp_path: Path) -> None:
+    b = Pairs()
+    b.drive(1000, 1000 + 3600, lambda t: 60.0, odo0=12000)  # 60 km, ends at odometer 12059
+    b.parked(4600, 20000)
+    b.cloud_row(4900, "poll", "ok", last50km_energy_kwh=8.8)  # endpoint 5 min old
+    b.cloud_row(12000, "poll", "ok", last50km_energy_kwh=8.8)  # same window, endpoint 2 h old
+    b.drive(20000, 20000 + 1800, lambda t: 60.0, odo0=11990)  # backward step, 30 km only
+    b.parked(21800, 23000)
+    b.cloud_row(22000, "poll", "ok", last50km_energy_kwh=8.0)
+    results, _ = b.run(tmp_path)
+    e = results["energy"]["poll:ok"]
+    assert results["energy"]["odometer_backward_steps_persistent"] == 1
+    assert e["windows_crossing_a_backward_odometer_step"] == 1
+    assert e["per_50km_window"]["all_endpoints"]["windows"] == 1
+    assert e["per_50km_window"]["all_endpoints"]["per_window"][0]["polls"] == 2
+    assert e["per_50km_window"]["endpoint_age_le_10_min"]["per_window"][0]["polls"] == 1
+
+
+def test_freeze_and_stale_wording(tmp_path: Path) -> None:
+    b = Pairs()
+    b.charging(1000, 5000, soc_pct=lambda t: 50 + int((t - 1000) // 600))
+    b.parked(5000, 9000)  # unplug at 5000
+    frozen = {"is_charging": True, "is_connected": True, "connect_state": None, "soc": 50}
+    for k in range(10):
+        b.cloud_row(1100 + 300 * k, "poll", "ok", soc=50, asleep=True, charging=frozen)
+    b.cloud_row(6800, "poll", "ok", soc=50, asleep=True, charging=frozen)  # 0.5 h after the unplug
+    b.cloud_row(8600, "poll", "ok", soc=56, asleep=False, charging=frozen)  # 1 h after, awake
+    results, report = b.run(tmp_path)
+    fs = results["freeze_and_stale"]
+    assert fs["soc_freeze_adjacent_asleep_polls_same_observed_plug_episode"]["rows"] == {"unchanged": {"pairs": 9}}
+    assert fs["soc_freeze_filter_first_asleep_plugged_polls"]["rows"] == {"unchanged": {"pairs": 9}}
+    stale = fs["connected_true_while_car_unplugged_hours_since_last_observed_unplug"]
+    assert stale["asleep"]["n"] == 1 and stale["asleep"]["max"] == 0.5
+    assert stale["awake"]["n"] == 1 and stale["awake"]["max"] == 1.0
+    assert "continuity not established" in report
+
+
+def test_push_overlap_counts_the_car_observation_window(tmp_path: Path) -> None:
+    b = Pairs()
+    b.cloud_row(500, "mqtt", "vehicleInfo", soc=80)  # same calendar day, before the first car row
+    b.stationary(1000, 2000)
+    b.cloud_row(1500, "mqtt", "vehicleInfo", soc=80)
+    results, report = b.run(tmp_path)
+    assert results["pushes"]["pushes_in_car_observation_window"]["mqtt:vehicleInfo"] == 1
+    assert "Pushes inside the car observation window" in report
+
+
+def test_energy_drops_out_of_order_odometer_readings(tmp_path: Path) -> None:
+    b = Pairs()
+    b.drive(1000, 1000 + 3600, lambda t: 60.0, odo0=12000)
+    # A late or resent row 0.2 s after a newer one, 1 km lower; the next readings recover.
+    b.car_row(2800.2, "moving", speed_kph=60.0, soc_pct=80, odometer_km=12028, power_level="on", gear="D",
+              lifetime_kwh=8004.5, remaining_kwh=64.0)
+    b.parked(4600, 8000)
+    b.cloud_row(4900, "poll", "ok", last50km_energy_kwh=8.8)
+    results, _ = b.run(tmp_path)
+    assert results["energy"]["odometer_readings_out_of_order_dropped"] == 1
+    assert results["energy"]["odometer_backward_steps_persistent"] == 0
+    assert results["energy"]["poll:ok"]["per_50km_window"]["all_endpoints"]["windows"] == 1

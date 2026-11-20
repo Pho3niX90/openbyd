@@ -300,10 +300,11 @@ python -m bench.mapping.compare <pairs.jsonl> --out-dir <dir>
 
 It writes `<dir>/results.json` (every number) and `<dir>/report.md` (tables). Both hold
 aggregates only: counts, quantiles (min, p5, p25, median, p75, p95, max), means, confusion
-matrices, code tables and fitted slopes. No input row, no `t` of a single event, no
-per-event listing; transition lags are listed as bare numbers only when there are fewer
-than 10. Every table gives n (paired samples), the number of distinct days (`t // 86400`)
-they span and the car-state split.
+matrices, code tables and fitted slopes. No input row, no `t` of a single event and no
+per-event list of any kind, not even derived lags. Every table gives n (paired samples),
+the distinct days (`t // 86400`) they span, the clusters (samples at least 10 min apart are
+separate clusters, the independent units for poll statistics), the drives behind driving
+samples (moving rows less than 10 min apart) and the car-state split.
 
 How it pairs:
 
@@ -311,9 +312,10 @@ How it pairs:
   to the previous one apart from `t` and at most 1.5 s later is a resend and dropped. A
   row holds for 8 s (moving), 90 s (stationary, charging, no cadence) or 660 s (event; the
   first real export had moving rows up to ~6.5 s apart and parked beats often ~600 s
-  apart); after that the car is `unknown`, unless the gap is inferred (below). An event row does not carry speed, odometer, kWh, tyres,
-  temperatures or charging power, so at such a moment those come from the newest full row
-  if it is still fresh. A fresh full row without a key means the car had no value.
+  apart); after that the car is `unknown`, unless the gap is inferred (below). An event
+  row does not carry speed, odometer, kWh, tyres, temperatures or charging power, so at
+  such a moment those come from the newest full row if it is still fresh. A fresh full
+  row without a key means the car had no value.
 - **Car state.** `driving` (cadence moving, speed >= 1 km/h), `charging`
   (`charging_type_raw` 2; not when unplugged or type 1; else `charging_power_kw` > 0),
   `plugged_idle` (gun 2 or charger state 1), `on_stationary` (power level acc/on/ok or
@@ -324,24 +326,42 @@ How it pairs:
   lock and odometer are taken as unchanged through the gap, in the separate state
   `parked_inferred`. Every statistic is split by state, so inferred pairs stay visible.
 - **Pairing.** Each cloud row of `mqtt:vehicleInfo`, `mqtt:smartCharge`,
-  `mqtt:energyConsumption` and `poll:ok` is paired with the car's value at the row's `t`
-  (speed is interpolated between moving rows at most 5 s apart). Poll odometer is
-  reported separately as contaminated, poll SoC both in full and only where `asleep` is
-  false or `charging.soc` is present, poll GPS by `gps_fresh`.
+  `mqtt:energyConsumption` and `poll:ok` is paired with the car's value at the row's `t`.
+  Speed is interpolated between two moving rows at most 8 s apart (the moving freshness);
+  everything else uses the newest fresh reading. Charging flags, time to full and the poll
+  SoC variants are reported separately for awake (`asleep` false) and asleep rows. Poll
+  odometer is a maximum over car-app-fed snapshots, so its agreement carries no BYD
+  information while asleep.
 - **Lags.** Speed: the constant lag (0-300 s, step 5) with the smallest mean absolute
-  error against the car's speed over the cloud samples taken while driving. SoC and
-  odometer: per sample, the time since the car stopped showing the cloud's value (and the
-  time since it last showed it), within 1 h either way; and the constant lag (0-1800 s,
-  step 10) at which the most cloud values equal the car's. Plug and charge transitions:
-  the delay to the first poll, the first smartCharge push and (charge only) the first
-  vehicleInfo push whose `charge_power_kw` is > 0 (or 0) showing the new state.
+  error against the car's speed, and SoC/odometer: the constant lag (0-1800 s, step 10) at
+  which the most cloud values equal the car's. Both score every candidate on one common
+  cohort (the samples with a car value at every candidate; the rest are counted as
+  excluded) and choose on unrounded errors. SoC and odometer also get a per-sample lag
+  (time since the car stopped showing the cloud's value, within 1 h either way).
+- **Transitions and power changes.** Every observed reversal of the car's plug, charge or
+  power state closes the response window of the change before it, including a reversal
+  seen across a silent gap; such a reversal is time-uncertain (placed at the last row
+  still showing the old value) and never measured itself. Windows with no cloud row before
+  they close are reported as right-censored, by what closed them. Signals: the first poll,
+  the first smartCharge push and (charge only) the first vehicleInfo push whose
+  `charge_power_kw` is > 0 (or 0).
+- **Periods.** Split at the car-app registration (`meta.first_seen_t`, else the first car
+  row) and the first car row: `before_registration`, `registered_no_rows`, `car_rows`, with
+  the awake share, poll interval, pushes and error/skip details per period, and the asleep
+  and `vehicle_unreachable` shares per half-day bin around registration.
+- **Energy.** The car's energy over the last 50 km uses one monotonic odometer segment. A
+  reading below the running maximum whose next 3 readings recover is out of order (a late
+  or resent row) and is dropped and counted; a backward step that persists starts a new
+  segment, and a window crossing it is skipped and counted. Ratios are aggregated per
+  distinct 50 km window, for all car endpoints and for endpoints at most 10 min old.
 - **Extra sections.** vehicle_on read as BYD's powerGear (awake rows with speed < 1 or
   null) against the car's power level and cadence; on/off callouts with car on = `on`
-  alone, = acc/on/ok, and = cadence moving/stationary; SoC agreement under half-up
-  rounding and floor; pushes after car-side changes and while parked; poll intervals and
-  error/skip details by period (before the car app, car timeline fresh / inferred /
-  unknown); online/asleep after car power off/on; poll SoC/odometer equal to the car while
-  a vehicleInfo push of the last hour differs (a car-app contamination hint).
+  alone, = acc/on/ok, and = cadence moving/stationary; the pair count and the rule
+  evaluations under half-up rounding, floor and exact; pushes after car-side changes and
+  inside the car observation window (first to last car row); online/asleep after car
+  power off/on; SoC across adjacent asleep polls in one observed plug episode; the
+  connected flag after the last observed unplug; GPS as agreement with an earlier car fix,
+  not position accuracy.
 
 Unknown keys and new `detail` values are ignored or counted, never fatal. A section with
 no paired samples says so.

@@ -10,8 +10,8 @@ The car is the ground truth. The tool builds a car-state timeline in which a rea
 holds only while it is fresh, pairs every cloud value with the car's value at the cloud
 row's ``t``, and reports aggregates only: counts, quantiles, means, confusion matrices,
 code tables and fitted slopes. It never writes or prints an input row, the ``t`` of an
-individual event, or a per-event listing (derived transition lags are listed only when
-there are fewer than ``LIST_LAGS_BELOW`` of them). Standard library only, deterministic.
+individual event, or any per-event list (not even derived lags). Standard library only,
+deterministic.
 """
 
 from __future__ import annotations
@@ -52,7 +52,6 @@ DRIVING_MIN_KPH = 1.0
 # Speed: lag candidates for the best-fit lag; a candidate counts only with at least this
 # share of the largest per-candidate sample count.
 SPEED_LAGS_S = tuple(range(0, 301, 5))
-SPEED_LAG_MIN_N_SHARE = 0.5
 # Car speed against GPS speed: only rows whose fix is at most this old and whose speeds are at least this.
 FIX_MAX_AGE_S = 2.0
 SPEED_CMP_MIN_KPH = 5.0
@@ -72,7 +71,6 @@ ENERGY_WINDOW_KM = 50.0
 ENERGY_ODO_TOL_KM = 1.0
 # energy_distribution shares "sum to 100" when within this many points.
 ENERGY_SHARE_TOL = 2.0
-LIST_LAGS_BELOW = 10
 # Samples at least this far apart are separate clusters (independent units for awake-poll statistics).
 CLUSTER_GAP_S = 600.0
 # Moving rows separated by more than this start a new drive.
@@ -99,6 +97,7 @@ CAR_EVENTS = ("power_on", "power_off", "start_moving", "stop_moving", "door_chan
 PERIODS = ("before_registration", "registered_no_rows", "car_rows")
 HALF_DAY_S = 43200.0
 TRANSITION_CATEGORIES = ("no_rows", "only_asleep", "any_awake", "no_awake_flag")
+POWER_ON_LABELS = frozenset(("acc", "on", "ok"))
 SPEED_BANDS = ((0.0, 20.0, "<20"), (20.0, 60.0, "20-60"), (60.0, 100.0, "60-100"), (100.0, math.inf, ">100"))
 AWAKE_LABELS = ("awake", "asleep", "no_flag")
 POWER_RESOLUTION_KW = 0.1
@@ -106,6 +105,10 @@ POWER_RESOLUTION_KW = 0.1
 EVENT_RESPONSE_WINDOW_S = 3600.0
 # A vehicleInfo push older than this is not compared with a poll for the contamination hint.
 CONTAMINATION_PUSH_MAX_AGE_S = 3600.0
+# Energy windows: a car endpoint at most this old counts as fresh for the sensitivity split.
+ENDPOINT_FRESH_S = 600.0
+# An odometer reading below the running maximum is out of order when one of this many next readings recovers.
+ODO_RECOVERY_READINGS = 3
 # What pyBYD's vehicle_on says about BYD's powerGear when the car is not moving and not asleep.
 POWER_GEAR = {"true": "powerGear 3 (ON)", "false": "powerGear 1 (OFF) or unknown + vehicleState 0/2",
               "null": "neither known", "absent": "vehicle_on absent"}
@@ -204,7 +207,7 @@ class Dist:
     def values(self) -> list[float]:
         return [v for v, _, _ in self.items]
 
-    def summary(self, by_state: bool = True, list_values: bool = False) -> dict[str, Any]:
+    def summary(self, by_state: bool = True) -> dict[str, Any]:
         out: dict[str, Any] = {"n": len(self.items), **_units([(t, s) for _, t, s in self.items]),
                                "states": _states(Counter(s for _, _, s in self.items))}
         if not self.items:
@@ -214,8 +217,6 @@ class Dist:
         for name, p in QUANTILES:
             out[name] = r3(quantile(values, p))
         out["mean"] = r3(sum(values) / len(values))
-        if list_values and len(values) < LIST_LAGS_BELOW:
-            out["values"] = [r3(v) for v in values]
         if by_state and len({s for _, _, s in self.items}) > 1:
             groups: dict[str, list[float]] = {}
             for v, _, s in self.items:
@@ -623,29 +624,28 @@ class Car:
     def agreement_lag(self, key: str, samples: list[tuple[float, float]]) -> dict[str, Any]:
         """The constant lag at which the most cloud values equal the car's fresh value ``lag`` seconds earlier.
 
-        A cloud value can only look stale between car value changes, so the per-sample lag
-        is a lower bound; this fit uses every sample. When lag 0 agrees as well as the best
-        candidate, the best lag is 0 (no evidence of lag). Otherwise it is the middle of the
-        first contiguous block of tied candidates; ``tied_blocks`` > 1 means the fit is
-        ambiguous. A candidate needs at least SPEED_LAG_MIN_N_SHARE of the largest n.
+        Every candidate is scored on one common cohort: the samples with a fresh car value at
+        every candidate lag (samples missing a value at any candidate are excluded and counted),
+        so a candidate cannot look better by dropping disagreeing samples. When lag 0 agrees as
+        well as the best candidate the best lag is 0 (no evidence of lag); otherwise it is the
+        middle of the first contiguous block of tied candidates. ``determined`` needs one block
+        no wider than VALUE_LAG_MAX_TIED_SPAN_S that does not start at 0 or is that narrow.
         """
-        curve = []
-        for lag in VALUE_LAGS_S:
-            n = agree = 0
-            for t, v in samples:
-                c = self.value(key, t - lag)
-                if isnum(c):
-                    n += 1
-                    agree += c == v
-            curve.append((lag, n, agree))
-        most = max((n for _, n, _ in curve), default=0)
-        eligible = [(lag, n, a) for lag, n, a in curve if n and n >= SPEED_LAG_MIN_N_SHARE * most]
-        out: dict[str, Any] = {"n_samples": len(samples), "best_lag_s": None, "agreement_at_best": None,
-                               "tied_lags_s": None, "tied_blocks": 0, "determined": False,
-                               "agreement_at_lag0": share(curve[0][2], curve[0][1])}
-        if eligible:
-            top = max(a / n for _, n, a in eligible)
-            tied = [lag for lag, n, a in eligible if a / n == top]
+        cohort: list[tuple[float, float, list[Any]]] = []
+        for t, v in samples:
+            values = [self.value(key, t - lag) for lag in VALUE_LAGS_S]
+            if all(isnum(c) for c in values):
+                cohort.append((t, v, values))
+        n = len(cohort)
+        curve = [{"lag_s": lag, "matched": sum(1 for _, v, vals in cohort if vals[k] == v)}
+                 for k, lag in enumerate(VALUE_LAGS_S)]
+        out: dict[str, Any] = {"n_samples": len(samples), "cohort_n": n, "excluded_missing_car_value": len(samples) - n,
+                               "best_lag_s": None, "agreement_at_best": None, "tied_lags_s": None, "tied_blocks": 0,
+                               "determined": False, "agreement_at_lag0": share(curve[0]["matched"], n),
+                               "matched_by_lag": curve if n else []}
+        if n:
+            top = max(c["matched"] for c in curve)
+            tied = [c["lag_s"] for c in curve if c["matched"] == top]
             step = VALUE_LAGS_S[1] - VALUE_LAGS_S[0]
             blocks = [[tied[0]]]
             for lag in tied[1:]:
@@ -655,7 +655,7 @@ class Car:
                     blocks.append([lag])
             first = blocks[0]
             best = 0 if first[0] == 0 else first[len(first) // 2]
-            out.update(best_lag_s=best, agreement_at_best=r3(top), tied_lags_s=[first[0], first[-1]],
+            out.update(best_lag_s=best, agreement_at_best=share(top, n), tied_lags_s=[first[0], first[-1]],
                        tied_blocks=len(blocks),
                        determined=len(blocks) == 1 and first[-1] - first[0] <= VALUE_LAG_MAX_TIED_SPAN_S)
         return out
@@ -830,7 +830,8 @@ class Analysis:
     def _soc_one(self, ch: str, key: str, keep: Any) -> dict[str, Any]:
         car = self.car
         diff, lag, upper = Dist(), Dist(), Dist()
-        agree = Tally()
+        rule_hits: Counter[str] = Counter()
+        pair_units: list[tuple[float, str]] = []
         changing: list[tuple[float, float]] = []
         decimals = present = no_car = unmatched = 0
         for row in self.rows_of(ch):
@@ -847,9 +848,10 @@ class Analysis:
                 no_car += 1
                 continue
             diff.add(v - c, t, snap.state)
-            agree.add("round_half_up", "agree" if math.floor(v + 0.5) == c else "differ", t, snap.state)
-            agree.add("floor", "agree" if math.floor(v) == c else "differ", t, snap.state)
-            agree.add("exact", "agree" if v == c else "differ", t, snap.state)
+            pair_units.append((t, snap.state))
+            rule_hits["round_half_up"] += math.floor(v + 0.5) == c
+            rule_hits["floor"] += math.floor(v) == c
+            rule_hits["exact"] += v == c
             if snap.state in ("driving", "charging"):
                 whole = math.floor(v + 0.5)
                 changing.append((t, whole))
@@ -864,8 +866,10 @@ class Analysis:
         best.update(_units([(t, car.state(t)) for t, _ in changing]))
         return {"cloud_values": present, "with_decimals": decimals, "no_fresh_car_value": no_car,
                 "diff_cloud_minus_car": diff.summary(),
-                "agreement_by_rounding_rule": agree.summary(),
-                "better_rounding_rule": _better_rule(agree),
+                "rounding_rules": {"pairs": len(pair_units), **_units(pair_units),
+                                   "rule_evaluations_agreeing": {k: rule_hits[k] for k in
+                                                                 ("round_half_up", "floor", "exact")}},
+                "better_rounding_rule": _better_rule(rule_hits, len(pair_units)),
                 "lag_s_while_changing": lag.summary(), "lag_upper_s_while_changing": upper.summary(),
                 "lag_negative_share": share(negative, len(lag)), "lag_unmatched": unmatched,
                 "best_fit_lag_while_changing": best}
@@ -938,19 +942,22 @@ class Analysis:
                     vs_fix.add(v - f, t, snap.state)
                 if snap.state == "driving":
                     driving.append((t, v))
-            curve = []
-            for lag in SPEED_LAGS_S:
-                errors = [abs(v - c) for t, v in driving
-                          if isnum(c := car.value("speed_kph", t - lag, interpolate=True))]
-                mae = r3(sum(errors) / len(errors)) if errors else None
-                curve.append({"lag_s": lag, "n": len(errors), "mae_kph": mae})
-            most = max((p["n"] for p in curve), default=0)
-            eligible = [p for p in curve if p["n"] and p["n"] >= SPEED_LAG_MIN_N_SHARE * most]
-            best = min(eligible, key=lambda p: (p["mae_kph"], p["lag_s"])) if eligible else None
+            # One common cohort: driving samples with a car speed at every candidate lag.
+            cohort = []
+            for t, v in driving:
+                speeds = [car.value("speed_kph", t - lag, interpolate=True) for lag in SPEED_LAGS_S]
+                if all(isnum(c) for c in speeds):
+                    cohort.append((v, speeds))
+            raw = [(lag, sum(abs(v - sp[k]) for v, sp in cohort) / len(cohort)) if cohort else (lag, None)
+                   for k, lag in enumerate(SPEED_LAGS_S)]
+            curve = [{"lag_s": lag, "n": len(cohort), "mae_kph": None if mae is None else r3(mae)} for lag, mae in raw]
+            best_raw = min((x for x in raw if x[1] is not None), key=lambda x: (x[1], x[0]), default=None)
+            best = None if best_raw is None else {"lag_s": best_raw[0], "mae_kph": r3(best_raw[1]), "n": len(cohort)}
             units = _units([(t, "driving") for t, _ in driving])
             out[ch] = {"diff_cloud_minus_car_speed_kph": vs_car.summary(),
                        "diff_cloud_minus_car_gps_speed_kph": vs_fix.summary(),
-                       "best_lag": {"n_driving_samples": len(driving), **units,
+                       "best_lag": {"n_driving_samples": len(driving), **units, "cohort_n": len(cohort),
+                                    "excluded_missing_car_value": len(driving) - len(cohort),
                                     "states": {"driving": len(driving)} if driving else {},
                                     "best_lag_s": best["lag_s"] if best else None,
                                     "mae_at_best_kph": best["mae_kph"] if best else None,
@@ -1159,32 +1166,23 @@ class Analysis:
             if kind == "charge":
                 # vehicleInfo charge_power_kw > 0 shown as charging, 0 as not; null says nothing.
                 groups["push_vehicleInfo_power"] = (self.rows_of("mqtt:vehicleInfo"), power_shown)
-            events: list[tuple[float, bool]] = []
-            across_gap = 0
-            prev_value = None
-            prev_row = None
-            for row in rows:
-                value = getattr(car.snapshot(row["t"]), attr)
-                if value is None:
-                    continue
-                if prev_value is not None and value != prev_value:
-                    if row["t"] - prev_row["t"] <= car.fresh(prev_row):
-                        events.append((row["t"], value))
-                    else:
-                        across_gap += 1
-                prev_value, prev_row = value, row
+            reversals = self._reversals(lambda t, a=attr: getattr(car.snapshot(t), a))
             for name, new in ((up, True), (down, False)):
-                times = [(t, i) for i, (t, v) in enumerate(events) if v is new]
+                times = [(r[0], i) for i, r in enumerate(reversals) if r[1] is new and r[2]]
+                uncertain = sum(1 for r in reversals if r[1] is new and not r[2])
                 result: dict[str, Any] = {"car_transitions": len(times),
-                                          "transitions_across_a_gap_not_measured": across_gap}
+                                          "time_uncertain_across_a_gap_not_measured": uncertain}
                 for gname, (crow, shows) in groups.items():
                     delay = Dist()
                     categories: dict[str, Counter[str]] = {c: Counter() for c in TRANSITION_CATEGORIES}
+                    censored: Counter[str] = Counter()
                     stale_seen = 0
                     ctimes = [r["t"] for r in crow]
                     for tc, i in times:
-                        tn = events[i + 1][0] if i + 1 < len(events) else math.inf
+                        tn, why = self._window_end(reversals, i)
                         window = crow[bisect.bisect_left(ctimes, tc):bisect.bisect_left(ctimes, tn)]
+                        if not window:
+                            censored[why] += 1
                         labels = {awake(r) for r in window}
                         category = ("no_rows" if not window else "any_awake" if "awake" in labels
                                     else "only_asleep" if labels == {"asleep"} else "no_awake_flag")
@@ -1204,10 +1202,88 @@ class Analysis:
                     result[gname] = {"categories": {c: {"events": sum(v.values()), "shown": v["shown"],
                                                         "not_shown": v["not_shown"]}
                                                     for c, v in categories.items()},
+                                     "right_censored_no_row_before_window_closed": dict(sorted(censored.items())),
                                      "shown": len(delay), "old_state_shown_after_transition": stale_seen,
-                                     "delay_s": delay.summary(by_state=False, list_values=True)}
+                                     "delay_s": delay.summary(by_state=False)}
                 out[name] = result
         return out
+
+    def _reversals(self, value_at: Any) -> list[tuple[float, bool, bool]]:
+        """Every observed change of a derived car flag, in time order: (time, new value, timed).
+
+        A change between consecutive fresh rows is timed at the first row showing the new value.
+        A change across a stale gap is time-uncertain: it is placed at the last row still showing
+        the old value (the earliest moment it can have happened), so it closes the window of the
+        transition before it, and it is never measured itself."""
+        car = self.car
+        out: list[tuple[float, bool, bool]] = []
+        prev_value = None
+        prev_row = None
+        for row in car.rows:
+            value = value_at(row["t"])
+            if value is None:
+                continue
+            if prev_value is not None and value != prev_value:
+                timed = row["t"] - prev_row["t"] <= car.fresh(prev_row)
+                out.append((row["t"] if timed else prev_row["t"], value, timed))
+            prev_value, prev_row = value, row
+        return out
+
+    def _window_end(self, reversals: list[tuple[float, Any, bool]], i: int) -> tuple[float, str]:
+        """When the response window of reversal i closes, and why."""
+        if i + 1 < len(reversals):
+            return reversals[i + 1][0], "next_reversal" if reversals[i + 1][2] else "next_reversal_time_uncertain"
+        rows = self.car.rows
+        return rows[-1]["t"] + self.car.fresh(rows[-1]), "end_of_observation"
+
+    def freeze_and_stale(self) -> dict[str, Any]:
+        """SoC freeze across adjacent asleep polls, and the connected flag after an unplug."""
+        car = self.car
+        plug_rev = self._reversals(lambda t: car.snapshot(t).plugged)
+        rev_times = [r[0] for r in plug_rev]
+
+        def episode(t: float) -> int:
+            return bisect.bisect_right(rev_times, t)
+
+        polls = self.rows_of("poll:ok")
+        same = Tally()
+        for a, b in zip(polls, polls[1:]):
+            if awake(a) != "asleep" or awake(b) != "asleep":
+                continue
+            if car.snapshot(a["t"]).plugged is not True or car.snapshot(b["t"]).plugged is not True:
+                continue
+            if episode(a["t"]) != episode(b["t"]):
+                continue
+            va, vb = cloud_get(a, "soc"), cloud_get(b, "soc")
+            if isnum(va) and isnum(vb):
+                same.add("changed" if va != vb else "unchanged", "pairs", b["t"], car.state(b["t"]))
+        filtered = [r for r in polls if awake(r) == "asleep" and car.snapshot(r["t"]).plugged is True]
+        first = Tally()
+        for a, b in zip(filtered, filtered[1:]):
+            va, vb = cloud_get(a, "soc"), cloud_get(b, "soc")
+            if isnum(va) and isnum(vb):
+                first.add("changed" if va != vb else "unchanged", "pairs", b["t"], car.state(b["t"]))
+        unplugs = [r[0] for r in plug_rev if r[1] is False]
+        stale = {w: Dist() for w in AWAKE_LABELS}
+        no_unplug_seen = Counter()
+        for r in polls:
+            t = r["t"]
+            if cloud_get(r, "charging.is_connected") is not True or car.snapshot(t).plugged is not False:
+                continue
+            k = bisect.bisect_right(unplugs, t) - 1
+            if k < 0:
+                no_unplug_seen[awake(r)] += 1
+            else:
+                stale[awake(r)].add((t - unplugs[k]) / 3600, t, car.state(t))
+        return {"soc_freeze_adjacent_asleep_polls_same_observed_plug_episode": same.summary(),
+                "soc_freeze_filter_first_asleep_plugged_polls": first.summary(),
+                "connected_true_while_car_unplugged_hours_since_last_observed_unplug": {
+                    w: d.summary() for w, d in stale.items() if len(d)},
+                "connected_true_while_car_unplugged_no_unplug_observed": dict(sorted(no_unplug_seen.items())),
+                "note": ("adjacent = consecutive poll:ok rows, both asleep, both with the car plugged in and no "
+                         "observed plug change between them; filter-first = asleep polls with the car plugged in, "
+                         "paired with the next such poll. Hours are since the last observed unplug; continuity "
+                         "(that the car stayed unplugged throughout) is not established.")}
 
     # b-e -----------------------------------------------------------------------------------------
     def car_events(self) -> dict[str, list[float]]:
@@ -1270,7 +1346,7 @@ class Analysis:
                     else:
                         delay.add(d, t, car.state(t))
                 per[target] = {"none_within_window": none,
-                               "delay_s": delay.summary(by_state=False, list_values=True)}
+                               "delay_s": delay.summary(by_state=False)}
             after[name] = per
         parked_off: Counter[str] = Counter()
         carried: Counter[str] = Counter()
@@ -1302,7 +1378,12 @@ class Analysis:
         for ch in ("mqtt:vehicleInfo", "mqtt:remoteControl"):
             for row in self.rows_of(ch):
                 periods.add(ch, self.period(row["t"]), row["t"], car.state(row["t"]))
-        return {"first_cloud_row_after_car_event": after,
+        lo = car.times[0] if car.times else math.inf
+        hi = car.times[-1] if car.times else -math.inf
+        overlap = {ch: sum(1 for r in self.rows_of(ch) if lo <= r["t"] <= hi)
+                   for ch in ("mqtt:vehicleInfo", "mqtt:remoteControl", "mqtt:smartCharge", "mqtt:energyConsumption")}
+        return {"pushes_in_car_observation_window": overlap,
+                "first_cloud_row_after_car_event": after,
                 "pushes_x_car_state": by_state.summary(),
                 "vehicleInfo_while_car_off_not_moving_by_state": dict(sorted(parked_off.items())),
                 "vehicleInfo_while_car_off_keys_with_values": dict(sorted(carried.items())),
@@ -1371,51 +1452,64 @@ class Analysis:
 
     def online_latency(self) -> dict[str, Any]:
         """How soon after car power off / on the cloud says asleep / online, and for how long
-        after power off the cloud still says online."""
+        after power off the cloud still says online. Each response window closes at the next
+        observed power change, including one seen across a gap (time-uncertain, not measured)."""
         car = self.car
-        events = self.car_events()
-        power_events = sorted([(t, "off") for t in events["power_off"]] + [(t, "on") for t in events["power_on"]])
-        ptimes = [t for t, _ in power_events]
+
+        def powered(t: float) -> bool | None:
+            loc = car.locate(t)
+            if loc is None or loc[1]:
+                return None
+            level = car.rows[loc[0]].get("power_level")
+            return True if level in POWER_ON_LABELS else False if level == "off" else None
+
+        reversals = self._reversals(powered)
+        timed = [(r[0], "on" if r[1] else "off", i) for i, r in enumerate(reversals) if r[2]]
+        offs = [t for t, kind, _ in timed if kind == "off"]
         checks = {"asleep_true_after_power_off": ("off", "asleep", True),
                   "online_false_after_power_off": ("off", "online", False),
                   "online_true_after_power_on": ("on", "online", True),
                   "asleep_false_after_power_on": ("on", "asleep", False)}
-        out: dict[str, Any] = {}
+        out: dict[str, Any] = {"time_uncertain_power_changes_across_a_gap": sum(1 for r in reversals if not r[2])}
         for ch in ("poll:ok", "mqtt:vehicleInfo"):
             rows = self.rows_of(ch)
             rtimes = [r["t"] for r in rows]
             res: dict[str, Any] = {}
             for name, (kind, field, want) in checks.items():
                 delay = Dist()
-                never = 0
-                for k, (t0, ev) in enumerate(power_events):
+                not_shown = 0
+                censored: Counter[str] = Counter()
+                for t0, ev, i in timed:
                     if ev != kind:
                         continue
-                    t_end = power_events[k + 1][0] if k + 1 < len(power_events) else math.inf
-                    hit = None
-                    for j in range(bisect.bisect_left(rtimes, t0), len(rows)):
-                        if rtimes[j] >= t_end:
-                            break
-                        if cloud_get(rows[j], field) is want:
-                            hit = rtimes[j] - t0
-                            break
+                    t_end, why = self._window_end(reversals, i)
+                    window = rows[bisect.bisect_left(rtimes, t0):bisect.bisect_left(rtimes, t_end)]
+                    if not window:
+                        censored[why] += 1
+                        continue
+                    hit = next((r["t"] - t0 for r in window if cloud_get(r, field) is want), None)
                     if hit is None:
-                        never += 1
+                        not_shown += 1
                     else:
                         delay.add(hit, t0, car.state(t0))
-                res[name] = {"car_events": sum(1 for _, e in power_events if e == kind),
-                             "not_shown_before_next_power_change": never,
-                             "delay_s": delay.summary(by_state=False, list_values=True)}
+                res[name] = {"car_events": sum(1 for _, e, _ in timed if e == kind),
+                             "right_censored_no_row_before_window_closed": dict(sorted(censored.items())),
+                             "rows_in_window_but_not_shown": not_shown,
+                             "delay_s": delay.summary(by_state=False)}
             since = {"online_true": Dist(), "online_false": Dist()}
             for r in rows:
                 t = r["t"]
                 snap = car.snapshot(t)
-                k = bisect.bisect_right(ptimes, t) - 1
-                if snap.power != "off" or snap.moving or k < 0 or power_events[k][1] != "off":
+                k = bisect.bisect_right(offs, t) - 1
+                if snap.power != "off" or snap.moving or k < 0:
+                    continue
+                # No observed power change (timed or not) between that power-off and t.
+                later = [x for x in reversals if offs[k] < x[0] <= t]
+                if later:
                     continue
                 online = cloud_get(r, "online")
                 if type(online) is bool:
-                    since["online_true" if online else "online_false"].add((t - ptimes[k]) / 3600, t, snap.state)
+                    since["online_true" if online else "online_false"].add((t - offs[k]) / 3600, t, snap.state)
             res["hours_since_car_power_off_when_cloud_says"] = {k: d.summary() for k, d in since.items()}
             out[ch] = res
         return out
@@ -1593,17 +1687,38 @@ class Analysis:
         out["parked_zero_m_share_side_by_side"] = {
             k: share(out[k]["parked_zero_m"]["count"], out[k]["parked_zero_m"]["n"])
             for k in ("poll:ok gps_fresh true", "poll:ok gps_fresh false")}
-        out["note"] = ("gps_fresh true only says this fetch mapped a GPS object; the data cannot tell BYD's own "
-                       "fix from a restored or car-app-fed position, so a 0 m parked distance is not evidence "
-                       "that BYD's position is right.")
+        out["note"] = ("gps_last_dist_m is agreement with an earlier car fix, not position accuracy. gps_fresh "
+                       "true only says this fetch mapped a GPS object; the data cannot tell BYD's own fix from a "
+                       "restored or car-app-fed position, so a 0 m parked distance is not evidence that BYD's "
+                       "position is right.")
         return out
 
     # 10 ------------------------------------------------------------------------------------------
     def energy(self) -> dict[str, Any]:
         car, rows = self.car, self.car.rows
-        both = [i for i in car.odo_idx if isnum(rows[i].get("lifetime_kwh"))]
+        candidates = [i for i in car.odo_idx if isnum(rows[i].get("lifetime_kwh"))]
+        # A reading below the running maximum whose next readings recover is out of order (a resend
+        # or late row): it is dropped and counted. A backward step that persists starts a new
+        # monotonic segment; a 50 km window that would cross it is skipped and counted.
+        both: list[int] = []
+        out_of_order = backward_steps = 0
+        running = -math.inf
+        for k, i in enumerate(candidates):
+            odo = rows[i]["odometer_km"]
+            if odo < running:
+                ahead = [rows[x]["odometer_km"] for x in candidates[k + 1:k + 1 + ODO_RECOVERY_READINGS]]
+                if any(v >= running for v in ahead):
+                    out_of_order += 1
+                    continue
+                backward_steps += 1
+                running = odo
+            both.append(i)
+            running = max(running, odo)
         both_t = [rows[i]["t"] for i in both]
         odos = [rows[i]["odometer_km"] for i in both]
+        seg_start = [0] * len(odos)
+        for k in range(1, len(odos)):
+            seg_start[k] = k if odos[k] < odos[k - 1] else seg_start[k - 1]
         # Cumulative remaining_kwh drop over consecutive moving rows (signed, so regen counts).
         drop = [0.0] * len(rows)
         for i in range(1, len(rows)):
@@ -1616,9 +1731,8 @@ class Analysis:
         out: dict[str, Any] = {}
         for ch in CHANNELS:
             ratio, diff, ratio_rem, diff_rem, car_age = Dist(), Dist(), Dist(), Dist(), Dist()
-            per_value: dict[float, list[float]] = {}
-            per_value_rem: dict[float, list[float]] = {}
-            present = no_window = 0
+            windows: dict[float, list[tuple[float, float, float | None]]] = {}
+            present = no_window = crosses_backward = 0
             for row in self.rows_of(ch):
                 v = cloud_get(row, "last50km_energy_kwh")
                 if not isnum(v):
@@ -1631,11 +1745,15 @@ class Analysis:
                     continue
                 now = rows[both[j]]
                 target = now["odometer_km"] - ENERGY_WINDOW_KM
-                k = bisect.bisect_left(odos, target, 0, j + 1)
-                best = min((c for c in (k - 1, k) if 0 <= c <= j), key=lambda c: (abs(odos[c] - target), -c),
+                lo = seg_start[j]
+                k = bisect.bisect_left(odos, target, lo, j + 1)
+                best = min((c for c in (k - 1, k) if lo <= c <= j), key=lambda c: (abs(odos[c] - target), -c),
                            default=None)
                 if best is None or abs(odos[best] - target) > ENERGY_ODO_TOL_KM:
-                    no_window += 1
+                    if lo > 0 and odos[lo] > target + ENERGY_ODO_TOL_KM:
+                        crosses_backward += 1
+                    else:
+                        no_window += 1
                     continue
                 then = rows[both[best]]
                 state = car.state(t)
@@ -1644,15 +1762,14 @@ class Analysis:
                 diff.add(v - used, t, state)
                 if used > 0:
                     ratio.add(v / used, t, state)
-                    per_value.setdefault(v, []).append(v / used)
                 rem = drop[both[j]] - drop[both[best]]
                 diff_rem.add(v - rem, t, state)
-                if rem > 0:
-                    ratio_rem.add(v / rem, t, state)
-                    per_value_rem.setdefault(v, []).append(v / rem)
+                windows.setdefault(now["odometer_km"], []).append(
+                    (t - now["t"], v / used if used > 0 else None, v / rem if rem > 0 else None))
             out[ch] = {"cloud_values": present, "no_car_50km_window": no_window,
-                       "per_distinct_cloud_value": {"vs_lifetime_kwh": _per_value(per_value),
-                                                    "vs_remaining_kwh_drop": _per_value(per_value_rem)},
+                       "windows_crossing_a_backward_odometer_step": crosses_backward,
+                       "per_50km_window": {"all_endpoints": _per_window(windows, math.inf),
+                                           "endpoint_age_le_10_min": _per_window(windows, ENDPOINT_FRESH_S)},
                        "vs_lifetime_kwh": {"ratio_cloud_over_car": ratio.summary(),
                                            "diff_cloud_minus_car_kwh": diff.summary()},
                        "vs_remaining_kwh_drop_while_driving": {"ratio_cloud_over_car": ratio_rem.summary(),
@@ -1681,6 +1798,8 @@ class Analysis:
                           "sum_within_tolerance_of_100_share": share(near, len(sums)),
                           "ranges": {k: d.summary(by_state=False) for k, d in per.items()}}
         out["energy_distribution"] = shares
+        out["odometer_backward_steps_persistent"] = backward_steps
+        out["odometer_readings_out_of_order_dropped"] = out_of_order
         out["note"] = (f"car energy over the last {ENERGY_WINDOW_KM:g} km = lifetime_kwh at the newest car reading "
                        f"at or before the cloud row minus lifetime_kwh at the reading whose odometer is nearest "
                        f"{ENERGY_WINDOW_KM:g} km lower (tolerance {ENERGY_ODO_TOL_KM:g} km); remaining_kwh drop sums "
@@ -1796,14 +1915,14 @@ class Analysis:
             "constants": {"fresh_s": {label(k) if k else "none": v for k, v in FRESH_S.items()},
                           "dup_window_s": DUP_WINDOW_S, "driving_min_kph": DRIVING_MIN_KPH,
                           "speed_lags_s": [SPEED_LAGS_S[0], SPEED_LAGS_S[-1], SPEED_LAGS_S[1] - SPEED_LAGS_S[0]],
-                          "speed_lag_min_n_share": SPEED_LAG_MIN_N_SHARE, "fix_max_age_s": FIX_MAX_AGE_S,
+"fix_max_age_s": FIX_MAX_AGE_S,
                           "speed_cmp_min_kph": SPEED_CMP_MIN_KPH, "value_lag_window_s": VALUE_LAG_WINDOW_S,
                           "value_lags_s": [VALUE_LAGS_S[0], VALUE_LAGS_S[-1], VALUE_LAGS_S[1] - VALUE_LAGS_S[0]],
                           "value_lag_max_tied_span_s": VALUE_LAG_MAX_TIED_SPAN_S,
                           "power_abs_tol_kw": POWER_ABS_TOL_KW, "power_rel_tol": POWER_REL_TOL,
                           "gps_lag_min_kph": GPS_LAG_MIN_KPH, "energy_window_km": ENERGY_WINDOW_KM,
                           "energy_odo_tol_km": ENERGY_ODO_TOL_KM, "energy_share_tol": ENERGY_SHARE_TOL,
-                          "list_lags_below": LIST_LAGS_BELOW,
+
                           "event_response_window_s": EVENT_RESPONSE_WINDOW_S,
                           "contamination_push_max_age_s": CONTAMINATION_PUSH_MAX_AGE_S,
                           "inferred_gap_rule": "power off on both sides, same SoC, same plug codes, same odometer"},
@@ -1823,28 +1942,39 @@ class Analysis:
             "polls": self.polls(),
             "online_latency": self.online_latency(),
             "poll_contamination": self.contamination(),
+            "freeze_and_stale": self.freeze_and_stale(),
         }
         results["limits"] = self.limits(inventory["car_keys"], inventory["cloud_keys"])
         return results
 
 
-def _per_value(groups: dict[float, list[float]]) -> dict[str, Any]:
-    """Pairs and median ratio per distinct cloud value (values not shown), and the median of those ratios."""
-    rows = sorted(({"pairs": len(r), "ratio": r3(quantile(sorted(r), 0.5))} for r in groups.values()),
-                  key=lambda x: (x["ratio"], x["pairs"]))
-    ratios = sorted(x["ratio"] for x in rows)
-    return {"distinct_values": len(rows), "per_value": rows,
-            "median_of_per_value_ratios": r3(quantile(ratios, 0.5)) if ratios else None}
+def _per_window(windows: dict[float, list[tuple[float, float | None, float | None]]],
+                max_age: float) -> dict[str, Any]:
+    """Ratios per distinct 50 km window (keyed by its ending odometer, not shown): the median ratio
+    of the polls in each window whose car endpoint is at most max_age old, and the median of those."""
+    rows = []
+    for polls in windows.values():
+        keep = [x for x in polls if x[0] <= max_age]
+        life = sorted(x[1] for x in keep if x[1] is not None)
+        rem = sorted(x[2] for x in keep if x[2] is not None)
+        if keep:
+            rows.append({"polls": len(keep), "ratio_lifetime": r3(quantile(life, 0.5)) if life else None,
+                         "ratio_remaining_drop": r3(quantile(rem, 0.5)) if rem else None})
+    rows.sort(key=lambda x: (x["ratio_lifetime"] is None, x["ratio_lifetime"] or 0, x["polls"]))
+    life = sorted(x["ratio_lifetime"] for x in rows if x["ratio_lifetime"] is not None)
+    rem = sorted(x["ratio_remaining_drop"] for x in rows if x["ratio_remaining_drop"] is not None)
+    return {"windows": len(rows), "per_window": rows,
+            "median_of_window_ratios_lifetime": r3(quantile(life, 0.5)) if life else None,
+            "median_of_window_ratios_remaining_drop": r3(quantile(rem, 0.5)) if rem else None}
 
 
-def _better_rule(agree: Tally) -> str | None:
-    """Which of round-half-up and floor matches the car more often (None without samples or on a tie)."""
-    up, down = agree.count(["round_half_up"], ["agree"]), agree.count(["floor"], ["agree"])
-    if not agree.cells or up == down:
-        if not agree.cells:
-            return None
-        exact = agree.count(["exact"], ["agree"])
-        return "tie (cloud values are whole numbers)" if exact == up else "tie"
+def _better_rule(hits: Counter[str], pairs: int) -> str | None:
+    """Which of round-half-up and floor matches the car more often (None without pairs)."""
+    if not pairs:
+        return None
+    up, down = hits["round_half_up"], hits["floor"]
+    if up == down:
+        return "tie (cloud values are whole numbers)" if hits["exact"] == up else "tie"
     return "round_half_up" if up > down else "floor"
 
 
@@ -1879,8 +2009,6 @@ def md_dists(title: str, items: dict[str, dict[str, Any]]) -> list[str]:
             continue
         q = " | ".join(_cell(s.get(k)) for k in ("min", "p5", "p25", "median", "p75", "p95", "max", "mean"))
         lines.append(f"| {name} | {s['n']} | {_units_text(s)} | {_states_text(s['states'])} | {q} |")
-        if "values" in s:
-            lines.append(f"| - values | {', '.join(str(v) for v in s['values'])} | | | | | | | | | | |")
         for state, b in s.get("by_state", {}).items():
             lines.append(f"| - {state} | {b['n']} | | | | {b['p5']} | | {b['median']} | | {b['p95']} | | "
                          f"{b['mean']} |")
@@ -1953,7 +2081,10 @@ def render(results: dict[str, Any]) -> str:
                                   "lag (s), car driving or charging": s["lag_s_while_changing"],
                                   "lag upper bound (s)": s["lag_upper_s_while_changing"]})
         lines += md_kv("Best-fit constant lag while driving or charging", s["best_fit_lag_while_changing"])
-        lines += md_tally("Agreement with the car by rounding rule", s["agreement_by_rounding_rule"])
+        rr = s["rounding_rules"]
+        lines += [f"**Rounding rules**: {rr['pairs']} pairs (days / clusters / drives = {_units_text(rr)}); "
+                  "rule evaluations agreeing with the car: "
+                  + ", ".join(f"{k} {v} of {rr['pairs']}" for k, v in rr["rule_evaluations_agreeing"].items()), ""]
         lines += md_kv("Better rounding rule", {"rule": s["better_rounding_rule"]})
     lines += ["## 3. Odometer", "", results["odometer"]["note"], ""]
     for name, s in results["odometer"].items():
@@ -2012,16 +2143,17 @@ def render(results: dict[str, Any]) -> str:
     for name, s in results["plug_charging"]["transitions"].items():
         if name == "cloud_rows":
             continue
-        lines += [f"**{name}**: car transitions {s['car_transitions']}, across a gap (not measured) "
-                  f"{s['transitions_across_a_gap_not_measured']}", ""]
+        lines += [f"**{name}**: car transitions {s['car_transitions']}, time-uncertain across a gap (not "
+                  f"measured, but they close windows) {s['time_uncertain_across_a_gap_not_measured']}", ""]
         for g_name in ("poll", "push", "push_vehicleInfo_power"):
             if g_name not in s:
                 continue
             gs = s[g_name]
             cats = "; ".join(f"{c}: {v['events']} events ({v['shown']} shown, {v['not_shown']} not)"
                              for c, v in gs["categories"].items())
-            lines += [f"- {g_name}: {cats}; old state shown after the transition "
-                      f"{gs['old_state_shown_after_transition']}", ""]
+            lines += [f"- {g_name}: {cats}; right-censored (no row before the window closed), by what closed "
+                      f"it: {gs['right_censored_no_row_before_window_closed'] or 'none'}; old state shown after "
+                      f"the transition {gs['old_state_shown_after_transition']}", ""]
             lines += md_dists(f"{name} {g_name} delay (s)", {"delay": gs["delay_s"]})
     lines += ["## 7. Charge power", ""]
     for ch, s in results["charge_power"].items():
@@ -2048,7 +2180,7 @@ def render(results: dict[str, Any]) -> str:
             items[f"{k} [{wake}]"] = d
     lines += md_dists("cloud - car charge_remaining_min (min)", items)
     lines += ["## 9. Position", "", results["position"]["note"], ""]
-    lines += md_kv("Parked 0 m share (gps_last_dist_m == 0), side by side",
+    lines += md_kv("Agreement with an earlier car fix: share at 0 m while parked, side by side",
                    results["position"]["parked_zero_m_share_side_by_side"])
     for name, s in results["position"].items():
         if name in ("note", "parked_zero_m_share_side_by_side"):
@@ -2059,8 +2191,9 @@ def render(results: dict[str, Any]) -> str:
                                         "gps_dist_m, car moving": s["gps_dist_m_car_moving"],
                                         "gps_dist_m, car speed unknown": s["gps_dist_m_car_speed_unknown"],
                                         "implied lag (s), moving": s["implied_lag_s_moving"],
-                                        "parked: gps_last_dist_m": s["parked_gps_last_dist_m"],
-                                        "parked: gps_last_age_s (h)": s["parked_gps_last_age_h"]})
+                                        "agreement with an earlier car fix (gps_last_dist_m, m), parked":
+                                            s["parked_gps_last_dist_m"],
+                                        "age of that earlier car fix (h)": s["parked_gps_last_age_h"]})
         lines += md_tally("gps_step_m zero or positive x car state", s["gps_step_x_car_state"])
         lines += md_kv("gps_step_m == 0 share", {"share": s["gps_step_zero_share"]})
     lines += ["## 10. Energy", "", results["energy"]["note"], ""]
@@ -2074,10 +2207,18 @@ def render(results: dict[str, Any]) -> str:
             "cloud / car remaining_kwh drop": s["vs_remaining_kwh_drop_while_driving"]["ratio_cloud_over_car"],
             "cloud - car remaining_kwh drop": s["vs_remaining_kwh_drop_while_driving"]["diff_cloud_minus_car_kwh"],
             "age of the car reading (s)": s["car_reading_age_s"]})
-        for basis, pv in s["per_distinct_cloud_value"].items():
-            lines += [f"Per distinct cloud value ({basis}): {pv['distinct_values']} values, median of per-value "
-                      f"ratios {_cell(pv['median_of_per_value_ratios'])}; (pairs, ratio): "
-                      + (", ".join(f"({x['pairs']}, {x['ratio']})" for x in pv["per_value"]) or "none"), ""]
+        en = results["energy"]
+        lines += [f"Odometer readings out of order (dropped): {en['odometer_readings_out_of_order_dropped']}; "
+                  f"persistent backward steps: {en['odometer_backward_steps_persistent']}", ""]
+        lines += [f"Windows crossing a backward odometer step (skipped): "
+                  f"{s['windows_crossing_a_backward_odometer_step']}", ""]
+        for basis, pw in s["per_50km_window"].items():
+            lines += [f"Per 50 km window ({basis}): {pw['windows']} windows; median of window ratios: lifetime "
+                      f"{_cell(pw['median_of_window_ratios_lifetime'])}, remaining drop "
+                      f"{_cell(pw['median_of_window_ratios_remaining_drop'])}; (polls, lifetime ratio, remaining "
+                      "ratio): " + (", ".join(f"({x['polls']}, {_cell(x['ratio_lifetime'])}, "
+                                              f"{_cell(x['ratio_remaining_drop'])})" for x in pw["per_window"])
+                                    or "none"), ""]
         e = results["energy"]["energy_distribution"][ch]
         lines += [f"energy_distribution: objects {e['objects']}, null {e['null']}, "
                   f"sum within tolerance of 100: {_cell(e['sum_within_tolerance_of_100_share'])}", ""]
@@ -2118,7 +2259,20 @@ def render_regime(results: dict[str, Any]) -> list[str]:
     lines += [f"| {b['bin']} | {b['poll_ok']} | {_cell(b['asleep_share'])} | {_cell(b['vehicle_unreachable_share'])} |"
               for b in po["half_day_bins_from_registration"]] + [""]
     lines += md_tally("Pushes x period", results["pushes"]["pushes_x_period"])
+    lines += md_kv("Pushes inside the car observation window (first to last car row)",
+                   results["pushes"]["pushes_in_car_observation_window"])
     lines += md_tally("Poll rows kind:detail x period", po["poll_rows_kind_detail_x_period"])
+    fs = results["freeze_and_stale"]
+    lines += ["## 0b. Frozen charging values while asleep", "", fs["note"], ""]
+    lines += md_tally("Cloud SoC across adjacent asleep polls in the same observed plug episode",
+                      fs["soc_freeze_adjacent_asleep_polls_same_observed_plug_episode"])
+    lines += md_tally("Cloud SoC across filter-first pairs of asleep plugged-in polls",
+                      fs["soc_freeze_filter_first_asleep_plugged_polls"])
+    lines += md_dists("is_connected true while the car is unplugged: hours since the last observed unplug "
+                      "(continuity not established)",
+                      fs["connected_true_while_car_unplugged_hours_since_last_observed_unplug"])
+    lines += md_kv("is_connected true while unplugged, no unplug observed before",
+                   fs["connected_true_while_car_unplugged_no_unplug_observed"])
     return lines
 
 
@@ -2153,14 +2307,19 @@ def render_extra(results: dict[str, Any]) -> list[str]:
     lines += md_tally("Poll rows kind:detail x car state", po["poll_rows_kind_detail_x_car_state"])
     lines += md_tally("Poll rows kind:detail x period", po["poll_rows_kind_detail_x_period"])
     lines += ["## 16. online / asleep after car power changes", ""]
+    lines += [f"Time-uncertain power changes across a gap (close windows, not measured): "
+              f"{results['online_latency']['time_uncertain_power_changes_across_a_gap']}", ""]
     for ch, res in results["online_latency"].items():
+        if ch == "time_uncertain_power_changes_across_a_gap":
+            continue
         lines += [f"### {ch}", ""]
         for name, r in res.items():
             if name == "hours_since_car_power_off_when_cloud_says":
                 lines += md_dists("Hours since the car powered off, car still off", r)
             else:
-                lines += [f"**{name}**: car events {r['car_events']}, not shown before the next power change "
-                          f"{r['not_shown_before_next_power_change']}", ""]
+                lines += [f"**{name}**: car events {r['car_events']}; right-censored (no row before the window "
+                          f"closed): {r['right_censored_no_row_before_window_closed'] or 'none'}; rows in the "
+                          f"window but not shown {r['rows_in_window_but_not_shown']}", ""]
                 lines += md_dists(f"{name} (s)", {"delay": r["delay_s"]})
     lines += ["## 17. Poll SoC and odometer: car-app contamination hint", ""]
     for key, res in results["poll_contamination"].items():

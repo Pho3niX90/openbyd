@@ -300,3 +300,41 @@ def test_a_payload_that_does_not_decrypt_logs_in_again_at_once(world) -> None:
             await until(lambda: len(world.requests("/app/account/login")) >= logins_before + 2, "a second login")
 
     run(main())
+
+
+def test_dropped_and_refused_connections_reach_their_callbacks(world) -> None:
+    connects: list[int] = []
+    drops: list[str] = []
+    refusals: list[int] = []
+
+    async def main() -> None:
+        async with world.client(
+            mqtt_enabled=True,
+            on_mqtt_connect=lambda: connects.append(1),
+            on_mqtt_disconnect=drops.append,
+            on_mqtt_connack_refused=refusals.append,
+        ) as client:
+            await client.login()
+            await until(lambda: connects, "the first connection")
+            world.broker.refuse_next(2)
+            world.broker.drop_all()
+            await until(lambda: len(connects) >= 2, "a reconnection")
+
+    run(main())
+    assert drops and all(isinstance(reason, str) and reason for reason in drops)
+    assert refusals[:2] == [1, 2], "each refusal, counted in a row"
+
+
+def test_stop_mqtt_and_start_again(world) -> None:
+    async def main() -> tuple[bool, bool, bool]:
+        async with world.client(mqtt_enabled=True) as client:
+            await client.login()
+            await world.until_subscribed(client)
+            running = client.mqtt_is_running
+            client.stop_mqtt()
+            stopped = client.mqtt_is_running
+            await client.start_mqtt()
+            await world.until_subscribed(client)
+            return running, stopped, client.mqtt_is_running
+
+    assert run(main()) == (True, False, True)

@@ -122,8 +122,8 @@ public sealed class ReloginPolicy
     public static ReloginPolicy Password { get; } = new("password", null);
 
     /// <summary>
-    /// Never log in: calls fail with <see cref="BydSessionExpiredException"/> (code
-    /// <c>relogin_disabled</c>) until the application imports a session.
+    /// Never log in: calls fail with <see cref="BydSessionExpiredException"/> (with
+    /// BYD's own expiry code, or <c>relogin_disabled</c> when there was no session) until the application imports a session.
     /// </summary>
     public static ReloginPolicy Never { get; } = new("never", null);
 

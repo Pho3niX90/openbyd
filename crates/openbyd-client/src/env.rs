@@ -70,6 +70,8 @@ pub trait MqttSink: Send + Sync {
     fn on_connack_refused(&self, consecutive: u32);
     /// The broker accepted the connection.
     fn on_connected(&self);
+    /// The connection dropped (it reconnects by itself). openbyd's addition.
+    fn on_disconnected(&self, _reason: &str) {}
 }
 
 /// The environment of a whole client: a flow [`Env`] plus what pyBYD's

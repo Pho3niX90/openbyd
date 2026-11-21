@@ -315,7 +315,7 @@ test("sessions are exported, restored and renewed", async () => {
     world.server.expireSessions(USER);
     const expired = await thrown(() => restored.getHvacStatus(VIN));
     assert.ok(expired instanceof BydSessionExpiredError);
-    assert.equal(expired.code, "relogin_disabled");
+    assert.equal(expired.code, "1002", "BYD's own expiry code, not relogin_disabled");
     restored.invalidateSession();
   } finally {
     restored.close();

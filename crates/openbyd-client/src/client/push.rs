@@ -645,7 +645,17 @@ impl<E: ClientEnv> BydClient<E> {
     /// A refused CONNACK: after [`MQTT_CONNACK_REFUSAL_THRESHOLD`] in a row,
     /// re-login with exponential backoff and jitter, and stop MQTT after
     /// [`MQTT_RECOVERY_MAX_ATTEMPTS`] (pyBYD's `_on_mqtt_connack_refused`).
+    /// A dropped MQTT connection: tells the callback (openbyd's addition).
+    pub(crate) fn on_mqtt_disconnected(&self, reason: &str) {
+        if let Some(callback) = &self.inner.options.on_mqtt_disconnect {
+            guard("on_mqtt_disconnect", || callback(reason));
+        }
+    }
+
     pub(crate) fn on_mqtt_connack_refused(&self, consecutive: u32) {
+        if let Some(callback) = &self.inner.options.on_mqtt_connack_refused {
+            guard("on_mqtt_connack_refused", || callback(consecutive));
+        }
         if consecutive < MQTT_CONNACK_REFUSAL_THRESHOLD {
             return;
         }

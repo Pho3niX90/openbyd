@@ -455,7 +455,7 @@ class ClientTest {
                 world.server.expireSessions(USER);
                 BydSessionExpiredException expired =
                         assertInstanceOf(BydSessionExpiredException.class, thrown(() -> restored.getHvacStatus(VIN)));
-                assertEquals("relogin_disabled", expired.code());
+                assertEquals("1002", expired.code(), "BYD's own expiry code, not relogin_disabled");
                 restored.invalidateSession();
             } finally {
                 restored.close();

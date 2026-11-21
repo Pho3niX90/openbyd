@@ -141,7 +141,7 @@ async fn forward(
             MqttNotice::Connected => sink.on_connected(),
             MqttNotice::ConnackRefused { consecutive, .. } => sink.on_connack_refused(consecutive),
             MqttNotice::DecryptFailed => sink.on_decrypt_error(),
-            MqttNotice::Disconnected { .. } => {}
+            MqttNotice::Disconnected { reason } => sink.on_disconnected(&reason),
         }
     }
 }

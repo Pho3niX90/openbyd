@@ -222,6 +222,8 @@ struct Options<'py> {
     on_command_ack: Option<Bound<'py, PyAny>>,
     on_command_lifecycle: Option<Bound<'py, PyAny>>,
     on_mqtt_connect: Option<Bound<'py, PyAny>>,
+    on_mqtt_disconnect: Option<Bound<'py, PyAny>>,
+    on_mqtt_connack_refused: Option<Bound<'py, PyAny>>,
     command_ack_ttl_seconds: f64,
     gate_policy: Option<Bound<'py, PyAny>>,
     command_retries: i64,
@@ -295,6 +297,23 @@ impl Options<'_> {
             let hooks = Arc::clone(hooks);
             options.on_mqtt_connect = Some(Arc::new(move || {
                 hooks.post("on_mqtt_connect", &callback, |py| Ok(PyTuple::empty(py)));
+            }));
+        }
+        if let Some(callback) = callable("on_mqtt_disconnect", self.on_mqtt_disconnect)? {
+            let hooks = Arc::clone(hooks);
+            options.on_mqtt_disconnect = Some(Arc::new(move |reason| {
+                let reason = reason.to_owned();
+                hooks.post("on_mqtt_disconnect", &callback, move |py| {
+                    PyTuple::new(py, [reason.as_str()])
+                });
+            }));
+        }
+        if let Some(callback) = callable("on_mqtt_connack_refused", self.on_mqtt_connack_refused)? {
+            let hooks = Arc::clone(hooks);
+            options.on_mqtt_connack_refused = Some(Arc::new(move |consecutive| {
+                hooks.post("on_mqtt_connack_refused", &callback, move |py| {
+                    PyTuple::new(py, [consecutive])
+                });
             }));
         }
         if let Some(callback) = callable("request_observer", self.request_observer)? {
@@ -479,9 +498,10 @@ impl PyClient {
     #[new]
     #[pyo3(signature = (
         config, *, on_vehicle_info = None, on_mqtt_event = None, on_command_ack = None,
-        on_command_lifecycle = None, on_mqtt_connect = None, command_ack_ttl_seconds = 300.0,
+        on_command_lifecycle = None, on_mqtt_connect = None, on_mqtt_disconnect = None,
+        on_mqtt_connack_refused = None, command_ack_ttl_seconds = 300.0,
         gate_policy = None, command_retries = 3, pin_resolver = None, relogin = None,
-        request_observer = None, test_tls = false,
+        request_observer = None, commands_enabled = false, test_tls = false,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new<'py>(
@@ -492,12 +512,15 @@ impl PyClient {
         on_command_ack: Option<Bound<'py, PyAny>>,
         on_command_lifecycle: Option<Bound<'py, PyAny>>,
         on_mqtt_connect: Option<Bound<'py, PyAny>>,
+        on_mqtt_disconnect: Option<Bound<'py, PyAny>>,
+        on_mqtt_connack_refused: Option<Bound<'py, PyAny>>,
         command_ack_ttl_seconds: f64,
         gate_policy: Option<Bound<'py, PyAny>>,
         command_retries: i64,
         pin_resolver: Option<Bound<'py, PyAny>>,
         relogin: Option<Bound<'py, PyAny>>,
         request_observer: Option<Bound<'py, PyAny>>,
+        commands_enabled: bool,
         test_tls: bool,
     ) -> PyResult<Self> {
         let config = BydConfig::from_kwargs(&object("config", config)?)
@@ -509,6 +532,8 @@ impl PyClient {
             on_command_ack,
             on_command_lifecycle,
             on_mqtt_connect,
+            on_mqtt_disconnect,
+            on_mqtt_connack_refused,
             command_ack_ttl_seconds,
             gate_policy,
             command_retries,
@@ -526,6 +551,9 @@ impl PyClient {
             ProductionEnv::new(http)
         };
         let client = BydClient::new(config, env, options);
+        if commands_enabled {
+            client.enable_commands();
+        }
         // pyBYD's client is unusable until `async_start`.
         client.async_close();
         Ok(Self { client, hooks })
@@ -589,6 +617,21 @@ impl PyClient {
     #[getter]
     fn commands_enabled(&self) -> bool {
         self.client.commands_enabled()
+    }
+
+    fn enable_commands(&self) {
+        self.client.enable_commands();
+    }
+
+    #[getter]
+    fn guest_vins(&self) -> std::collections::HashMap<String, bool> {
+        self.client.guest_vins()
+    }
+
+    fn stop_mqtt(&self, py: Python<'_>) -> PyResult<()> {
+        let _entered = bridge::handle()?.enter();
+        py.detach(|| self.client.stop_mqtt());
+        Ok(())
     }
 
     #[getter]

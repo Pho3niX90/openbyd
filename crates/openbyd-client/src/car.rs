@@ -24,7 +24,8 @@ mod features;
 #[doc(hidden)]
 pub mod parity;
 
-use std::sync::{Arc, PoisonError, RwLock};
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex as SyncMutex, PoisonError, RwLock};
 use std::time::Instant;
 
 use openbyd_protocol::capabilities::{CommandCall, CommandPlan};
@@ -138,8 +139,13 @@ pub(crate) struct CarInner<B> {
     engine: Mutex<VehicleStateEngine>,
     /// The latest snapshot, readable without waiting for a command to finish.
     snapshot: Arc<RwLock<VehicleSnapshot>>,
+    /// The MQTT pushes not merged yet, oldest first.
+    pushes: SyncMutex<VecDeque<PendingMerge>>,
     clock: Arc<dyn Clock>,
 }
+
+/// A merge waiting for the engine lock.
+type PendingMerge = Box<dyn FnOnce(&mut VehicleStateEngine, f64) + Send>;
 
 impl<B: CarBackend> CarInner<B> {
     fn now(&self) -> f64 {
@@ -220,6 +226,14 @@ impl<B: CarBackend> CarInner<B> {
     }
 
     /// Merges `data` on a task of the running Tokio runtime; without one it is dropped.
+    ///
+    /// Pushes are merged in the order they were handed over, as pyBYD's
+    /// event loop runs their tasks: an older partial push must not land on
+    /// top of a newer full one. A runtime with several workers may start
+    /// the tasks in any order, so each task drains the queue oldest first
+    /// under the engine lock instead of carrying its own push. Draining
+    /// also picks up any push whose task was cancelled when an earlier
+    /// runtime shut down.
     fn spawn_merge(
         self: &Arc<Self>,
         merge: impl FnOnce(&mut VehicleStateEngine, f64) + Send + 'static,
@@ -227,8 +241,32 @@ impl<B: CarBackend> CarInner<B> {
         let Ok(runtime) = tokio::runtime::Handle::try_current() else {
             return;
         };
+        self.pushes
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push_back(Box::new(merge));
         let inner = Arc::clone(self);
-        runtime.spawn(async move { inner.merge(merge).await });
+        runtime.spawn(async move { inner.drain_pushes().await });
+    }
+
+    /// Merges every waiting push in arrival order under the engine lock.
+    ///
+    /// Releases the queue lock before running each merge, since a state
+    /// callback may hand in another push.
+    async fn drain_pushes(&self) {
+        let mut engine = self.engine.lock().await;
+        loop {
+            let next = self
+                .pushes
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .pop_front();
+            let Some(merge) = next else {
+                break;
+            };
+            let now = self.now();
+            merge(&mut engine, now);
+        }
     }
 }
 
@@ -306,6 +344,7 @@ impl<B: CarBackend> BydCar<B> {
             vin: vin.clone(),
             engine: Mutex::new(engine),
             snapshot,
+            pushes: SyncMutex::new(VecDeque::new()),
             clock: options.clock,
         });
         Ok(Self {
@@ -453,6 +492,24 @@ impl<B: CarBackend> BydCar<B> {
     pub fn handle_mqtt_realtime(&self, data: VehicleRealtimeData) {
         self.inner
             .spawn_merge(move |engine, now| engine.update_realtime(data, now));
+    }
+
+    /// Merges an MQTT `vehicleStatusPush`: a partial update, laid over the
+    /// sections already known instead of replacing them
+    /// ([`VehicleStateEngine::patch_status_push`]). `data` is the realtime
+    /// part; `hvac` and `charging` are there when the push had their section.
+    ///
+    /// Like [`Self::handle_mqtt_realtime`], the merge runs on a new task of
+    /// the current Tokio runtime, and the push is dropped outside one.
+    pub fn handle_mqtt_status_push(
+        &self,
+        data: VehicleRealtimeData,
+        hvac: Option<HvacStatus>,
+        charging: Option<ChargingStatus>,
+    ) {
+        self.inner.spawn_merge(move |engine, now| {
+            engine.patch_status_push(Some(data), hvac, charging, now);
+        });
     }
 
     /// Merges an MQTT `smartCharge` push (live charging state only), like

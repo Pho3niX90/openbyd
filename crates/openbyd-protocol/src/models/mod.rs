@@ -13,6 +13,7 @@ pub mod message_center;
 pub mod push_notification;
 pub mod realtime;
 pub mod smart_charging;
+pub mod standby;
 pub mod token;
 pub mod vehicle;
 
@@ -36,6 +37,7 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
             push_notification::parity_call,
             realtime::parity_call,
             smart_charging::parity_call,
+            standby::parity_call,
             token::parity_call,
             vehicle::parity_call,
         ],

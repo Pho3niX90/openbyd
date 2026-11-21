@@ -73,11 +73,12 @@ jobs:
           cache-dependency-path: |
             pyproject.toml
             parity/UPSTREAM_COMMIT
+            parity/UPSTREAM_REPO
       - name: Install openbyd and the pinned pyBYD
         run: |
           python -m pip install --upgrade pip
           # SQLAlchemy is only for the tests of the replay exporter's database statements.
-          pip install maturin pytest pytest-cov pytest-asyncio sqlalchemy psutil "pybyd @ git+https://github.com/jkaberg/pyBYD@$(cat parity/UPSTREAM_COMMIT)"
+          pip install maturin pytest pytest-cov pytest-asyncio sqlalchemy psutil "pybyd @ git+$(cat parity/UPSTREAM_REPO)@$(cat parity/UPSTREAM_COMMIT)"
           # Built with the `testing` feature, so the tests that need the fake
           # BYD server run here. Released wheels are built without it.
           python parity/dev_install.py
@@ -124,10 +125,11 @@ jobs:
           cache-dependency-path: |
             pyproject.toml
             parity/UPSTREAM_COMMIT
+            parity/UPSTREAM_REPO
       - name: Install openbyd and the pinned pyBYD
         run: |
           python -m pip install --upgrade pip
-          pip install maturin pytest pytest-cov pytest-asyncio psutil "pybyd @ git+https://github.com/jkaberg/pyBYD@$(cat parity/UPSTREAM_COMMIT)"
+          pip install maturin pytest pytest-cov pytest-asyncio psutil "pybyd @ git+$(cat parity/UPSTREAM_REPO)@$(cat parity/UPSTREAM_COMMIT)"
           python parity/dev_install.py
       - name: Tests
         run: pytest -v

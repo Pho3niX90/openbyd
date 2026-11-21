@@ -36,7 +36,7 @@ pushes the recorded events. A manual clock (the default) moves only when
 told to, so a test never waits for real time::
 
     with ReplayServer("bench/replay/samples/demo.jsonl") as replay:
-        replay.set_time(3600)          # pushes and 1005s due by then have happened
+        replay.set_time(3600)          # pushes and session expiries due by then have happened
         config = {"username": "acct-0001@example.com", "password": "secret", "base_url": replay.url}
         ...
         replay.advance(60)

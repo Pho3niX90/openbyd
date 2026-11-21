@@ -411,6 +411,27 @@ class SchemaReader:
     def __init__(self) -> None:
         #: The names of the models and enums the schemas referred to.
         self.referenced: set[str] = set()
+        #: Inline string enums generated from ``{"type": "string", "enum": [...]}``.
+        self.enums: dict[str, Enum] = {}
+
+    def inline_string_enum(self, schema: dict[str, Any], where: str) -> Type:
+        values = schema["enum"]
+        assert isinstance(values, list) and values and all(isinstance(value, str) for value in values), (
+            f"{where}: inline string enum must list non-empty strings"
+        )
+        enum_name = pascal(where)
+        members = tuple(Member(snake(value.replace("-", "_")).upper(), value) for value in values)
+        names = [member.name for member in members]
+        assert all(name for name in names) and len(set(names)) == len(names), (
+            f"{where}: inline string enum member names clash: {values}"
+        )
+        doc = clean_doc(schema.get("description")) or f"Values of `{where}`."
+        generated = Enum(enum_name, doc, "str", members, "")
+        existing = self.enums.get(enum_name)
+        assert existing is None or existing.members == generated.members, f"{enum_name}: conflicting inline enums"
+        self.enums[enum_name] = generated
+        self.referenced.add(enum_name)
+        return ref(enum_name)
 
     def type_of(self, schema: dict[str, Any], where: str) -> Type:
         if "$ref" in schema:
@@ -430,7 +451,8 @@ class SchemaReader:
             return opt(inner) if nullable else inner
         kind = schema.get("type")
         if kind == "string":
-            assert "enum" not in schema, f"{where}: an inline string enum is not supported"
+            if "enum" in schema:
+                return self.inline_string_enum(schema, where)
             return {"date-time": DATETIME, "time": TIME}.get(schema.get("format", ""), STR)
         if kind == "integer":
             assert "enum" not in schema, f"{where}: an inline integer enum is not supported"

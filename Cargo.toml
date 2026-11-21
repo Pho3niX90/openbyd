@@ -18,6 +18,7 @@ license = "MIT"
 repository = "https://github.com/Pho3niX90/openbyd"
 
 [workspace.dependencies]
+wallclock = "0.1"
 openbyd-crypto = { path = "crates/openbyd-crypto", version = "0.1.2" }
 openbyd-protocol = { path = "crates/openbyd-protocol", version = "0.1.2" }
 openbyd-client = { path = "crates/openbyd-client", version = "0.1.2" }

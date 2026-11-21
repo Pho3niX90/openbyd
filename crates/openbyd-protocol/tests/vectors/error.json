@@ -1,4 +1,4 @@
-{"group": "error", "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef", "cases": [
+{"group": "error", "upstream_commit": "c1e88052f4f724343507bd8bda0ef990129071ba", "cases": [
 {"call":"error.issubclass","args":{"child":"BydError","parent":"BydError"},"ok":true},
 {"call":"error.issubclass","args":{"child":"BydError","parent":"BydCryptoError"},"ok":false},
 {"call":"error.issubclass","args":{"child":"BydError","parent":"BangcleError"},"ok":false},

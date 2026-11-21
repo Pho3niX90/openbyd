@@ -35,7 +35,7 @@ TOGGLE = "/control/smartCharge/changeChargeStatue"
 RESULT = "/control/smartCharge/changeResult"
 SAVE = "/control/smartCharge/saveOrUpdate"
 AC_LIMIT = "/control/smartCharge/getAcCurrentLimit"
-CODES = ["1001", "1002", "1005", "1010", "1008", "6002", "6024", "8003", "9999", 1001]
+CODES = ["1001", "1002", "1011", "3001", "3003", "1005", "1010", "1008", "6002", "6024", "8003", "9999", 1001]
 OWNER = {VIN: False}
 GUEST = {VIN: True}
 

@@ -16,6 +16,7 @@ testing = ["openbyd-client/testing"]
 openbyd-crypto.workspace = true
 openbyd-protocol.workspace = true
 openbyd-client.workspace = true
+wallclock.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "time", "sync", "net"] }

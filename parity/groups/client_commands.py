@@ -104,8 +104,13 @@ def outcome_scripts() -> list[dict]:
         {"replies": [error_reply("5006")]},
         {"replies": [error_reply("5011")]},
         # the session expires at the trigger or while polling
+        {"replies": [error_reply("1002"), *login_replies(), TRIGGER, POLL_DONE]},
+        {"replies": [TRIGGER, error_reply("1002"), *login_replies(), TRIGGER, POLL_DONE]},
+        {"replies": [error_reply("1011"), *login_replies(), TRIGGER, POLL_DONE]},
+        {"replies": [TRIGGER, error_reply("3003"), *login_replies(), TRIGGER, POLL_DONE]},
+        # 1005 and 1010 were such codes before pyBYD #96: now the command fails with them
         {"replies": [error_reply("1005"), *login_replies(), TRIGGER, POLL_DONE]},
-        {"replies": [TRIGGER, error_reply("1005"), *login_replies(), TRIGGER, POLL_DONE]},
+        {"replies": [TRIGGER, error_reply("1010"), *login_replies(), TRIGGER, POLL_DONE]},
         {"replies": [*login_replies(), TRIGGER, POLL_DONE], "state": ready_state(session=OLD_SESSION)},
         # guests
         {"replies": [error_reply("1001"), TRIGGER, POLL_DONE], "state": ready_state(guest_vins={VIN: False})},
@@ -158,7 +163,7 @@ def recorded():  # noqa: C901
         ([error_reply("5006")], {"command_pwd": PIN}),
         ([error_reply("5011")], {"command_pwd": PIN}),
         ([error_reply("1001")], {"command_pwd": PIN}),
-        ([error_reply("1005"), *login_replies(), reply({"ok": True})], {"command_pwd": PIN}),
+        ([error_reply("1002"), *login_replies(), reply({"ok": True})], {"command_pwd": PIN}),
         ([], {"command_pwd": None}),
         ([], {"command_pwd": ""}),
     ]:
@@ -224,6 +229,18 @@ def recorded():  # noqa: C901
                 params={"on": on},
                 command_pwd=PIN,
             )
+    # battery heat listed only as 10100002: the gate stops it, and past the gate it takes the dedicated pair too
+    for functions in (["10100002"], ["10100002", "10300002"]):
+        config = {"cfFixedList": [{"functionNo": no} for no in functions]}
+        for options in ({}, {"gate_bypass": ["function_no_missing"]}):
+            yield "client.set_battery_heat", client_case(
+                state=logged_in(vehicles=[VEHICLE], capabilities={VIN: config}, commands_enabled=True),
+                replies=[TRIGGER, POLL_PENDING, POLL_DONE],
+                options=options,
+                vin=VIN,
+                params={"on": True},
+                command_pwd=PIN,
+            )
     # open windows: the learn info gate (upstream test_windows_open_available)
     windows = {"cfFixedList": [{"functionNo": "1026"}]}
     for learn in [None, 1, 0, -1]:
@@ -259,7 +276,7 @@ def recorded():  # noqa: C901
             {"replies": [error_reply("6002")]},
             {"replies": [error_reply("1001")]},
             {"replies": [charge_trigger, error_reply("6051"), error_reply("6051")]},
-            {"replies": [error_reply("1005"), *login_replies(), charge_trigger, reply({"res": 2})]},
+            {"replies": [error_reply("1002"), *login_replies(), charge_trigger, reply({"res": 2})]},
             {"replies": [charge_trigger, reply({"res": 2})], "mqtt_timeout": 0.0, "poll_interval": 1.0, "poll_attempts": 1},
             {"replies": [charge_trigger, reply({"res": 2})], "state": ready_state(mqtt=False)},
             {"replies": [], "state": logged_in(vehicles=[VEHICLE], capabilities={VIN: {"cfFixedList": []}})},
@@ -281,7 +298,7 @@ def recorded():  # noqa: C901
         (True, [reply({"result": "ok"})]),
         (False, [reply({})]),
         (True, [error_reply("1001")]),
-        (True, [error_reply("1005"), *login_replies(), reply({})]),
+        (True, [error_reply("1002"), *login_replies(), reply({})]),
     ]:
         yield "client.toggle_smart_charging", client_case(state=logged_in(), replies=replies, vin=VIN, enable=enable)
 

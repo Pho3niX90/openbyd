@@ -30,6 +30,7 @@ from pybyd.models.control import (
     ControlParams,
     ControlState,
     RemoteCommand,
+    RemoteControlRes,
     RemoteControlResult,
     SeatClimateParams,
     VerifyControlPasswordResponse,
@@ -71,6 +72,7 @@ VIN = "TESTVIN0000000001"
 ENUMS = {
     "models.control.RemoteCommand": RemoteCommand,
     "models.control.ControlState": ControlState,
+    "models.control.RemoteControlRes": RemoteControlRes,
     "models.control.CommandLifecycleStatus": CommandLifecycleStatus,
 }
 
@@ -156,17 +158,46 @@ def result_cases() -> Iterator[Case]:
     yield RESULT_CALL, {"raw": {"control_state": 1}, "context": None}
     yield RESULT_CALL, {"raw": {"control_state": "1", "controlState": "2"}, "context": None}
     yield RESULT_CALL, {"raw": {"control_state": 7}, "context": None}
+    # Upstream #94: res 4 is a second success code.
+    for res in [4, "4", 4.0, 4.9, 5]:
+        yield RESULT_CALL, {"raw": {"res": res, "requestSerial": "S1"}, "context": None}
+        yield RESULT_CALL, {"raw": {"res": res, "success": False}, "context": None}
+    # Upstream #96: the dedicated battery-heat poll answers res 2 with a business
+    # rejection in batteryHeatResult (2 = not needed, 6 = conditions not met).
+    heat = {"batteryHeatResultMessage": "Conditions not met", "batteryTemperature": 24, "expectHeatMinute": 0,
+            "heatSurplusMinute": "12", "heatStatus": 1, "needHeatIndex": "--"}
+    for value in [*INT_LIKE, 6, "6", 6.0, 6.5, " 6 ", 4, 1]:
+        if not model_int_safe(value):
+            continue  # the shared domain for an int field
+        yield RESULT_CALL, {"raw": {"res": 2, "batteryHeatResult": value, **heat}, "context": None}
+        yield RESULT_CALL, {"raw": {"batteryHeatResult": value}, "context": None}
+    for extra in [{"controlState": 1}, {"controlState": 1, "success": True}, {"success": True}, {"control_state": 1},
+                  {"res": 1}, {"res": 4}, {"res": 3}, {"res": "x"}, {"battery_heat_result": 6}]:
+        for value in [2, 6, 1, None]:
+            yield RESULT_CALL, {"raw": {**extra, "batteryHeatResult": value}, "context": None}
+    for key in ["batteryTemperature", "expectHeatMinute", "heatSurplusMinute", "heatStatus", "needHeatIndex"]:
+        for value in [24, -5, "24", 24.0, 24.5, "", "--", None, True, [1], "x"]:
+            yield RESULT_CALL, {"raw": {"res": 2, key: value}, "context": None}
+    for value in ["ok", "", "--", 5, None, True, ["x"]]:
+        yield RESULT_CALL, {"raw": {"res": 2, "batteryHeatResultMessage": value}, "context": None}
+
+
+RESULT_INT_KEYS = ["batteryHeatResult", "batteryTemperature", "expectHeatMinute", "heatSurplusMinute", "heatStatus",
+                   "needHeatIndex"]
 
 
 @group.fuzz
 def result_fuzz(rng: random.Random) -> Iterator[Case]:
     while True:
         raw: dict[str, Any] = {}
-        for key in rng.sample(["res", "controlState", "control_state", "success", "requestSerial", "request_serial"],
-                              k=rng.randint(0, 4)):
+        for key in rng.sample(["res", "controlState", "control_state", "success", "requestSerial", "request_serial",
+                               "batteryHeatResult", "batteryHeatResultMessage", "batteryTemperature",
+                               "expectHeatMinute", "heatSurplusMinute", "heatStatus", "needHeatIndex"],
+                              k=rng.randint(0, 5)):
             raw[key] = rng.choice([lambda: rng.choice(INT_LIKE), lambda: random_scalar(rng),
                                    lambda: random_numeric_text(rng), lambda: random_json(rng)])()
-        if json_safe(raw):
+        # The int fields hold only what the shared ±2**53 domain allows.
+        if json_safe(raw) and all(model_int_safe(raw.get(key)) for key in RESULT_INT_KEYS):
             yield RESULT_CALL, {"raw": raw, "context": None}
 
 

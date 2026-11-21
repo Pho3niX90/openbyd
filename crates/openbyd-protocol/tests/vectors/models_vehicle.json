@@ -1,4 +1,4 @@
-{"group": "models_vehicle", "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef", "cases": [
+{"group": "models_vehicle", "upstream_commit": "c1e88052f4f724343507bd8bda0ef990129071ba", "cases": [
 {"call":"models.vehicle.EnergyType","args":{"value":-1},"ok":{"name":"UNKNOWN","value":-1}},
 {"call":"models.vehicle.EnergyType","args":{"value":0},"ok":{"name":"EV","value":0}},
 {"call":"models.vehicle.EnergyType","args":{"value":1},"ok":{"name":"ICE","value":1}},

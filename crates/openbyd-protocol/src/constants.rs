@@ -12,7 +12,7 @@ use crate::pyjson::py_float_from_str;
 pub const USER_AGENT: &str = "okhttp/4.12.0";
 
 /// API codes that mean the session token is no longer valid.
-pub const SESSION_EXPIRED_CODES: [&str; 3] = ["1002", "1005", "1010"];
+pub const SESSION_EXPIRED_CODES: [&str; 4] = ["1002", "1011", "3001", "3003"];
 
 const SCALE_MIN: i64 = 1;
 const SCALE_MAX: i64 = 17;
@@ -59,6 +59,14 @@ pub fn minutes_to_time_span(minutes: i64) -> Result<i64, Error> {
                 format!("duration must be one of (10, 15, 20, 25, 30) minutes, got {minutes}"),
             )
         })
+}
+
+/// Converts a BYD `time_span` code (1-5) back to minutes; `None` for any other code.
+pub fn time_span_to_minutes(code: i64) -> Option<i64> {
+    usize::try_from(code.checked_sub(1)?)
+        .ok()
+        .and_then(|index| VALID_CLIMATE_DURATIONS.get(index))
+        .copied()
 }
 
 /// A Python number: integers stay exact, as they do in Python.
@@ -232,6 +240,15 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
                 .map_err(ParityError::from)
             }
         },
+        // pyBYD compares each code with `==`, so `1.0` and `True` find 10 minutes.
+        "constants.time_span_to_minutes" => {
+            let code = PyNum::from_value(args.value("code"));
+            let found = (1..=VALID_CLIMATE_DURATIONS.len() as i64).find(|&valid| {
+                code.and_then(|number| number.compare(PyNum::Int(valid.into())))
+                    == Some(Ordering::Equal)
+            });
+            Ok(json!(found.and_then(time_span_to_minutes)))
+        }
         _ => return None,
     })
 }
@@ -257,6 +274,10 @@ mod tests {
         );
         assert_eq!(minutes_to_time_span(25).unwrap(), 4);
         assert!(minutes_to_time_span(11).is_err());
+        assert_eq!(time_span_to_minutes(4), Some(25));
+        assert_eq!(time_span_to_minutes(0), None);
+        assert_eq!(time_span_to_minutes(6), None);
+        assert_eq!(time_span_to_minutes(i64::MIN), None);
     }
 
     #[test]

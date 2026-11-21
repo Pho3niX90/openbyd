@@ -351,7 +351,12 @@ class TypeScript:
             name = camel(entry.name)
             value = f"encode{entry.type.name}({name})" if self.is_input(entry.type) else name
             entries.append(entry.name if value == entry.name else f"{entry.name}: {value}")
-        entries.extend(f"{entry.name}: options.{camel(entry.name)}" for entry in method.optional)
+        for entry in method.optional:
+            value = f"options.{camel(entry.name)}"
+            inner = entry.type.inner if entry.type.kind == "opt" else entry.type
+            if self.is_input(inner):
+                value = f"{value} == null ? {value} : encode{inner.name}({value})"
+            entries.append(f"{entry.name}: {value}")
         return entries
 
     def method(self, writer: Writer, method: Method, invoker: str) -> None:

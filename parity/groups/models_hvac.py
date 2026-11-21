@@ -72,6 +72,16 @@ def recorded():
         yield CALL, {"raw": {"acSwitch": value, "status": value}, "context": None}
     for value in [-129, -129.0, "-129", -128.5, -130, 0, "--", "NAN"]:
         yield CALL, {"raw": {"tempInCar": value, "tempOutCar": value}, "context": None}
+    # Upstream #94: vehicleStatusPush's airStatusDto spells cycleChoice "cycleModel",
+    # and airRunState is kept as a plain int.
+    for value in [0, 1, 2, 3, -1, "2", "--", None, 1.5]:
+        yield CALL, {"raw": {"cycleModel": value}, "context": None}
+        yield CALL, {"raw": {"statusNow": {"cycleModel": value}}, "context": None}
+    for payload in [{"cycleModel": 2, "cycleChoice": 1}, {"cycleChoice": 1, "cycleModel": 2},
+                    {"cycleModel": 2, "cycle_choice": 1}, {"cycle_model": 2}, {"cycleModel": "--", "cycleChoice": 1}]:
+        yield CALL, {"raw": payload, "context": None}
+    for value in [0, 1, 2, 3, -1, "1", "1__0", "x", 1.0, 1.5, True, None, "--", "", [], 2**53]:
+        yield CALL, {"raw": {"airRunState": value, "status": 1}, "context": None}
 
 
 @group.fuzz

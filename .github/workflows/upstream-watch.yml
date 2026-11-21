@@ -5,6 +5,16 @@ name: Upstream watch
 # re-records the vectors and reports what changed. It ports nothing and
 # never merges.
 #
+# While openbyd carries ports of pull requests pyBYD has not merged yet, the
+# pin is a merge of pyBYD's main and those pull requests, kept in the fork
+# named in parity/UPSTREAM_REPO. Such a pin is current as long as it contains
+# pyBYD's main. Once main moves past it, this workflow tries to move the pin
+# back to pyBYD's own repository. That works when main now holds everything
+# openbyd ported. When a ported pull request is still open, the vectors
+# cannot be recorded from main (its parity groups import code main does not
+# have), and the run fails saying so: merge main into the fork's
+# openbyd-combined branch by hand and move the pin to that merge.
+#
 # The repository setting "Allow GitHub Actions to create and approve pull
 # requests" (Settings > Actions > General) must be on. Pull requests opened
 # with GITHUB_TOKEN do not start the CI workflow; push an empty commit to the
@@ -55,14 +65,31 @@ jobs:
             exit 1
           fi
           branch="upstream/${new:0:12}"
-          echo "pinned: $old"
+          pin_repo=$(tr -d '[:space:]' < parity/UPSTREAM_REPO)
+          echo "pinned: $old ($pin_repo)"
           echo "head:   $new"
           {
             echo "old=$old"
             echo "new=$new"
             echo "short=${new:0:12}"
             echo "branch=$branch"
+            echo "pin_repo=$pin_repo"
           } >> "$GITHUB_OUTPUT"
+          # A pin kept in a fork (main plus open pull requests) is current
+          # while it contains pyBYD's main.
+          if [ "$pin_repo" != "$UPSTREAM_REPO" ] && [ "$old" != "$new" ]; then
+            git init --quiet "$RUNNER_TEMP/pin"
+            if ! git -C "$RUNNER_TEMP/pin" fetch --quiet "$pin_repo" "$old"; then
+              echo "::error::The pinned commit $old cannot be fetched from $pin_repo. Was its branch rewritten or deleted?"
+              exit 1
+            fi
+            git -C "$RUNNER_TEMP/pin" fetch --quiet "$UPSTREAM_REPO" "$new"
+            if git -C "$RUNNER_TEMP/pin" merge-base --is-ancestor "$new" "$old"; then
+              echo "The pin contains pyBYD's main."
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
           if [ "$old" = "$new" ]; then
             echo "The pin is current."
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -98,24 +125,35 @@ jobs:
         run: |
           git switch -C "$BRANCH" origin/main
           echo "$NEW" > parity/UPSTREAM_COMMIT
+          echo "$UPSTREAM_REPO" > parity/UPSTREAM_REPO
           python -m pip install --upgrade pip
-          pip install . pytest "pybyd @ git+https://github.com/jkaberg/pyBYD@$NEW"
+          pip install . pytest "pybyd @ git+$UPSTREAM_REPO@$NEW"
 
       - name: Re-record the vectors
         if: steps.head.outputs.changed == 'true'
-        run: python parity/generate.py
+        env:
+          PIN_REPO: ${{ steps.head.outputs.pin_repo }}
+        run: |
+          if ! python parity/generate.py; then
+            if [ "$PIN_REPO" != "$UPSTREAM_REPO" ]; then
+              echo "::error::pyBYD's main has moved past the combined pin in $PIN_REPO, and the vectors cannot be recorded from main alone: openbyd probably still has parity groups for a pull request main does not hold. Merge main into the fork's openbyd-combined branch and move the pin to that merge."
+            fi
+            exit 1
+          fi
 
       - name: Collect the report pieces
         if: steps.head.outputs.changed == 'true'
         env:
           OLD: ${{ steps.head.outputs.old }}
           NEW: ${{ steps.head.outputs.new }}
+          PIN_REPO: ${{ steps.head.outputs.pin_repo }}
         run: |
           out="$RUNNER_TEMP/report"
           mkdir -p "$out"
 
-          # What changed upstream.
+          # What changed upstream. The old pin may live in a fork.
           git clone --quiet "$UPSTREAM_REPO" "$RUNNER_TEMP/pybyd-ref"
+          git -C "$RUNNER_TEMP/pybyd-ref" fetch --quiet "$PIN_REPO" "$OLD" 2> /dev/null || true
           if git -C "$RUNNER_TEMP/pybyd-ref" cat-file -e "$OLD^{commit}" 2> /dev/null; then
             git -C "$RUNNER_TEMP/pybyd-ref" log --format='%H%x09%cs%x09%s' "$OLD..$NEW" > "$out/commits.tsv"
             git -C "$RUNNER_TEMP/pybyd-ref" diff --stat=100 "$OLD" "$NEW" > "$out/diffstat.txt"
@@ -126,7 +164,7 @@ jobs:
           fi
 
           # What changed in the recorded vectors.
-          git add -A -- parity/UPSTREAM_COMMIT 'crates/*/tests/vectors'
+          git add -A -- parity/UPSTREAM_COMMIT parity/UPSTREAM_REPO 'crates/*/tests/vectors'
           git diff --cached --numstat -- 'crates/*/tests/vectors' > "$out/numstat.txt"
 
           # Strict surface audit: the symbols with no parity call.
@@ -162,7 +200,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A -- parity/UPSTREAM_COMMIT 'crates/*/tests/vectors'
+          git add -A -- parity/UPSTREAM_COMMIT parity/UPSTREAM_REPO 'crates/*/tests/vectors'
           git commit -m "Follow pyBYD to $SHORT" -m "Move the pinned pyBYD commit and re-record the vectors. Nothing is ported yet; see the pull request for the report."
           git push --force origin "HEAD:refs/heads/$BRANCH"
 

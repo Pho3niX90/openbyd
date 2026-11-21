@@ -37,7 +37,7 @@ from parity.models_support import ModelCases, jsonable
 CORPUS = Path(__file__).parent / "corpus"
 
 #: Codes every endpoint maps (expired session, busy, unreachable) and one it does not.
-GENERAL_CODES = ["1002", "1005", "1010", "1008", "6002", "9999"]
+GENERAL_CODES = ["1002", "1011", "3001", "3003", "1005", "1010", "1008", "6002", "9999"]
 
 
 def dumped(function: Callable[..., Any]) -> Callable[..., Any]:

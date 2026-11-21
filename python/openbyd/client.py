@@ -34,7 +34,8 @@ raises is logged on the ``openbyd`` logger and does not affect the client.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable, Mapping
+import datetime as dt
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Literal
 
 from openbyd import _native
@@ -86,6 +87,71 @@ def _params(params: Any, fields: dict[str, Any]) -> Any:
     if params is not None and fields:
         raise TypeError("give the parameters as params= or as keyword arguments, not both")
     return params if params is not None else fields
+
+
+def _model(what: str, value: Any) -> dict[str, Any]:
+    """A model given as a mapping (the raw API dict, or a dict a method here
+    returned) or as a pydantic model such as pyBYD's own."""
+    dump = getattr(value, "model_dump", None)
+    if callable(dump) and not isinstance(value, Mapping):
+        return dict(dump(mode="json"))
+    if isinstance(value, Mapping):
+        return dict(value)
+    raise TypeError(f"{what} must be a mapping or a pydantic model")
+
+
+def _now() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)
+
+
+def _schedule(schedule: Any) -> dict[str, Any] | None:
+    """A ``StandbySchedule`` given as a mapping of its fields or as pyBYD's
+    model, with a ``datetime`` in ``at`` made into text for the extension.
+
+    A daily time that has passed is moved to its next occurrence here, a
+    day at a time in its own time zone, as pyBYD moves it: across a change
+    of daylight saving time the time of day stays, which the extension
+    (it sees a fixed UTC offset) could not do.
+
+    The time may still pass between this call and the request being built
+    (a moment, or as long as a new login takes). For that the run of the
+    day after goes along as ``_daily_after``, worked out here in the same
+    time zone, and the extension sends it instead.
+    """
+    if schedule is None:
+        return None
+    dump = getattr(schedule, "model_dump", None)
+    if callable(dump) and not isinstance(schedule, Mapping):
+        fields = dict(dump())
+    elif isinstance(schedule, Mapping):
+        fields = dict(schedule)
+    else:
+        raise TypeError("schedule must be a mapping or a pydantic model")
+    # _daily_after is this wrapper's own hint to the extension; never take one from the caller.
+    fields.pop("_daily_after", None)
+    at = fields.get("at")
+    if isinstance(at, dt.datetime):
+        if at.utcoffset() is not None:
+            if fields.get("repeat") == "daily":
+                now = _now()
+                while at <= now:
+                    at += dt.timedelta(days=1)
+                try:
+                    fields["_daily_after"] = (at + dt.timedelta(days=1)).astimezone(dt.timezone.utc).isoformat()
+                except OverflowError:  # the last day a datetime holds
+                    pass
+            # The same instant in UTC: the offset itself is never sent.
+            # At either end of the calendar the UTC reading may lie outside
+            # years 1 to 9999; keep the original offset then.
+            try:
+                at = at.astimezone(dt.timezone.utc)
+            except OverflowError:
+                pass
+        fields["at"] = at.isoformat()
+    days = fields.get("weekly_days")
+    if isinstance(days, (tuple, set, frozenset, range)):
+        fields["weekly_days"] = list(days)
+    return fields
 
 
 class Client:
@@ -434,6 +500,67 @@ class Client:
     async def get_booking_list(self, vin: str) -> dict[str, Any]:
         """The scheduled-climate timers."""
         return await self._native.get_booking_list(vin)
+
+    # ------------------------------------------------------------------
+    # Preconditioning plans
+    # ------------------------------------------------------------------
+
+    async def get_standby_plans(self, vin: str) -> dict[str, Any]:
+        """The preconditioning plans app 3.6.0 schedules climate with: ``{"vin": ..., "plans": [...]}``."""
+        return await self._native.get_standby_plans(vin)
+
+    async def save_standby_plan(self, vin: str, plan: Any, *, schedule: Any = None) -> dict[str, Any]:
+        """Save a plan's name, commands and schedule, then return the fresh plans.
+
+        ``plan`` is a plan as :meth:`get_standby_plans` returns it (or the
+        raw API dict, or pyBYD's ``StandbyPlan``); change its ``commands``
+        (for example the ``OPENAIR`` ``control_params_map``) to change what
+        it does. ``schedule`` is a mapping of pyBYD's ``StandbySchedule``
+        fields (or that model): ``{"repeat": "off"}`` unschedules,
+        ``{"repeat": "once", "at": <aware datetime>}`` (or ``"daily"``),
+        ``{"repeat": "weekly", "start_time": "HH:MM", "weekly_days": [0, 4]}``
+        (0 is Monday). ``None`` keeps the plan's current schedule. Saving
+        with ``default_plan`` 1 makes it the default.
+        """
+        return await self._native.save_standby_plan(vin, _model("plan", plan), schedule=_schedule(schedule))
+
+    async def create_standby_plan(
+        self, vin: str, name: str, commands: Sequence[Any], *, schedule: Any = None
+    ) -> dict[str, Any]:
+        """Create a user plan and return it.
+
+        ``commands`` are what the plan does, each as a command of a plan
+        :meth:`get_standby_plans` returned (or the raw API dict, or pyBYD's
+        ``StandbyPlanCommand``), for example copied from the preset plan.
+        They must include the A/C (``OPENAIR``, else ``ValueError``); seats
+        and steering wheel only go on top of it. ``schedule`` is as in
+        :meth:`save_standby_plan`; ``None`` is not scheduled. The new plan
+        is picked out of the plan list read afterwards; ``BydError`` when it
+        cannot be told apart there.
+        """
+        given = [_model("a command", command) for command in commands]
+        return await self._native.create_standby_plan(vin, name, given, schedule=_schedule(schedule))
+
+    async def set_default_standby_plan(self, vin: str, plan_id: str) -> dict[str, Any]:
+        """Make a plan the default, then return the fresh plans."""
+        return await self._native.set_default_standby_plan(vin, plan_id)
+
+    async def delete_standby_plan(self, vin: str, plan_id: str) -> dict[str, Any]:
+        """Delete a user plan, then return the fresh plans. The preset plan cannot be deleted; unschedule it instead."""
+        return await self._native.delete_standby_plan(vin, plan_id)
+
+    async def run_standby_plan(
+        self, vin: str, plan_id: str, *, poll_attempts: int = 10, poll_interval: float = 1.5
+    ) -> dict[str, Any]:
+        """Run a plan now, keeping its schedule.
+
+        The result's ``res`` is 2 when done, or still 1 when polling gave
+        up (the app stops there too); any other value raises
+        ``BydRemoteControlError``.
+        """
+        return await self._native.run_standby_plan(
+            vin, plan_id, poll_attempts=poll_attempts, poll_interval=poll_interval
+        )
 
     # ------------------------------------------------------------------
     # Commands

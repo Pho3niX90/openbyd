@@ -5,6 +5,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use openbyd_protocol::models::base::BydModel;
+use openbyd_protocol::models::charging::ChargingStatus;
+use openbyd_protocol::models::hvac::HvacStatus;
 use openbyd_protocol::models::realtime::VehicleRealtimeData;
 use openbyd_protocol::models::vehicle::Vehicle;
 use serde_json::{Value, json};
@@ -84,7 +86,135 @@ fn defaults_follow_pybyd() {
 fn pushes_outside_a_runtime_are_dropped() {
     let car = car();
     car.handle_mqtt_realtime(realtime(json!({"elecPercent": 50})));
+    car.handle_mqtt_status_push(realtime(json!({"elecPercent": 51})), None, None);
     assert!(car.state().realtime.is_none());
+}
+
+/// Lets the tasks the car spawned on this (current-thread) runtime finish.
+async fn settle() {
+    for _ in 0..20 {
+        tokio::task::yield_now().await;
+    }
+}
+
+#[tokio::test]
+async fn a_status_push_is_laid_over_what_the_car_knows() {
+    let car = car();
+    // Nothing is known yet: a partial push shows nothing.
+    car.handle_mqtt_status_push(realtime(json!({"elecPercent": 80})), None, None);
+    settle().await;
+    assert!(car.state().realtime.is_none());
+
+    let backend = &car.inner.backend;
+    backend.queue(json!({"result": {"elecPercent": 70, "leftFrontDoor": 0, "chargeState": 1, "chargePower": 5.1}}));
+    car.update_realtime().await.unwrap();
+    backend.queue(json!({"result": {"status": 2, "tempInCar": 21.0}}));
+    car.update_hvac().await.unwrap();
+    backend.queue(json!({"result": {"soc": 70, "chargingState": 1, "chargePower": 5.1}}));
+    car.update_charging().await.unwrap();
+
+    let hvac = HvacStatus::parse(&json!({"cycleModel": 2}), &Value::Null).unwrap();
+    let charging = ChargingStatus::parse(&json!({"chargingState": 15}), &Value::Null).unwrap();
+    car.handle_mqtt_status_push(
+        realtime(
+            json!({"elecPercent": 85, "leftFrontDoor": 1, "chargeState": 15, "tempInCar": -129}),
+        ),
+        Some(hvac),
+        Some(charging),
+    );
+    settle().await;
+
+    let state = car.state();
+    let realtime = state.realtime.as_ref().unwrap().base();
+    assert_eq!(realtime.elec_percent, Some(85.0));
+    assert_eq!(realtime.charge_power, None);
+    assert_eq!(realtime.raw["leftFrontDoor"], json!(1));
+    assert_eq!(
+        state.realtime.as_ref().unwrap().field("left_front_door"),
+        Some(json!(1))
+    );
+    let hvac = state.hvac.as_ref().unwrap();
+    assert_eq!(hvac.field("cycle_choice"), Some(json!(2)));
+    assert_eq!(hvac.base().temp_in_car, Some(21.0));
+    let charging = state.charging.as_ref().unwrap().base();
+    assert_eq!(
+        (charging.soc, charging.charging_state),
+        (Some(70), Some(15))
+    );
+    assert_eq!(charging.charge_power, None);
+    assert!(
+        state.charging_schedule.is_some(),
+        "the schedule is not a push's to change"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn pushes_merge_in_the_order_they_arrive() {
+    let car = car();
+    for round in 0..40 {
+        // Hold the engine so every push of the round is waiting at once,
+        // and the workers pick their tasks up in whatever order they like.
+        let engine = car.inner.engine.lock().await;
+        let last = 60 + round % 30;
+        for step in 0..12 {
+            let percent = if step == 11 { last } else { step };
+            car.handle_mqtt_realtime(realtime(
+                json!({"elecPercent": percent, "leftFrontDoor": 0}),
+            ));
+            car.handle_mqtt_status_push(
+                realtime(json!({"elecPercent": percent, "leftFrontDoor": step % 2})),
+                None,
+                None,
+            );
+        }
+        drop(engine);
+        while !car.inner.pushes.lock().unwrap().is_empty() {
+            tokio::task::yield_now().await;
+        }
+        drop(car.inner.engine.lock().await);
+
+        let state = car.state();
+        let realtime = state.realtime.as_ref().unwrap();
+        assert_eq!(realtime.base().elec_percent, Some(f64::from(last)));
+        // The last push of the round, a partial one, said the door was open.
+        assert_eq!(realtime.field("left_front_door"), Some(json!(1)));
+    }
+}
+
+#[test]
+fn a_push_left_behind_by_a_dropped_runtime_merges_before_a_later_one() {
+    let car = car();
+    // Hold the engine lock so the task spawned on the first runtime cannot run
+    // before that runtime is dropped.
+    let engine = car.inner.engine.try_lock().unwrap();
+    let first = tokio::runtime::Builder::new_current_thread()
+        .build()
+        .unwrap();
+    {
+        let _entered = first.enter();
+        car.handle_mqtt_realtime(realtime(json!({"elecPercent": 42, "leftFrontDoor": 0})));
+    }
+    drop(first);
+    drop(engine);
+
+    assert!(car.state().realtime.is_none());
+    assert_eq!(car.inner.pushes.lock().unwrap().len(), 1);
+
+    // A partial status push on a new runtime only has a base to patch if the
+    // orphaned full push ahead of it drains first.
+    let second = tokio::runtime::Builder::new_current_thread()
+        .build()
+        .unwrap();
+    second.block_on(async {
+        car.handle_mqtt_status_push(realtime(json!({"leftFrontDoor": 1})), None, None);
+        settle().await;
+    });
+
+    assert!(car.inner.pushes.lock().unwrap().is_empty());
+    let state = car.state();
+    let realtime = state.realtime.as_ref().unwrap();
+    assert_eq!(realtime.base().elec_percent, Some(42.0));
+    assert_eq!(realtime.field("left_front_door"), Some(json!(1)));
 }
 
 #[test]

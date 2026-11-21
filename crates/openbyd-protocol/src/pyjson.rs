@@ -7,8 +7,8 @@
 //! [`loads`] reads JSON the way `json.loads` does where serde_json can hold
 //! the value. It differs from Python for `NaN`/`Infinity` tokens, numbers
 //! out of `f64` range, integers outside `i64`/`u64` (Python keeps them
-//! exact, serde_json turns them into floats), lone surrogate escapes and
-//! nesting deeper than 128 levels.
+//! exact up to its 4,300-digit limit, serde_json turns them into floats),
+//! lone surrogate escapes and nesting deeper than 127 levels.
 
 use std::fmt::Write as _;
 
@@ -299,6 +299,149 @@ pub fn loads(text: &str) -> Result<Value, Error> {
     }
     serde_json::from_str(&negative_zero_as_int(text))
         .map_err(|error| Error::new(ErrorKind::JsonDecodeError, error.to_string()))
+}
+
+/// The deepest container nesting (`[` / `{`) [`loads`] reads: `serde_json`
+/// fails at 128 levels.
+const MAX_NESTING: usize = 127;
+
+/// `sys.get_int_max_str_digits()`: Python's `json.loads` refuses integer
+/// tokens longer than this (sign excluded) with `ValueError`.
+const INT_MAX_STR_DIGITS: usize = 4300;
+
+/// Whether a byte ends a non-string JSON token.
+fn is_json_delimiter(byte: u8) -> bool {
+    matches!(
+        byte,
+        b' ' | b'\t' | b'\n' | b'\r' | b',' | b':' | b'[' | b']' | b'{' | b'}' | b'"'
+    )
+}
+
+/// Whether `json.loads` reads `text` into a value [`loads`] cannot give: one
+/// holding `NaN` or an infinity (the tokens, or a number beyond `f64`), an
+/// integer outside `i64`/`u64` (within Python's 4,300-digit limit), a lone
+/// surrogate, or containers nested deeper than [`MAX_NESTING`] levels.
+///
+/// For a caller that would send the decoded value on, and so must refuse
+/// such text instead of sending something else. Text nested deeper than
+/// [`MAX_NESTING`] containers answers `true` without checking the rest of
+/// the syntax, so it refuses some deep text Python would also reject; that
+/// is the safe side, because a plan decoded differently would be saved back
+/// differently.
+pub fn beyond_serde(text: &str) -> bool {
+    // The text with every such token replaced by one serde_json holds. If
+    // that parses, Python parses the original.
+    let bytes = text.as_bytes();
+    let mut plain = String::with_capacity(text.len());
+    let mut copied = 0;
+    let mut index = 0;
+    let mut depth: usize = 0;
+    let mut replace = |plain: &mut String, from: usize, to: usize, with: &str| {
+        plain.push_str(&text[copied..from]);
+        plain.push_str(with);
+        copied = to;
+    };
+    let mut found = false;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'"' => {
+                index += 1;
+                while index < bytes.len() && bytes[index] != b'"' {
+                    if bytes[index] != b'\\' {
+                        index += 1;
+                    } else if let Some(unit) = hex_escape(bytes, index) {
+                        let paired = (0xD800..0xDC00).contains(&unit)
+                            && hex_escape(bytes, index + 6)
+                                .is_some_and(|low| (0xDC00..0xE000).contains(&low));
+                        if paired {
+                            index += 12;
+                        } else {
+                            if (0xD800..0xE000).contains(&unit) {
+                                found = true;
+                                replace(&mut plain, index, index + 6, "\\u0041");
+                            }
+                            index += 6;
+                        }
+                    } else {
+                        index += 2;
+                    }
+                }
+                index += 1;
+            }
+            b'[' | b'{' => {
+                depth += 1;
+                if depth > MAX_NESTING {
+                    return true;
+                }
+                index += 1;
+            }
+            b']' | b'}' => {
+                depth = depth.saturating_sub(1);
+                index += 1;
+            }
+            b' ' | b'\t' | b'\n' | b'\r' | b',' | b':' => index += 1,
+            _ => {
+                let end = bytes[index..]
+                    .iter()
+                    .position(|&byte| is_json_delimiter(byte))
+                    .map_or(bytes.len(), |length| index + length);
+                let token = &text[index..end];
+                if matches!(token, "NaN" | "Infinity" | "-Infinity") || number_beyond_serde(token) {
+                    found = true;
+                    replace(&mut plain, index, end, "0");
+                }
+                index = end;
+            }
+        }
+    }
+    if !found {
+        return false;
+    }
+    plain.push_str(&text[copied..]);
+    serde_json::from_str::<serde::de::IgnoredAny>(&plain).is_ok()
+}
+
+/// The code unit of the `\uXXXX` escape starting at `at`, if one is there.
+fn hex_escape(bytes: &[u8], at: usize) -> Option<u32> {
+    let escape = bytes.get(at..at + 6)?;
+    if &escape[..2] != b"\\u" {
+        return None;
+    }
+    let digits = std::str::from_utf8(&escape[2..]).ok()?;
+    if !digits.bytes().all(|digit| digit.is_ascii_hexdigit()) {
+        return None;
+    }
+    u32::from_str_radix(digits, 16).ok()
+}
+
+/// Whether a JSON number token is one Python holds and serde_json does not:
+/// an integer outside `i64`/`u64` (within Python's digit limit), or a float
+/// that overflows to an infinity.
+fn number_beyond_serde(token: &str) -> bool {
+    let digits = token.strip_prefix('-').unwrap_or(token);
+    let (whole, rest) = digits.split_at(
+        digits
+            .find(|c: char| !c.is_ascii_digit())
+            .unwrap_or(digits.len()),
+    );
+    // JSON's integer part: `0`, or digits that do not start with `0`.
+    if whole.is_empty() || (whole.len() > 1 && whole.starts_with('0')) {
+        return false;
+    }
+    if rest.is_empty() {
+        return whole.len() <= INT_MAX_STR_DIGITS
+            && token.parse::<i64>().is_err()
+            && token.parse::<u64>().is_err();
+    }
+    let (fraction, exponent) = match rest.find(['e', 'E']) {
+        Some(at) => (&rest[..at], Some(&rest[at + 1..])),
+        None => (rest, None),
+    };
+    let all_digits = |part: &str| !part.is_empty() && part.bytes().all(|c| c.is_ascii_digit());
+    let fraction_ok = fraction.is_empty() || fraction.strip_prefix('.').is_some_and(all_digits);
+    let exponent_ok = exponent
+        .is_none_or(|exponent| all_digits(exponent.strip_prefix(['+', '-']).unwrap_or(exponent)));
+    fraction_ok && exponent_ok && token.parse::<f64>().is_ok_and(f64::is_infinite)
 }
 
 /// serde_json reads the integer `-0` as the float `-0.0`; Python reads it as
@@ -1395,6 +1538,99 @@ mod tests {
             ErrorKind::JsonDecodeError
         );
         assert_eq!(loads("[1]").unwrap(), json!([1]));
+    }
+
+    #[test]
+    fn text_python_reads_and_serde_cannot_hold_is_recognised() {
+        let int_4300 = format!("1{}", "0".repeat(4299));
+        let neg_4300 = format!("-{int_4300}");
+        let int_4301 = format!("1{}", "0".repeat(4300));
+        let neg_4301 = format!("-{int_4301}");
+        let float_4301 = format!("{int_4301}.0");
+        // A surrogate pair written as two escapes is one character, which
+        // both sides hold. (Built from pieces so that no tool reads the
+        // escape before the compiler does.)
+        let escaped_pair = ["\"", "\\", "ud83d", "\\", "ude00\""].concat();
+        let deep_arr_ok = format!("{}1{}", "[".repeat(127), "]".repeat(127));
+        let deep_arr_over = format!("{}1{}", "[".repeat(128), "]".repeat(128));
+        let deep_obj_ok = format!("{}1{}", r#"{"a":"#.repeat(127), "}".repeat(127));
+        let deep_obj_over = format!("{}1{}", r#"{"a":"#.repeat(128), "}".repeat(128));
+        let deep_mixed_ok = format!(r#"{{"a":{}1{}}}"#, "[".repeat(126), "]".repeat(126));
+        let deep_mixed_over = format!(r#"{{"a":{}1{}}}"#, "[".repeat(127), "]".repeat(127));
+
+        for text in [
+            r#"{"a":NaN}"#,
+            "[Infinity]",
+            "-Infinity",
+            r#"{"a":5,"b":[1,-Infinity]}"#,
+            "100000000000000000000",
+            "[-9223372036854775809]",
+            "18446744073709551616",
+            "1e999",
+            "[-1.5E+400]",
+            r#""\ud800""#,
+            r#"["\udc00 x"]"#,
+            r#""\ud83dA""#,
+            &int_4300,
+            &neg_4300,
+            &float_4301,
+            &deep_arr_over,
+            &deep_obj_over,
+            &deep_mixed_over,
+        ] {
+            assert!(beyond_serde(text), "{text}");
+        }
+        for text in [
+            "",
+            "{}",
+            r#"{"a":1,"b":-2.5e3,"c":"NaN","d":"Infinity 1e999"}"#,
+            "18446744073709551615",
+            "-9223372036854775808",
+            "1e308",
+            "1e-999",
+            r#""😀 \\ud800 \n""#,
+            &escaped_pair,
+            &deep_arr_ok,
+            &deep_obj_ok,
+            &deep_mixed_ok,
+            // Not JSON for Python either.
+            "NaNx",
+            "[NaN",
+            "nan",
+            "-NaN",
+            "1NaN",
+            "-1NaN",
+            "1.NaN",
+            "1eNaN",
+            "1e+Infinity",
+            "1e-Infinity",
+            "1e-NaN",
+            "NaN.5",
+            "NaNe5",
+            "Infinity.0",
+            "Infinitye5",
+            "-Infinity.5",
+            "1Infinity",
+            r#"{"a": -NaN}"#,
+            "[NaN, -NaN]",
+            &int_4301,
+            &neg_4301,
+            "0123456789012345678901234567890",
+            "1.e999",
+            "1e+",
+            "--1",
+            "1e999e9",
+            r#""\ud800"#,
+            r#""\u12"#,
+        ] {
+            assert!(!beyond_serde(text), "{text}");
+        }
+        assert!(loads(&deep_arr_ok).is_ok());
+        assert!(loads(&deep_arr_over).is_err());
+        assert!(loads(&deep_obj_ok).is_ok());
+        assert!(loads(&deep_obj_over).is_err());
+        assert!(loads(&deep_mixed_ok).is_ok());
+        assert!(loads(&deep_mixed_over).is_err());
     }
 
     #[test]

@@ -175,7 +175,10 @@ ODD = [
 # Codes a trigger or poll can fail with: the general ones, the control
 # password, remote control service and generic refusals, busy, unreachable,
 # rate limited, not a guest, unmapped.
-CODES = ["1001", "1002", "1005", "1010", "1008", "1009", "5005", "5006", "5011", "6002", "6024", "8003", "9999"]
+CODES = [
+    "1001", "1002", "1011", "3001", "3003", "1005", "1010", "1008", "1009", "5005", "5006", "5011", "6002", "6024", "8003",
+    "9999",
+]
 
 
 def command_scripts() -> list[dict]:
@@ -422,7 +425,7 @@ def random_command_reply(rng, session: dict, kind: str | None = None) -> dict:
     if kind == "busy":
         return error_reply(rng.choice(["1008", "6002", "9999"]))
     if kind == "expired":
-        return error_reply(rng.choice(["1002", "1005", "1010"]))
+        return error_reply(rng.choice(["1002", "1011", "3001", "3003", "1005", "1010"]))
     if kind == "rate":
         return error_reply(rng.choice(["6024", "6024", 6024]))
     return rng.choice([

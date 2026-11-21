@@ -374,7 +374,7 @@ You need a Rust toolchain, Python 3.11 or newer, and a checkout of this reposito
 
 ```powershell
 uv venv --python 3.12 .venv
-uv pip install --python .venv\Scripts\python.exe maturin psutil "pybyd @ git+https://github.com/jkaberg/pyBYD@$(Get-Content parity\UPSTREAM_COMMIT)"
+uv pip install --python .venv\Scripts\python.exe maturin psutil "pybyd @ git+$(Get-Content parity\UPSTREAM_REPO)@$(Get-Content parity\UPSTREAM_COMMIT)"
 .venv\Scripts\python.exe parity\dev_install.py          # release build of the extension, with the fake server
 .venv\Scripts\python.exe bench\run_all.py --quick       # smoke test, about a minute
 .venv\Scripts\python.exe bench\run_all.py               # the full run

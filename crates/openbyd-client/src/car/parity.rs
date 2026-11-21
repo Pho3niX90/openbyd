@@ -27,6 +27,9 @@
 //!   call is in flight. A call with no reply left fails with `ScriptExhausted`.
 //!   `handle_mqtt_realtime`, `handle_mqtt_charging` and `handle_mqtt_energy`
 //!   take `{"raw", "context"}` and validate it as the client would first.
+//!   `handle_mqtt_status_push` takes `{"raw", "hvac", "charging", "context"}`:
+//!   the realtime partial and, unless `null`, the HVAC and charging ones,
+//!   validated in that order. A push of kind `"status_push"` has the same keys.
 //! - `{"op": "advance", "seconds": 5.0}` moves the clock.
 //! - `{"op": "read"}` changes nothing.
 //!
@@ -90,6 +93,7 @@ pub const CALLS: &[&str] = &[
     "car.get_ac_current_limit",
     "car.save_charging_schedule",
     "car.handle_mqtt_realtime",
+    "car.handle_mqtt_status_push",
     "car.handle_mqtt_charging",
     "car.handle_mqtt_energy",
     "car.close",
@@ -140,10 +144,34 @@ enum Push {
     Realtime(Box<VehicleRealtimeData>),
     Charging(Box<ChargingStatus>),
     Energy(Box<EnergyConsumption>),
+    Status(
+        Box<VehicleRealtimeData>,
+        Option<Box<HvacStatus>>,
+        Option<Box<ChargingStatus>>,
+    ),
 }
 
-fn parse_push(kind: &str, raw: &Value, context: &Value) -> Result<Push, Error> {
+/// `raw` validated as `M`, or `None` when it is `null` (the section was not in the push).
+fn optional<M: BydModel>(raw: &Value) -> Result<Option<Box<M>>, Error> {
+    if raw.is_null() {
+        return Ok(None);
+    }
+    Ok(Some(Box::new(
+        M::parse(raw, &Value::Null).map_err(validation_error)?,
+    )))
+}
+
+/// `push` is the whole push (or the call's arguments): `raw` and `context`,
+/// and for a status push `hvac` and `charging` too.
+fn parse_push(kind: &str, push: &Value) -> Result<Push, Error> {
+    let part = |key| push.get(key).unwrap_or(&Value::Null);
+    let (raw, context) = (part("raw"), part("context"));
     Ok(match kind {
+        "status_push" => Push::Status(
+            Box::new(VehicleRealtimeData::parse(raw, context).map_err(validation_error)?),
+            optional(part("hvac"))?,
+            optional(part("charging"))?,
+        ),
         "realtime" => Push::Realtime(Box::new(
             VehicleRealtimeData::parse(raw, context).map_err(validation_error)?,
         )),
@@ -165,6 +193,9 @@ fn deliver(car: &Arc<CarInner<ScriptedBackend>>, push: Push) {
             car.spawn_merge(move |engine, now| engine.update_charging(*data, now))
         }
         Push::Energy(data) => car.spawn_merge(move |engine, now| engine.update_energy(*data, now)),
+        Push::Status(data, hvac, charging) => car.spawn_merge(move |engine, now| {
+            engine.patch_status_push(Some(*data), hvac.map(|m| *m), charging.map(|m| *m), now);
+        }),
     }
 }
 
@@ -211,10 +242,8 @@ impl ScriptedBackend {
             if let Some(car) = self.car.get().and_then(Weak::upgrade) {
                 for push in &pushes {
                     let kind = push.get("kind").and_then(Value::as_str).unwrap_or_default();
-                    let raw = push.get("raw").unwrap_or(&Value::Null);
-                    let context = push.get("context").unwrap_or(&Value::Null);
                     // The client drops a push it cannot parse.
-                    if let Ok(push) = parse_push(kind, raw, context) {
+                    if let Ok(push) = parse_push(kind, push) {
                         deliver(&car, push);
                     }
                 }
@@ -540,10 +569,20 @@ async fn call(
                 .await,
             )
         }
-        ("car", "handle_mqtt_realtime" | "handle_mqtt_charging" | "handle_mqtt_energy") => {
+        (
+            "car",
+            "handle_mqtt_realtime"
+            | "handle_mqtt_charging"
+            | "handle_mqtt_energy"
+            | "handle_mqtt_status_push",
+        ) => {
             let kind = method.trim_start_matches("handle_mqtt_");
-            match parse_push(kind, args.value("raw"), args.value("context")) {
+            match parse_push(kind, args.0) {
                 Err(error) => Err(error),
+                Ok(Push::Status(data, hvac, charging)) => {
+                    car.handle_mqtt_status_push(*data, hvac.map(|m| *m), charging.map(|m| *m));
+                    Ok(Value::Null)
+                }
                 Ok(Push::Realtime(data)) => {
                     car.handle_mqtt_realtime(*data);
                     Ok(Value::Null)

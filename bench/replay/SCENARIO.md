@@ -87,7 +87,7 @@ BYD answers this car's reads with an error from `t` until the car's next `state`
 | `"1008"` | Busy: every car read for this VIN answers 1008. Account reads (the vehicle list) still succeed. |
 | `"6002"` | Car unreachable: the realtime read answers 6002. |
 | `"1001"` | Not supported: the realtime read answers 1001. |
-| `"1005"` | Session expiry, a single event: at `t` every session of the car's account is expired once. The next request answers 1005, a new login works, and the car's previous state applies again. |
+| `"1005"` | Session expiry, a single event: at `t` every session of the car's account is expired once. The next request is refused with the server's session-expired code (1002), a new login works, and the car's previous state applies again. In this file `1005` is only the name of the event: BYD has several codes for an expired session, and 1005 itself is no longer one pyBYD treats as such. |
 | any other digits | The realtime read answers that code. |
 
 ### Push

@@ -328,6 +328,26 @@ class Car:
         """Merge a ``vehicleInfo`` push (its raw ``respondData``), after any command in flight."""
         self._native.handle_mqtt("realtime", dict(data))
 
+    def handle_mqtt_status_push(
+        self,
+        data: Mapping[str, Any],
+        *,
+        hvac: Mapping[str, Any] | None = None,
+        charging: Mapping[str, Any] | None = None,
+    ) -> None:
+        """Merge a ``vehicleStatusPush``: a partial update, laid over what the car already knows.
+
+        ``data`` holds the fields of the push's realtime sections in one
+        dict, ``hvac`` those of its ``airStatusDto`` and ``charging`` those of
+        its ``chargeStatusDto`` (leave either out when the push has no such
+        section). Only fields that carry a reading are merged; a section the
+        car has not had a full payload for yet is skipped. Nothing is merged
+        when one of the three does not validate.
+        """
+        self._native.handle_mqtt_status_push(
+            dict(data), None if hvac is None else dict(hvac), None if charging is None else dict(charging)
+        )
+
     def handle_mqtt_charging(self, data: Mapping[str, Any]) -> None:
         """Merge a ``smartCharge`` push (live charging state only)."""
         self._native.handle_mqtt("charging", dict(data))

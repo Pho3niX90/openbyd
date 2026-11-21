@@ -171,14 +171,25 @@ def recorded():
     )
     # session expired mid-call: invalidate, log in again, retry once
     yield "client.get_vehicles", client_case(
-        state=logged_in(), replies=[error_reply("1005"), *login_replies(), ok_reply(SAMPLE_SESSION, [OWNER])]
+        state=logged_in(), replies=[error_reply("1002"), *login_replies(), ok_reply(SAMPLE_SESSION, [OWNER])]
     )
+    # every code that means the session is gone logs in again
+    for code in ["1011", "3001", "3003"]:
+        yield "client.get_vehicles", client_case(
+            state=logged_in(), replies=[error_reply(code), *login_replies(), ok_reply(SAMPLE_SESSION, [OWNER])]
+        )
+        yield "client.get_vehicles", client_case(state=logged_in(), replies=[error_reply(code), *login_replies(), error_reply(code)])
+    # 1005 and 1010 no longer do (pyBYD #96): the error goes to the caller and nothing else is sent
+    for code in ["1005", "1010"]:
+        yield "client.get_vehicles", client_case(
+            state=logged_in(), replies=[error_reply(code), *login_replies(), ok_reply(SAMPLE_SESSION, [OWNER])]
+        )
     yield "client.get_vehicles", client_case(
         state=logged_in(), replies=[error_reply("1010"), *login_replies(), error_reply("1010")]
     )
     yield "client.get_vehicles", client_case(state=logged_in(), replies=[error_reply("1002"), login_reply(code="1")])
     yield "client.get_vehicles", client_case(
-        state=logged_in(), replies=[error_reply("1005"), *login_replies(), transport_error(500)]
+        state=logged_in(), replies=[error_reply("1002"), *login_replies(), transport_error(500)]
     )
     yield "client.get_vehicles", client_case(state=logged_in(), replies=[error_reply("1001")])
     yield "client.get_vehicles", client_case(state=logged_in(), replies=[transport_error(503)])
@@ -192,7 +203,7 @@ def recorded():
         state=logged_in(), replies=[ok_reply(SAMPLE_SESSION, configs)], vins=[VIN, VIN2]
     )
     yield "client.get_latest_configs", client_case(
-        state=logged_in(), replies=[error_reply("1005"), *login_replies(), ok_reply(SAMPLE_SESSION, configs)], vins=[VIN]
+        state=logged_in(), replies=[error_reply("1002"), *login_replies(), ok_reply(SAMPLE_SESSION, configs)], vins=[VIN]
     )
     yield "client.get_latest_config", client_case(state=logged_in(), replies=[ok_reply(SAMPLE_SESSION, configs)], vin=VIN)
     yield "client.get_latest_config", client_case(state=logged_in(), replies=[ok_reply(SAMPLE_SESSION, {})], vin=VIN)
@@ -203,8 +214,8 @@ def recorded():
         [error_reply("1001")],
         [transport_error(500)],
         [],
-        [error_reply("1005"), *login_replies(), ok_reply(SAMPLE_SESSION, configs)],
-        [error_reply("1005"), login_reply(code="1")],
+        [error_reply("1002"), *login_replies(), ok_reply(SAMPLE_SESSION, configs)],
+        [error_reply("1002"), login_reply(code="1")],
     ):
         yield "client.get_vehicle_capabilities", client_case(state=logged_in(), replies=replies, vin=VIN)
     yield "client.get_vehicle_capabilities", client_case(state=logged_in(capabilities={VIN: CONFIG}), vin=VIN)

@@ -114,8 +114,8 @@ def polled_cases(method: str, event: str, data: dict) -> list[dict]:
         {"replies": [pending(), error_reply("6051"), ready(data)], **FAST, "signal_retries": 1},
         {"replies": [pending(), error_reply("6002"), transport_error(500), ready(data)], **FAST},
         {"replies": [pending(), error_reply("1001"), raw_reply("x"), ok_reply(SAMPLE_SESSION, []), ready(data)], **FAST},
-        {"replies": [pending(), error_reply("1005"), *login_replies(), pending(), ready(data)], **FAST},
-        {"replies": [pending(), error_reply("1005"), *login_replies(), pending(), error_reply("1005")], **FAST},
+        {"replies": [pending(), error_reply("1002"), *login_replies(), pending(), ready(data)], **FAST},
+        {"replies": [pending(), error_reply("1002"), *login_replies(), pending(), error_reply("1002")], **FAST},
         {"replies": [pending(), pending()], **FAST},
         # no wait: MQTT not running, timeout 0, or not given at all
         {"replies": [pending(), ready(data)], "state": logged_in(mqtt=False, vehicles=[VEHICLE])},
@@ -125,8 +125,8 @@ def polled_cases(method: str, event: str, data: dict) -> list[dict]:
         {"replies": [pending()], "poll_attempts": 0},
         # the session: expired before, expired at the trigger
         {"replies": [*login_replies(), pending()], "mqtt": [push(1.0, event, data)], "state": logged_in(session=OLD_SESSION, vehicles=[VEHICLE])},
-        {"replies": [error_reply("1005"), *login_replies(), pending()], "mqtt": [push(1.0, event, data)]},
-        {"replies": [error_reply("1005"), *login_replies(), error_reply("1005")]},
+        {"replies": [error_reply("1002"), *login_replies(), pending()], "mqtt": [push(1.0, event, data)]},
+        {"replies": [error_reply("1002"), *login_replies(), error_reply("1002")]},
         # guests declare themselves
         {"replies": [pending(), ready(data)], "state": logged_in(vehicles=[VEHICLE], guest_vins={VIN: True}), **FAST},
         {"replies": [error_reply("1001"), pending(), ready(data)], **FAST},
@@ -148,7 +148,7 @@ def energy_cases(method: str) -> list[dict]:
         client_case(state=logged_in(), replies=[ok_reply(SAMPLE_SESSION, [HYBRID]), ready(data)], vin=VIN),
         client_case(state=logged_in(), replies=[ok_reply(SAMPLE_SESSION, []), ready(data)], vin=VIN),
         client_case(state=logged_in(), replies=[error_reply("1002")], vin=VIN),
-        client_case(state=logged_in(), replies=[error_reply("1005"), *login_replies(), ok_reply(SAMPLE_SESSION, [VEHICLE]), ready(data)], vin=VIN),
+        client_case(state=logged_in(), replies=[error_reply("1002"), *login_replies(), ok_reply(SAMPLE_SESSION, [VEHICLE]), ready(data)], vin=VIN),
     ]
 
 
@@ -162,9 +162,9 @@ def simple_cases(method: str, data) -> list[dict]:
         [error_reply("1008")],
         [error_reply("6002")],
         [transport_error(500)],
-        [error_reply("1005"), *login_replies(), ok_reply(SAMPLE_SESSION, data)],
-        [error_reply("1005"), *login_replies(), error_reply("1005")],
-        [error_reply("1005"), error_reply("1002")],
+        [error_reply("1002"), *login_replies(), ok_reply(SAMPLE_SESSION, data)],
+        [error_reply("1002"), *login_replies(), error_reply("1002")],
+        [error_reply("1002"), error_reply("1002")],
         [],
     ]
     cases = [client_case(state=state, replies=replies, vin=VIN) for replies in scripts]
@@ -211,7 +211,7 @@ def recorded():
         (False, 702, ok_reply(SAMPLE_SESSION, {})),
         # the Sealion 7 EU answers 1001 (upstream test_push_switch_eu)
         (True, 701, error_reply("1001")),
-        (True, 701, error_reply("1005")),
+        (True, 701, error_reply("1002")),
     ]:
         yield "client.set_push_state", client_case(
             state=logged_in(), replies=[reply, *login_replies(), reply], vin=VIN, enable=enable, push_type=push_type
@@ -225,7 +225,7 @@ def recorded():
     )
     yield "client.get_all_notifications", client_case(state=logged_in(), replies=[ok_reply(SAMPLE_SESSION, messages), error_reply("1008")])
     yield "client.get_all_notifications", client_case(
-        state=logged_in(), replies=[error_reply("1005"), *login_replies(), ok_reply(SAMPLE_SESSION, []), ok_reply(SAMPLE_SESSION, [])]
+        state=logged_in(), replies=[error_reply("1002"), *login_replies(), ok_reply(SAMPLE_SESSION, []), ok_reply(SAMPLE_SESSION, [])]
     )
     for name, reply in [("Seal 🚗", ok_reply(SAMPLE_SESSION, {"result": "ok"})), ("", error_reply("1001"))]:
         yield "client.rename_vehicle", client_case(state=logged_in(), replies=[reply], vin=VIN, name=name)

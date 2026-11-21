@@ -12,7 +12,7 @@ use openbyd_protocol::error::Error;
 use openbyd_protocol::models::base::{BydBaseModel, BydModel};
 use openbyd_protocol::models::{
     booking, charging, command_gating, control, energy, gps, hvac, latest_config, message_center,
-    push_notification, realtime, smart_charging, token, vehicle,
+    push_notification, realtime, smart_charging, standby, token, vehicle,
 };
 use openbyd_protocol::mqtt;
 use pyo3::exceptions::PyKeyError;
@@ -267,6 +267,22 @@ const MODELS: &[(&str, Run, Raw)] = &[
     (
         "SmartJourneyDto",
         run::<smart_charging::SmartJourneyDto>,
+        MayBeReply,
+    ),
+    ("StandbyPlan", run::<standby::StandbyPlan>, MayBeReply),
+    (
+        "StandbyPlanCommand",
+        run::<standby::StandbyPlanCommand>,
+        MayBeReply,
+    ),
+    (
+        "StandbyPlanList",
+        run::<standby::StandbyPlanList>,
+        MayBeReply,
+    ),
+    (
+        "StandbyPlanRunResult",
+        run::<standby::StandbyPlanRunResult>,
         MayBeReply,
     ),
     ("Vehicle", run::<vehicle::Vehicle>, NeverReply),

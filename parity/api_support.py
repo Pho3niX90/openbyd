@@ -30,6 +30,8 @@ Both sides follow the same rules, so neither has to count clock reads:
   (``now_ms + int(slept * 1000)``); ``time.time()`` returns that plus half a
   millisecond, so ``int(time.time() * 1000)`` gives it back exactly;
 - ``time.monotonic()`` is ``now_ms / 1000 + slept``;
+- ``datetime.now(tz)``, where a pyBYD module reads it (``_api/standby.py``), is the
+  same wall clock, exact to the millisecond;
 - the n-th ``secrets.token_hex(16)`` (from 0) is ``MD5("<seed>:<n>")``;
 - ``asyncio.sleep(seconds)`` returns at once and adds to ``slept``;
 - ``transport.post_secure`` records the step and answers with the next
@@ -54,6 +56,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import datetime
 import hashlib
 import json
 import math
@@ -79,7 +82,10 @@ NOW_MS = 1_700_000_000_000
 #: Codes worth trying on any endpoint: success, session expired, not
 #: supported / guest not declared, busy, unreachable, GPS unavailable, not a
 #: guest, unmapped ones and near misses.
-CODES = ["0", "1001", "1002", "1005", "1010", "1008", "6002", "6051", "8003", "8002", "9999", "", " 1001", "1001 "]
+CODES = [
+    "0", "1001", "1002", "1011", "3001", "3003", "1005", "1010", "1008", "6002", "6051", "8003", "8002", "9999", "",
+    " 1001", "1001 ",
+]
 #: Codes that are not strings: pyBYD compares ``str(code)``.
 ODD_CODES = [0, 1001, 1001.0, 8003, None, True, [], {"a": 1}]
 
@@ -208,7 +214,8 @@ def vehicle_scripts(endpoint: str, ok: dict, *, vin: str = VIN) -> list[dict]:
         {"guest_vins": owner, "replies": []},
         {"guest_vins": owner, "replies": [ok, ok]},
     ]
-    for code in ["1002", "1005", "1010"]:
+    # the codes that mean a new login is needed, and two that used to
+    for code in ["1002", "1011", "3001", "3003", "1005", "1010"]:
         scripts.append({"guest_vins": owner, "replies": [error_reply(code), ok]})
         scripts.append({"guest_vins": owner, "replies": [error_reply("1001"), error_reply(code)]})
         scripts.append({"guest_vins": guest, "replies": [error_reply("8003"), error_reply(code)]})
@@ -236,7 +243,7 @@ def random_vehicle_script(rng, session: dict, endpoint: str, data: Callable[[Any
     replies = []
     for _ in range(rng.choice([0, 1, 1, 2, 2, 2, 3, 4])):
         if rng.random() < 0.4:
-            replies.append(error_reply(rng.choice(["1001", "8003", "1001", "8003", "1005"])))
+            replies.append(error_reply(rng.choice(["1001", "8003", "1001", "8003", "1002", "1005"])))
         else:
             replies.append(random_reply(rng, session, data))
     return {"vin": vin, "guest_vins": guest_vins, "user_type_settled": settled, "replies": replies}
@@ -292,6 +299,29 @@ class _Clock:
         value = hashlib.md5(f"{self.seed}:{self.draws}".encode()).hexdigest()
         self.draws += 1
         return value
+
+
+class _ScriptedDatetime:
+    """Stands in for the ``datetime`` module in a pyBYD module that reads
+    ``datetime.now``: ``now`` answers the scripted wall clock (``now_ms`` plus
+    the time slept), everything else is the real module's."""
+
+    def __init__(self, clock: _Clock) -> None:
+        def now(_cls: type, tz: datetime.tzinfo | None = None) -> datetime.datetime:
+            moment = datetime.datetime(1970, 1, 1, tzinfo=datetime.UTC) + datetime.timedelta(milliseconds=clock.now_ms())
+            return moment.replace(tzinfo=None) if tz is None else moment.astimezone(tz)
+
+        self.datetime = type("datetime", (datetime.datetime,), {"now": classmethod(now)})
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(datetime, name)
+
+
+def patch_datetime_now(stack: ExitStack, clock: _Clock) -> None:
+    """Make ``datetime.now`` in pyBYD's ``_api/standby.py`` (its only reader) follow ``clock``."""
+    from pybyd._api import standby
+
+    stack.enter_context(mock.patch.object(standby, "dt", _ScriptedDatetime(clock)))
 
 
 class ScriptedTransport:
@@ -382,6 +412,7 @@ def run_flow(
         stack.enter_context(mock.patch.object(time, "time", clock.time))
         stack.enter_context(mock.patch.object(time, "monotonic", clock.monotonic))
         stack.enter_context(mock.patch.object(secrets, "token_hex", clock.token_hex))
+        patch_datetime_now(stack, clock)
         built_config = BydConfig(**config)
         built_session = Session(**session)
         built_session.guest_vins.update(guest_vins or {})
@@ -458,6 +489,45 @@ class _FakeLoop:
         except Exception as error:  # noqa: BLE001 - the awaiting code sees it
             future.set_exception(error)
         return future
+
+
+class _CarSpy:
+    """Stands in for a ``BydCar``: records what the client hands it."""
+
+    def __init__(self, vin: str, steps: list[dict]) -> None:
+        self.vin = vin
+        self.steps = steps
+
+    def _record(self, method: str, *models: Any) -> None:
+        from parity.models_support import jsonable
+
+        self.steps.append({"car": [method, self.vin, *(None if model is None else jsonable(model) for model in models)]})
+
+    def handle_mqtt_realtime(self, data: Any) -> None:
+        self._record("handle_mqtt_realtime", data)
+
+    def handle_mqtt_charging(self, data: Any) -> None:
+        self._record("handle_mqtt_charging", data)
+
+    def handle_mqtt_energy(self, data: Any) -> None:
+        self._record("handle_mqtt_energy", data)
+
+    def handle_mqtt_status_push(self, data: Any, *, hvac: Any = None, charging: Any = None) -> None:
+        self._record("handle_mqtt_status_push", data, hvac, charging)
+
+
+class _CarSpies(dict):
+    """The client's ``_cars`` under the ``car_pushes`` option: a recording
+    car for every VIN, so the trace shows each push the client routes to the
+    car layer (openbyd records the same through its ``CarRouter``). Not for
+    cases that call ``get_car``, which would be given the spy."""
+
+    def __init__(self, steps: list[dict]) -> None:
+        super().__init__()
+        self.steps = steps
+
+    def get(self, vin: Any, default: Any = None) -> Any:
+        return _CarSpy(vin, self.steps)
 
 
 class _ClientHarness:
@@ -580,6 +650,11 @@ _SIMPLE_COMMANDS = {
 }
 
 
+#: Client methods a group module calls itself: ``{method: async (client, args) -> JSON data}``.
+#: ``_client_method`` falls back to these, so a group can add a method without a branch here.
+EXTRA_CLIENT_METHODS: dict[str, Callable[[Any, dict], Any]] = {}
+
+
 async def _client_method(client: Any, method: str, args: dict) -> Any:  # noqa: C901, PLR0911, PLR0912
     """Calls ``method`` on pyBYD's client and returns its result as JSON data."""
     from pybyd.models import control
@@ -679,6 +754,8 @@ async def _client_method(client: Any, method: str, args: dict) -> Any:  # noqa: 
         return jsonable(await client.toggle_smart_charging(vin, enable=bool(args.get("enable", False))))
     if method in ("start_charging", "stop_charging"):
         return jsonable(await getattr(client, method)(vin, **charge))
+    if method in EXTRA_CLIENT_METHODS:
+        return await EXTRA_CLIENT_METHODS[method](client, args)
     raise KeyError(f"no client method {method!r}")
 
 
@@ -768,6 +845,7 @@ def run_client(  # noqa: C901, PLR0913, PLR0915
         stack.enter_context(mock.patch.object(time, "time", clock.time))
         stack.enter_context(mock.patch.object(time, "monotonic", clock.monotonic))
         stack.enter_context(mock.patch.object(secrets, "token_hex", clock.token_hex))
+        patch_datetime_now(stack, clock)
         stack.enter_context(mock.patch.object(asyncio, "sleep", sleep))
         stack.enter_context(mock.patch.object(asyncio, "wait_for", wait_for))
         stack.enter_context(mock.patch.object(asyncio, "ensure_future", ensure_future))
@@ -813,6 +891,8 @@ def run_client(  # noqa: C901, PLR0913, PLR0915
         client._transport = transport
         client._parity_transport = transport
         client._loop = _FakeLoop()
+        if options.get("car_pushes"):
+            client._cars = _CarSpies(steps)
         if options.get("pin_passthrough"):
             # What applications patch today: a digest goes out as given.
             original_resolve = client._resolve_command_pwd
@@ -1002,7 +1082,10 @@ def client_case(
 FUZZ_SERIALS = ["S1", "S1", "S2", "", None, 5, "S3"]
 #: Codes that drive the client: session expired, busy, unreachable, no GPS,
 #: rate limited, refused command, PIN errors, guest retries.
-CLIENT_CODES = ["1005", "1010", "1002", "1008", "6002", "6051", "6024", "1009", "1001", "8003", "5005", "5006", "5011", "9999"]
+CLIENT_CODES = [
+    "1002", "1011", "3001", "3003", "1002", "1005", "1010", "1008", "6002", "6051", "6024", "1009", "1001", "8003", "5005",
+    "5006", "5011", "9999",
+]
 #: Commands with their parameter models.
 COMMAND_PARAMS = {
     "start_climate": [{}, {"temperature": 21.0}, {"temperature": 25.5, "time_span": 2}],
@@ -1171,7 +1254,7 @@ def _focused_reply(rng, method: str) -> dict:
     """A reply a trigger or a poll of ``method`` could get."""
     roll = rng.random()
     if roll < 0.2:
-        return error_reply(rng.choice(["6024", "1009", "1001", "1005", "6051", "1008", "5005", "6002"]))
+        return error_reply(rng.choice(["6024", "1009", "1001", "1002", "3003", "1005", "6051", "1008", "5005", "6002"]))
     if roll < 0.25:
         return transport_error(rng.choice([None, 500]))
     serial = rng.choice(["S1", "S1", "S1", "S2", "", 5])

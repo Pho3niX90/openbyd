@@ -101,6 +101,7 @@ mod commands;
 pub(crate) mod parity;
 mod production;
 pub(crate) mod push;
+mod standby;
 
 use std::collections::HashMap;
 use std::fmt;
@@ -138,6 +139,7 @@ use crate::api::smart_charging::{
     ChangeChargeFetchFn, EnergyTypeArg, FetchFn, SaveChargingScheduleFetchFn,
     is_charge_change_ready,
 };
+use crate::api::standby::{SendFetchFn, is_send_ready};
 use crate::api::vehicle::parse_model;
 use crate::api::{
     booking, charging, energy, gps, hvac, latest_config, message_center, push_notifications,
@@ -150,6 +152,7 @@ use crate::mqtt::fetch_mqtt_bootstrap;
 pub use cars::{ClientCar, ClientHandle, GetCarOptions};
 pub use commands::{ControlParamsArg, resolve_command_pwd};
 pub use production::ProductionEnv;
+pub use standby::RunPollSettings;
 
 /// Where the login request goes.
 pub const LOGIN_ENDPOINT: &str = "/app/account/login";
@@ -229,6 +232,21 @@ pub trait CarRouter: Send + Sync {
     fn handle_mqtt_charging(&self, vin: &str, data: &ChargingStatus);
     /// A parsed `energyConsumption` push.
     fn handle_mqtt_energy(&self, vin: &str, data: &EnergyConsumption);
+    /// A parsed `vehicleStatusPush`: partial models to lay over what is
+    /// known ([`BydCar::handle_mqtt_status_push`](crate::car::BydCar::handle_mqtt_status_push)),
+    /// `hvac` and `charging` only when the push had their section.
+    ///
+    /// Ignored unless implemented, so routers written before pyBYD handled
+    /// these pushes keep compiling.
+    fn handle_mqtt_status_push(
+        &self,
+        vin: &str,
+        data: &VehicleRealtimeData,
+        hvac: Option<&HvacStatus>,
+        charging: Option<&ChargingStatus>,
+    ) {
+        let _ = (vin, data, hvac, charging);
+    }
 }
 
 /// How a request ended, for a [`RequestObserver`].
@@ -1392,6 +1410,7 @@ enum ReadFetch<'a> {
     Gps,
     Charge(&'a ChangeChargeFetchFn),
     Save(&'a SaveChargingScheduleFetchFn),
+    StandbySend(&'a SendFetchFn),
 }
 
 impl ReadFetch<'_> {
@@ -1424,6 +1443,7 @@ impl ReadFetch<'_> {
             }
             Self::Charge(fetch) => fetch.fetch(cx, endpoint, vin, serial).await,
             Self::Save(fetch) => fetch.fetch(cx, endpoint, vin, serial).await,
+            Self::StandbySend(fetch) => fetch.fetch(cx, endpoint, vin, serial).await,
         }
     }
 
@@ -1433,6 +1453,7 @@ impl ReadFetch<'_> {
                 .map_err(crate::api::control::model_error),
             Self::Gps => Ok(gps::is_gps_info_ready(raw)),
             Self::Charge(_) | Self::Save(_) => Ok(is_charge_change_ready(raw)),
+            Self::StandbySend(_) => Ok(is_send_ready(raw)),
         }
     }
 }

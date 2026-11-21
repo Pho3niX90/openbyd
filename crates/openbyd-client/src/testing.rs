@@ -73,8 +73,10 @@ pub mod codes {
     pub const BAD_REQUEST: &str = "9003";
     /// No handler or script for the endpoint. The fake's own code.
     pub const NO_HANDLER: &str = "9004";
-    /// The session is unknown or expired (the real service's 1005).
-    pub const SESSION_EXPIRED: &str = "1005";
+    /// The session is unknown or expired. The real service has several codes
+    /// for it (`SESSION_EXPIRED_CODES`); this is the one pyBYD has always
+    /// treated as an expired session.
+    pub const SESSION_EXPIRED: &str = "1002";
     /// A guest account did not send `userType: "1"` (the real service's 1001).
     pub const GUEST_NOT_DECLARED: &str = "1001";
     /// An owner sent `userType: "1"` (the real service's 8003).

@@ -7,6 +7,12 @@ event kind, acknowledgements matched, unmatched and expired, decrypt-failure
 re-authentication up to and past its limit (upstream
 test_mqtt_decrypt_reauth), recovery after refused CONNACKs (upstream
 test_mqtt_connack_recovery), and a re-login cancelling a pending wait.
+
+A ``vehicleStatusPush`` fires no callback of its own: what the client makes
+of it shows only in what it hands to the car. Cases with the option
+``car_pushes`` record that as ``{"car": [method, vin, models...]}`` steps
+(``parity/api_support.py``, ``_CarSpies``), for every kind of push
+(upstream test_mqtt_status_push).
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from parity.api_support import (
 from parity.flow_cases import corpus, keep_representable
 from parity.framework import Group
 from parity.groups.config import SAMPLE_SESSION
+from parity.groups.mqtt import AIR, CHARGE, STATUS_PUSHES, random_status_push
 
 group = Group("client_mqtt", crate="client")
 
@@ -48,6 +55,135 @@ def raw_event(at: float, payload: dict, *, event: str = "remoteControl", vin: st
 
 def dispatch(*events: dict, state: dict | None = None, **more) -> dict:
     return client_case(state=STATE if state is None else state, mqtt=list(events), **more)
+
+
+CAR_PUSHES = {"car_pushes": True}
+
+
+def routed(*events: dict, state: dict | None = None, **more) -> dict:
+    """``dispatch`` with what goes to the car layer recorded."""
+    return dispatch(*events, state=state, options={**CAR_PUSHES, **more.pop("options", {})}, **more)
+
+
+def status_push(at: float, respond, **more) -> dict:
+    return mqtt_event(at, "vehicleStatusPush", {"respondData": respond}, **more)
+
+
+def status_push_cases():
+    call = "client._on_mqtt_event"
+    doors = {"doorStatusDto": {"leftFrontDoor": 1, "leftFrontDoorLock": 1}}
+    # upstream test_mqtt_status_push: realtime from every section, HVAC from airStatusDto only, no charging;
+    # a remoteControlAck is logged and nothing else (no on_command_ack).
+    yield call, routed(
+        status_push(0.0, STATUS_PUSHES[3]),
+        mqtt_event(1.0, "remoteControlAck", {"respondData": {"res": 1, "ackStatus": 1}}, uuid="ser-1"),
+    )
+    # upstream: a door-only push leaves HVAC and charging alone
+    yield call, routed(status_push(0.0, STATUS_PUSHES[4]))
+    # every upstream push, for an EV, a hybrid and a car the client has no metadata for
+    for vehicles in ([VEHICLE], [{"vin": VIN, "energyType": "2"}], [{"vin": VIN, "energyType": "-1"}], []):
+        for payload in STATUS_PUSHES:
+            yield call, routed(status_push(0.0, payload), state=logged_in(vehicles=vehicles))
+        yield call, routed(
+            status_push(0.0, {"can3D903Dto": {"totalEnergy": "6.7kW·h/100km+7.2L/100km", "energyConsumption": "6.1+8.4"}}),
+            state=logged_in(vehicles=vehicles),
+        )
+    # all three models; the envelope's time reaches each of them; a section's own time wins
+    full = {**doors, AIR: {"cycleModel": 2, "status": 1, "tempInCar": 21}, CHARGE: {"chargingState": 15, "soc": 70}}
+    for extra in ({}, {"time": 1700000000}, {"timestamp": 1700000001}, {"time": 1700000000, "timestamp": "x"},
+                  {"time": None}, {AIR: {"time": 1700000500, "cycleModel": 1}, "time": 1700000000}):
+        yield call, routed(status_push(0.0, {**full, **extra}))
+    # no known section: nothing is routed (the two schedules are not realtime sections)
+    for payload in ({}, {"time": 1700000000}, {"unknownDto": {"elecPercent": 5}}, {"smartChargeDto": {"soc": 80}},
+                    {"doorStatusDto": None}, {"doorStatusDto": []}, {"doorStatusDto": {}}, {"doorStatusDto": {"a": None}},
+                    {"elecPercent": 50}, {"airStatusDTO": {"cycleModel": 2}}):
+        yield call, routed(status_push(0.0, payload))
+    # sections that are not dicts next to one that is
+    yield call, routed(status_push(0.0, {**doors, AIR: "x", CHARGE: [1], "tireStatusDto": 5}))
+    # the sections in the data envelope when respondData has none; in the payload when there is no data object
+    yield call, routed(mqtt_event(0.0, "vehicleStatusPush", {"respondData": {}, **full, "time": 1700000000}))
+    yield call, routed(mqtt_event(0.0, "vehicleStatusPush", {"respondData": {"time": 5, "other": 1}, **doors}, uuid="S1"))
+    yield call, routed(mqtt_event(0.0, "vehicleStatusPush", {"respondData": doors, AIR: {"cycleModel": 2}}))
+    yield call, routed(mqtt_event(0.0, "vehicleStatusPush", {"code": "6051", **full}))
+    yield call, routed(mqtt_event(0.0, "vehicleStatusPush", {"code": "6051", "respondData": "text", **doors}, uuid="S1"))
+    for data in ({"respondData": "text", **doors}, {"respondData": None, **doors}, doors, "text", None, [], {}):
+        yield call, routed(mqtt_event(0.0, "vehicleStatusPush", data))
+    yield call, routed(raw_event(0.0, {"event": "vehicleStatusPush", "vin": VIN, **full, "time": 1700000000},
+                                 event="vehicleStatusPush"))
+    yield call, routed(raw_event(0.0, {"data": 5, **doors}, event="vehicleStatusPush"))
+    yield call, routed(raw_event(0.0, {"data": {"respondData": {}}, **doors}, event="vehicleStatusPush"))
+    # a uuid gives respondData a requestSerial, which is not a section
+    yield call, routed(status_push(0.0, {"commonDto": {"requestSerial": "INNER"}, **doors}, uuid="S1"))
+    # one model that does not validate drops the whole push: realtime, HVAC, charging
+    for payload in ({"doorStatusDto": {"leftFrontDoor": [1]}, AIR: {"cycleModel": 2}},
+                    {**doors, AIR: {"status": [1]}},
+                    {**doors, CHARGE: {"soc": "x"}},
+                    {**doors, AIR: {"cycleModel": 2}, CHARGE: {"chargingState": {}}},
+                    {"commonDto": {"raw": "x"}, **doors},
+                    {"commonDto": {"raw": {"own": 1}}, **doors}):
+        yield call, routed(status_push(0.0, payload))
+    # sentinels, numbers as text, field names as keys, unknown keys
+    yield call, routed(status_push(0.0, {
+        "can4A505Dto": {"elecPercent": "82", "elec_percent": 1, "foo": "bar"},
+        "doorStatusDto": {"leftFrontDoor": -1, "leftFrontDoorLock": "", "backCover": "1"},
+        AIR: {"tempInCar": -129, "status": "--", "airRunState": "1", "mainSettingTempNew": "23.5"},
+        CHARGE: {"chargingState": "15", "fullHour": -1, "chargePower": "--", "elecPercent": "70"},
+    }))
+    # no VIN, an empty VIN, another car; no callbacks; MQTT not running
+    yield call, routed(raw_event(0.0, {"data": {"respondData": full}}, event="vehicleStatusPush", vin=None))
+    yield call, routed(status_push(0.0, full, vin=""))
+    yield call, routed(status_push(0.0, full, vin="OTHERVIN000000001"))
+    yield call, routed(status_push(0.0, full), callbacks=False)
+    yield call, routed(status_push(0.0, full), state=logged_in(mqtt=False))
+    yield call, dispatch(status_push(0.0, full))
+    # the other pushes reach the car layer too, after the callback
+    yield call, routed(
+        mqtt_event(0.0, "vehicleInfo", {"respondData": REALTIME}),
+        mqtt_event(1.0, "smartCharge", {"respondData": CHARGING}),
+        mqtt_event(2.0, "energyConsumption", {"respondData": ENERGY}),
+        mqtt_event(3.0, "vehicleInfo", {"respondData": {"onlineState": [1]}}),
+        mqtt_event(4.0, "smartCharge", {"respondData": {"soc": "x"}}),
+        mqtt_event(5.0, "somethingElse", {"respondData": full}),
+        mqtt_event(6.0, "remoteControl", {"respondData": full}, uuid="S9"),
+    )
+    # a status push does not answer a wait for another kind of event, even with its serial
+    yield "client.get_gps_info", routed(
+        status_push(1.0, {**doors, "commonDto": {"latitude": 52.0, "longitude": 4.0}}, uuid="S1"),
+        mqtt_event(2.0, "remoteControl", {"respondData": {"latitude": 52.0, "longitude": 4.0}}, uuid="S1"),
+        replies=[ok_reply(SAMPLE_SESSION, {"requestSerial": "S1"})],
+        vin=VIN,
+    )
+    # remoteControlAck: the pending command stays pending until the result comes, and counts as nothing
+    lock = {"method": "lock", "args": {"vin": VIN, "command_pwd": "123456"}}
+    trigger = ok_reply(SAMPLE_SESSION, {"requestSerial": "S1"})
+    done = ok_reply(SAMPLE_SESSION, {"controlState": 1, "requestSerial": "S1"})
+    ack = {"respondData": {"res": 1, "ackStatus": 1}}
+    for events in (
+        [mqtt_event(30.0, "remoteControlAck", ack, uuid="S1")],
+        [mqtt_event(30.0, "remoteControlAck", ack, uuid="S1"),
+         mqtt_event(31.0, "remoteControl", {"respondData": {"res": 4}}, uuid="S1")],
+        [mqtt_event(30.0, "remoteControlAck", ack), mqtt_event(31.0, "remoteControlAck", {"respondData": {}}, uuid="S2")],
+        [mqtt_event(30.0, "remoteControlAck", {"code": "6051"}, uuid="S1")],
+        [mqtt_event(30.0, "remoteControlAck", ack, uuid="S1", vin="")],
+    ):
+        yield call, routed(*events, state=READY, setup=[lock], replies=[trigger, done])
+        yield "client.get_command_ack_diagnostics", routed(*events, state=READY, setup=[lock], replies=[trigger, done])
+    # a command waiting for its result is not answered by the ack
+    yield "client.lock", routed(
+        mqtt_event(1.0, "remoteControlAck", ack, uuid="S1"),
+        mqtt_event(2.0, "remoteControl", {"respondData": {"res": 4}}, uuid="S1"),
+        state=READY,
+        replies=[trigger],
+        vin=VIN,
+        command_pwd="123456",
+    )
+    yield "client.lock", routed(
+        mqtt_event(1.0, "remoteControlAck", ack, uuid="S1"),
+        state=READY,
+        replies=[trigger, done],
+        vin=VIN,
+        command_pwd="123456",
+    )
 
 
 @group.recorded
@@ -229,6 +365,35 @@ def recorded():  # noqa: C901
     )
 
 
+def random_push_event(rng, at: float) -> dict:
+    """A ``vehicleStatusPush`` in one of the shapes the client reads, or a ``remoteControlAck``."""
+    vin = rng.choice([VIN, VIN, VIN, VIN, "OTHERVIN000000001", ""])
+    uuid = rng.choice([None, None, "S1", "S2", ""])
+    if rng.random() < 0.15:
+        respond = rng.choice([{"res": 1, "ackStatus": 1}, {"res": 4}, {}, {"res": "x", "ackStatus": None}])
+        return mqtt_event(at, "remoteControlAck", {"respondData": respond}, vin=vin, uuid=uuid)
+    payload = random_status_push(rng)
+    shape = rng.random()
+    if shape < 0.7:
+        data = {"respondData": payload}
+    elif shape < 0.8:
+        # the sections in the data envelope
+        data = {"respondData": rng.choice([{}, {"other": 1}, {"time": 5}]), **payload}
+    elif shape < 0.87:
+        data = {"code": rng.choice(["6051", 6051]), **payload}
+    elif shape < 0.93:
+        data = {"respondData": rng.choice(["text", None, [payload]]), **payload}
+    else:
+        body = {"event": "vehicleStatusPush", "vin": vin, **payload}
+        return {"at": at, "event": {"event": "vehicleStatusPush", "vin": vin or None, "topic": "t", "payload": body}}
+    return mqtt_event(at, "vehicleStatusPush", data, vin=vin, uuid=uuid)
+
+
+@group.recorded
+def recorded_status_push():
+    yield from status_push_cases()
+
+
 @group.fuzz
 def fuzz(rng):
     methods = ["_on_mqtt_event", "_on_mqtt_event", "get_command_ack_diagnostics", "get_gps_info", "lock"]
@@ -237,6 +402,13 @@ def fuzz(rng):
         case = random_client_case(rng, method)
         if method in ("_on_mqtt_event", "get_command_ack_diagnostics") and rng.random() < 0.5:
             case["setup"].append({"method": "lock", "args": {"vin": VIN, "command_pwd": "123456"}})
+        if rng.random() < 0.6:
+            case["options"]["car_pushes"] = True
+        if rng.random() < 0.6:
+            times = [rng.choice([0.0, 0.5, 1.0, 2.0, 3.0, 9.0, 40.0]) for _ in range(rng.choice([1, 1, 2, 3, 5]))]
+            case["mqtt"] = sorted(
+                [*case["mqtt"], *(random_push_event(rng, at) for at in times)], key=lambda entry: entry["at"]
+            )
         yield f"client.{method}", case
 
 

@@ -70,7 +70,7 @@ def recorded():
     yield "client.get_car", client_case(state=logged_in(), replies=[error_reply("1001")], vin=VIN)
     yield "client.get_car", client_case(state=logged_in(), replies=[transport_error(502)], vin=VIN)
     yield "client.get_car", client_case(
-        state=logged_in(), replies=[error_reply("1005"), *login_replies(), vehicles(OWNER), configs(WINDOWS)], vin=VIN
+        state=logged_in(), replies=[error_reply("1002"), *login_replies(), vehicles(OWNER), configs(WINDOWS)], vin=VIN
     )
     # the capabilities fail: "unknown" capabilities, and the car is built anyway
     for failure in (error_reply("1001"), transport_error(500), ok_reply(SAMPLE_SESSION, {}), error_reply("1008")):

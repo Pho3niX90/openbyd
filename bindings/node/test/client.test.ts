@@ -16,6 +16,7 @@ import {
   EnergyType,
   NotificationCategory,
   OpenBydError,
+  StandbyScheduleRepeat,
   ValidationError,
   type CommandGateVerdict,
   type RequestRecord,
@@ -379,4 +380,98 @@ test("many clients are cheap and run at once", async () => {
   const statuses = await Promise.all(clients.map((client) => client.getHvacStatus(VIN)));
   assert.deepEqual(new Set(statuses.map((status) => status.ac_switch)), new Set([1]));
   assert.equal(world.server.requests(LOGIN).length, 100);
+});
+
+test("standby plans round-trip, including daily schedules with zone", async () => {
+  const LIST = "/control/standby-vehicles/list";
+  const SAVE = "/control/standby-vehicles/save";
+  const SET_DEFAULT = "/control/standby-vehicles/setDefault";
+  const DELETE = "/control/standby-vehicles/delete";
+  const SEND = "/control/standby-vehicles/send";
+  const SEND_RESULT = "/control/standby-vehicles/send-result";
+
+  using world = new World();
+  const preset = {
+    id: "101",
+    planName: "Preset",
+    planType: 1,
+    defaultPlan: 1,
+    enable: 1,
+    executeType: "2",
+    startTime: "",
+    weeklyDays: [],
+    controlParams: [
+      { commandType: "OPENAIR", commandId: "1", controlParamsMap: "{\"temperature\":21,\"timeSpan\":2}" },
+    ],
+  };
+  const created = {
+    ...preset,
+    id: "202",
+    planName: "Morning",
+    planType: 2,
+    defaultPlan: 0,
+    executeType: "1",
+  };
+  world.server.reply(SAVE, { data: {} });
+  world.server.reply(SET_DEFAULT, { data: {} });
+  world.server.reply(DELETE, { data: {} });
+  world.server.reply(SEND, { data: { requestSerial: "RUN1" } });
+  world.server.reply(SEND_RESULT, { data: { requestSerial: "RUN1", res: 2, message: "ok" } });
+  world.server.script(LIST, [
+    { data: [preset] },
+    { data: [preset] },
+    { data: [preset] },
+    { data: [preset, created] },
+    { data: [preset, created] },
+    { data: [preset] },
+  ]);
+
+  const client = world.client();
+  const list = await client.getStandbyPlans(VIN);
+  assert.equal(list.plans.length, 1);
+  const plan = list.plans[0];
+  assert.ok(plan);
+
+  const saved = await client.saveStandbyPlan(VIN, plan, {
+    schedule: {
+      repeat: StandbyScheduleRepeat.DAILY,
+      at: "2026-10-24T08:00:00+02:00",
+      zone: "Europe/Madrid",
+    },
+  });
+  assert.equal(saved.plans[0]?.id, "101");
+  const saveInner = world.server.requests(SAVE)[0]?.inner as { executeType: string; executeTime: number };
+  assert.equal(saveInner.executeType, "1");
+  assert.ok(saveInner.executeTime > 0);
+
+  const badZone = await thrown(() =>
+    client.saveStandbyPlan(VIN, plan, {
+      schedule: {
+        repeat: StandbyScheduleRepeat.DAILY,
+        at: "2026-10-24T08:00:00+02:00",
+        zone: "Mars/Olympus_Mons",
+      },
+    }),
+  );
+  assert.ok(badZone instanceof DataError);
+  assert.equal(badZone.kind, "ZoneInfoNotFoundError");
+
+  const newPlan = await client.createStandbyPlan(VIN, "Morning", plan.commands, {
+    schedule: {
+      repeat: StandbyScheduleRepeat.WEEKLY,
+      startTime: "07:30",
+      weeklyDays: [0, 1, 2, 3, 4],
+    },
+  });
+  assert.equal(newPlan.id, "202");
+
+  const defaulted = await client.setDefaultStandbyPlan(VIN, "202");
+  assert.equal(defaulted.plans.length, 2);
+
+  const remaining = await client.deleteStandbyPlan(VIN, "202");
+  assert.equal(remaining.plans.length, 1);
+
+  const run = await client.runStandbyPlan(VIN, "101", { pollAttempts: 2, pollInterval: 0.01 });
+  assert.equal(run.res, 2);
+  assert.equal(run.vin, VIN);
 });

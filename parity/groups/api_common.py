@@ -72,7 +72,7 @@ def decode_respond_data(endpoint: str, response, content_key: str):
     return _common.decode_respond_data(endpoint=endpoint, response=response, content_key=content_key)
 
 
-CODES = ["0", "", "1001", "1002", "1005", "1008", "1010", "5005", "6002", "6024", "8003", "9999", " 1001"]
+CODES = ["0", "", "1001", "1002", "1011", "3001", "3003", "1005", "1008", "1010", "5005", "6002", "6024", "8003", "9999", " 1001"]
 API_CLASSES = [
     "BydApiError", "BydAuthenticationError", "BydSessionExpiredError", "BydRemoteControlError",
     "BydControlPasswordError", "BydEndpointNotSupportedError", "BydDataUnavailableError", "BydRateLimitError",

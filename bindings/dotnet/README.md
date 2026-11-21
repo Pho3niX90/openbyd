@@ -37,7 +37,7 @@ if (car.Lock.Available)
 await car.Hvac.StartAsync(temperature: 21, duration: 20);
 ```
 
-Methods and arguments are pyBYD's, in PascalCase: `get_vehicle_realtime` is `GetVehicleRealtimeAsync`, and the ones that answer at once have no `Async` (`ExportSession`, `car.State`). An optional argument left out, or null, takes pyBYD's default.
+Methods and arguments are pyBYD's, in PascalCase: `get_vehicle_realtime` is `GetVehicleRealtimeAsync`, and the ones that answer at once have no `Async` (`ExportSession`, `car.State`). An optional argument left out, or null, takes pyBYD's default. Preconditioning plans use `GetStandbyPlansAsync`, `SaveStandbyPlanAsync`, `CreateStandbyPlanAsync`, `SetDefaultStandbyPlanAsync`, `DeleteStandbyPlanAsync` and `RunStandbyPlanAsync`; on a daily `StandbySchedule`, set `Zone` to an IANA time zone name (such as `"Europe/Madrid"`) so the next run follows that zone's wall clock across daylight-saving changes.
 
 ## Results
 

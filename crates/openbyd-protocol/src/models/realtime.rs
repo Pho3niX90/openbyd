@@ -14,7 +14,7 @@ use super::vehicle::EnergyType;
 // The macro moved to `base`; this is its old path.
 #[allow(unused_imports)]
 pub(crate) use super::base::byd_enum;
-use crate::coerce::{self, IntEnum, ValidationError, py_decimal, py_strip};
+use crate::coerce::{self, IntEnum, IntOrStr, ValidationError, py_decimal, py_strip};
 use crate::parity::{Args, Outcome, ParityError};
 use crate::pyjson;
 
@@ -22,15 +22,63 @@ use crate::pyjson;
 // Enums
 // ------------------------------------------------------------------
 
-byd_enum! {
-    /// Vehicle online/offline state.
-    OnlineState {
-        /// No mapped member.
-        Unknown = -1 => "UNKNOWN",
-        /// Online.
-        Online = 1 => "ONLINE",
-        /// Offline.
-        Offline = 2 => "OFFLINE",
+/// Vehicle online/offline state.
+///
+/// `0` is offline; any other positive integer is online (see [`PyEnum::missing`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum OnlineState {
+    /// No mapped member.
+    Unknown = -1,
+    /// Offline.
+    Offline = 0,
+    /// Online.
+    Online = 1,
+}
+
+impl IntEnum for OnlineState {
+    const MEMBERS: &'static [Self] = &[Self::Unknown, Self::Offline, Self::Online];
+    /// Not used for fields, which go through [`online_state`]; see [`PyEnum::missing`].
+    const MISSING: Option<Self> = Some(Self::Unknown);
+    fn value(self) -> i64 {
+        self as i64
+    }
+}
+
+impl PyEnum for OnlineState {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Unknown => "UNKNOWN",
+            Self::Offline => "OFFLINE",
+            Self::Online => "ONLINE",
+        }
+    }
+
+    /// `_missing_`: a positive `int` (not a `bool`, not a float) is `ONLINE`,
+    /// anything else `UNKNOWN`.
+    fn missing(value: &Value) -> Self {
+        match value {
+            Value::Number(number)
+                if number.is_u64() || number.as_i64().is_some_and(|int| int > 0) =>
+            {
+                Self::Online
+            }
+            _ => Self::Unknown,
+        }
+    }
+}
+
+/// A field typed `OnlineState`: pydantic reads the value as an `int` and,
+/// when no member has it, calls `_missing_` with the *original* input, so
+/// `2` is `ONLINE` but `"2"` and `2.0` are `UNKNOWN`.
+pub fn online_state(value: &Value) -> Result<OnlineState, ValidationError> {
+    let members: Vec<i64> = OnlineState::MEMBERS
+        .iter()
+        .map(|member| member.value())
+        .collect();
+    match coerce::int_enum_value(value, &members, None) {
+        Ok(found) => Ok(OnlineState::call(&json!(found))),
+        Err(error) if error.error_type == "enum" => Ok(OnlineState::missing(value)),
+        Err(error) => Err(error),
     }
 }
 
@@ -150,6 +198,8 @@ byd_enum! {
         Unknown = -1 => "UNKNOWN",
         /// Off.
         Off = 1 => "OFF",
+        /// Starting, or powered without being fully on.
+        Starting = 2 => "STARTING",
         /// On.
         On = 3 => "ON",
     }
@@ -889,9 +939,8 @@ pub struct VehicleRealtimeData {
     /// Driver-side set temperature (deg C, precise).
     #[serde(serialize_with = "base::ser_opt_float")]
     pub main_setting_temp_new: Option<f64>,
-    /// Air circulation mode.
-    #[serde(serialize_with = "base::ser_opt_int_enum")]
-    pub air_run_state: Option<AirCirculationMode>,
+    /// Raw `airRunState`, left uninterpreted until confirmed live.
+    pub air_run_state: Option<i64>,
 
     // --- Seat heating/ventilation ---
     /// Driver seat heating.
@@ -965,6 +1014,9 @@ pub struct VehicleRealtimeData {
     /// Trunk lid (BYD also sends it as `backCover`).
     #[serde(serialize_with = "base::ser_opt_int_enum")]
     pub trunk_lid: Option<DoorOpenState>,
+    /// Lower half of a split tailgate.
+    #[serde(serialize_with = "base::ser_opt_int_enum")]
+    pub trunk_lid_lower: Option<DoorOpenState>,
     /// Sliding door.
     #[serde(serialize_with = "base::ser_opt_int_enum")]
     pub sliding_door: Option<DoorOpenState>,
@@ -1241,8 +1293,8 @@ pub struct VehicleRealtimeData {
     pub ok_light: Option<i64>,
 
     // --- Features (extended) ---
-    /// Repair/service mode. `'0'`=off.
-    pub repair_mode_switch: Option<String>,
+    /// Repair/service mode. `'0'` or `0`=off, `'1'` or `1`=on.
+    pub repair_mode_switch: Option<IntOrStr>,
 
     // --- Misc ---
     /// Vehicle timezone (e.g. `Europe/Rome`).
@@ -1350,7 +1402,10 @@ impl VehicleRealtimeData {
 
     /// Whether the vehicle is reporting as online.
     pub fn is_online(&self) -> bool {
-        self.online_state == OnlineState::Online
+        !matches!(
+            self.online_state,
+            OnlineState::Unknown | OnlineState::Offline
+        )
     }
 
     /// Canonical charging state derived from the realtime payload.
@@ -1414,6 +1469,7 @@ impl VehicleRealtimeData {
             self.left_rear_door,
             self.right_rear_door,
             self.trunk_lid,
+            self.trunk_lid_lower,
             self.sliding_door,
             self.forehold,
         ]
@@ -1434,7 +1490,7 @@ impl VehicleRealtimeData {
 
     /// Whether the vehicle is powered on.
     pub fn is_vehicle_on(&self) -> bool {
-        self.power_gear == Some(PowerGear::On)
+        matches!(self.power_gear, Some(PowerGear::Starting | PowerGear::On))
     }
 
     /// Whether the battery heating system is active.
@@ -1473,7 +1529,7 @@ impl BydModel for VehicleRealtimeData {
         let string = coerce::string;
         let mut model = Self {
             raw: fields.raw(),
-            online_state: fields.get("online_state", OnlineState::Unknown, enum_field),
+            online_state: fields.get("online_state", OnlineState::Unknown, online_state),
             connect_state: fields.get("connect_state", ConnectState::Unknown, enum_field),
             vehicle_state: fields.get("vehicle_state", VehicleState::Unknown, enum_field),
             request_serial: fields.opt("request_serial", string),
@@ -1491,7 +1547,7 @@ impl BydModel for VehicleRealtimeData {
             temp_in_car: fields.opt("temp_in_car", float),
             main_setting_temp: fields.opt("main_setting_temp", int),
             main_setting_temp_new: fields.opt("main_setting_temp_new", float),
-            air_run_state: fields.opt("air_run_state", enum_field),
+            air_run_state: fields.opt("air_run_state", int),
             main_seat_heat_state: fields.opt("main_seat_heat_state", enum_field),
             main_seat_ventilation_state: fields.opt("main_seat_ventilation_state", enum_field),
             copilot_seat_heat_state: fields.opt("copilot_seat_heat_state", enum_field),
@@ -1517,6 +1573,7 @@ impl BydModel for VehicleRealtimeData {
             left_rear_door: fields.opt("left_rear_door", enum_field),
             right_rear_door: fields.opt("right_rear_door", enum_field),
             trunk_lid: fields.opt("trunk_lid", enum_field),
+            trunk_lid_lower: fields.opt("trunk_lid_lower", enum_field),
             sliding_door: fields.opt("sliding_door", enum_field),
             forehold: fields.opt("forehold", enum_field),
             left_front_door_lock: fields.opt("left_front_door_lock", enum_field),
@@ -1612,7 +1669,7 @@ impl BydModel for VehicleRealtimeData {
             charging_system: fields.opt("charging_system", int),
             steering_system: fields.opt("steering_system", int),
             ok_light: fields.opt("ok_light", int),
-            repair_mode_switch: fields.opt("repair_mode_switch", string),
+            repair_mode_switch: fields.opt("repair_mode_switch", coerce::int_or_str),
             vehicle_time_zone: fields.opt("vehicle_time_zone", string),
             power_battery_connection: fields.opt("power_battery_connection", int),
             ins: fields.opt("ins", int),
@@ -1810,7 +1867,8 @@ mod tests {
         let ready = |value: Value| VehicleRealtimeData::is_ready_raw(&value);
         assert!(!ready(json!(null)).unwrap());
         assert_eq!(ready(json!([1])).unwrap_err().exception, "AttributeError");
-        assert!(!ready(json!({"onlineState": 2.0, "time": 5})).unwrap());
+        assert!(!ready(json!({"onlineState": 0.0, "time": 5})).unwrap());
+        assert!(ready(json!({"onlineState": 2, "time": 5})).unwrap());
         assert!(ready(json!({"leftFrontTirepressure": "2.5"})).unwrap());
         assert!(ready(json!({"time": "9".repeat(50)})).unwrap());
         assert!(!ready(json!({"time": format!("-{}", "9".repeat(50))})).unwrap());
@@ -1882,6 +1940,29 @@ mod tests {
             StearingWheelHeat::Off
         );
         assert!(steering_wheel_heat(&json!(u64::MAX)).is_err());
+        // OnlineState: 0 is offline, any other positive int online; the
+        // text and float spellings of an unmapped value stay unknown.
+        assert_eq!(OnlineState::call(&json!(0)), OnlineState::Offline);
+        assert_eq!(OnlineState::call(&json!(7)), OnlineState::Online);
+        assert_eq!(OnlineState::call(&json!(u64::MAX)), OnlineState::Online);
+        assert_eq!(OnlineState::call(&json!(2.0)), OnlineState::Unknown);
+        assert_eq!(OnlineState::call(&json!(-2)), OnlineState::Unknown);
+        assert_eq!(OnlineState::Offline.name(), "OFFLINE");
+        assert_eq!(online_state(&json!(2)).unwrap(), OnlineState::Online);
+        assert_eq!(online_state(&json!("2")).unwrap(), OnlineState::Unknown);
+        assert_eq!(online_state(&json!(" 0 ")).unwrap(), OnlineState::Offline);
+        assert_eq!(online_state(&json!(true)).unwrap(), OnlineState::Online);
+        assert!(online_state(&json!(u64::MAX)).is_err());
+        let gear = |value: i64| {
+            VehicleRealtimeData::parse(
+                &json!({"powerGear": value, "onlineState": value}),
+                &json!(null),
+            )
+            .unwrap()
+        };
+        assert!(gear(2).is_vehicle_on() && gear(2).is_online());
+        assert!(!gear(1).is_vehicle_on());
+        assert!(!gear(0).is_online());
         assert_eq!(SeatHeatVentState::High.to_command_level(), 1);
         assert_eq!(
             enum_call::<SeatHeatVentState>(&json!({"value": 2})).unwrap(),

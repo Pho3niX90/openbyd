@@ -198,7 +198,19 @@ public sealed class MqttTests
         car.HandleMqttRealtime(World.Raw(Realtime(2, 1_700_000_400, 79)));
         await World.Until("the charging push", () => car.State.Charging?.Soc == 81);
         await World.Until("the realtime push", () => car.State.Realtime?.ElecPercent == 79);
+        car.HandleMqttStatusPush(
+            World.Raw("""{"elecPercent": 77}"""),
+            hvac: World.Raw("""{"acSwitch": 1, "tempInCar": 22}"""),
+            charging: World.Raw("""{"elecPercent": 77, "chargingState": 1}"""));
+        await World.Until(
+            "the status push",
+            () => car.State.Realtime?.ElecPercent == 77
+                && car.State.Hvac?.TempInCar == 22
+                && car.State.Charging?.Soc == 77);
         Assert.Throws<ValidationException>(() => car.HandleMqttCharging(World.Raw("""{"elecPercent": "lots"}""")));
+        Assert.Throws<ValidationException>(() => car.HandleMqttStatusPush(
+            World.Raw("""{"elecPercent": 55}"""),
+            hvac: World.Raw("""{"tempInCar": "warm"}""")));
 
         // The client closed: the car's calls fail as a closed client's do.
         client.Close();

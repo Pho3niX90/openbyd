@@ -196,7 +196,10 @@ impl<E: ClientEnv> BydClient<E> {
         let capabilities = self.get_vehicle_capabilities(vin, false).await;
         let params = control_params.map(|params| match params {
             ControlParamsArg::BatteryHeat(battery)
-                if capabilities.function_nos.iter().any(|no| no == "10100001")
+                if capabilities
+                    .function_nos
+                    .iter()
+                    .any(|no| no == "10100001" || no == "10100002")
                     && !capabilities.function_nos.iter().any(|no| no == "10300002") =>
             {
                 battery.to_dedicated_control_params_map()

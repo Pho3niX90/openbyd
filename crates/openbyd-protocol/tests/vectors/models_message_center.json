@@ -1,4 +1,4 @@
-{"group": "models_message_center", "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef", "cases": [
+{"group": "models_message_center", "upstream_commit": "c1e88052f4f724343507bd8bda0ef990129071ba", "cases": [
 {"call":"models.message_center.NotificationCategory","args":{"value":1},"ok":{"name":"VEHICLE","value":1}},
 {"call":"models.message_center.NotificationCategory","args":{"value":2},"ok":{"name":"SYSTEM","value":2}},
 {"call":"models.message_center.NotificationCategory","args":{"value":0},"error":"ValueError"},

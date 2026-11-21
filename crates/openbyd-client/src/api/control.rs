@@ -248,8 +248,9 @@ pub fn parse_remote_control_result_data(data: &Value) -> Result<RemoteControlRes
 }
 
 /// pyBYD's `_build_control_inner`: the base fields, `commandPwd` (empty
-/// when there is none), `commandType` and, when given, the parameters as
-/// `controlParamsMap` (compact JSON with sorted keys).
+/// when there is none, left out when `include_command_pwd` is false),
+/// `commandType` and, when given, the parameters as `controlParamsMap`
+/// (compact JSON with sorted keys).
 fn build_control_inner<E: Env>(
     cx: Context<'_, E>,
     vin: &str,
@@ -257,9 +258,12 @@ fn build_control_inner<E: Env>(
     control_params: Option<&Map<String, Value>>,
     command_pwd: Option<&str>,
     request_serial: Option<&Value>,
+    include_command_pwd: bool,
 ) -> Map<String, Value> {
     let mut inner = inner_base(cx, vin, request_serial);
-    inner.insert("commandPwd".into(), json!(command_pwd.unwrap_or("")));
+    if include_command_pwd {
+        inner.insert("commandPwd".into(), json!(command_pwd.unwrap_or("")));
+    }
     inner.insert("commandType".into(), json!(command.as_str()));
     if let Some(params) = control_params {
         let options = DumpOptions {
@@ -303,6 +307,8 @@ pub async fn fetch_control_endpoint<E: Env>(
         control_params,
         command_pwd,
         request_serial,
+        // The dedicated battery-heat endpoints are sent without a PIN.
+        !endpoint.starts_with("/control/remoteControlBatteryHeat"),
     );
     let mut result = if REMOTE_CONTROL_ENDPOINTS.contains(&endpoint) {
         let codes = ErrorCodes {

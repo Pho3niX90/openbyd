@@ -3,6 +3,7 @@
 //! `_on_mqtt_event`, `_schedule_mqtt_reauth`, `_on_mqtt_connack_refused`
 //! and the pending-command registry).
 
+use openbyd_protocol::coerce::ValidationError;
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::models::base::BydModel;
 use openbyd_protocol::models::charging::ChargingStatus;
@@ -11,9 +12,13 @@ use openbyd_protocol::models::control::{
     RemoteControlResult,
 };
 use openbyd_protocol::models::energy::EnergyConsumption;
+use openbyd_protocol::models::hvac::HvacStatus;
 use openbyd_protocol::models::realtime::VehicleRealtimeData;
 use openbyd_protocol::models::vehicle::EnergyType;
-use openbyd_protocol::mqtt::MqttEvent;
+use openbyd_protocol::mqtt::{
+    MqttEvent, MqttEventType, REALTIME_STATUS_PUSH_DTOS, VehicleStatusPushDto,
+    flatten_vehicle_status_push,
+};
 use openbyd_protocol::pyjson::py_str;
 use serde_json::{Map, Value, json};
 
@@ -118,8 +123,8 @@ impl<E: ClientEnv> BydClient<E> {
     }
 
     /// Handles a decrypted MQTT event (pyBYD's `_on_mqtt_event`): the
-    /// generic callback, `vehicleInfo` parsing, the car layer, the waits,
-    /// and the acknowledgement of remote commands.
+    /// generic callback, `vehicleInfo` and `vehicleStatusPush` parsing, the
+    /// car layer, the waits, and the acknowledgement of remote commands.
     pub(crate) fn on_mqtt_event(&self, event: &MqttEvent) {
         self.state().decrypt_reauths = 0;
         let data = event.payload.get("data");
@@ -162,7 +167,11 @@ impl<E: ClientEnv> BydClient<E> {
 
         // 2) Parsed pushes for the callbacks and the car layer.
         if let Some(vin) = vin {
-            self.route_push(&event.event, vin, &respond_data);
+            let envelope = match data {
+                Some(Value::Object(data)) => Some(data),
+                _ => None,
+            };
+            self.route_push(&event.event, vin, &respond_data, envelope);
         }
 
         // 3) The waits.
@@ -198,7 +207,15 @@ impl<E: ClientEnv> BydClient<E> {
         let Some(vin) = vin else {
             return;
         };
-        if event.event != "remoteControl" {
+        if event.event == MqttEventType::RemoteControlAck.as_str() {
+            // The car has the command; its result follows as `remoteControl`.
+            log::debug!(
+                "MQTT remoteControlAck received serial={serial:?} res={:?} ackStatus={:?}",
+                respond_data.get("res"),
+                respond_data.get("ackStatus")
+            );
+        }
+        if event.event != MqttEventType::RemoteControl.as_str() {
             return;
         }
         if let Some(serial) = &serial {
@@ -220,21 +237,36 @@ impl<E: ClientEnv> BydClient<E> {
         }
     }
 
-    /// Parses `vehicleInfo`, `smartCharge` and `energyConsumption` pushes for
-    /// the callback, the [`super::CarRouter`] and the car kept for the VIN; a
-    /// payload that does not parse is skipped.
-    fn route_push(&self, name: &str, vin: &str, respond_data: &Map<String, Value>) {
+    /// The validation context of a realtime push for `vin`: the energy type
+    /// of the vehicle as last listed, or EV when it is not known.
+    fn realtime_context(&self, vin: &str) -> Value {
+        let energy_type = match self.state().vehicle(vin) {
+            Some(vehicle) if vehicle.energy_type != EnergyType::Unknown => vehicle.energy_type,
+            _ => EnergyType::Ev,
+        };
+        json!({"energy_type": {"EnergyType": energy_type as i64}})
+    }
+
+    /// Parses `vehicleInfo`, `vehicleStatusPush`, `smartCharge` and
+    /// `energyConsumption` pushes for the callback, the [`super::CarRouter`]
+    /// and the car kept for the VIN; a payload that does not parse is
+    /// skipped. `envelope` is the event's `data` object, when it has one.
+    fn route_push(
+        &self,
+        name: &str,
+        vin: &str,
+        respond_data: &Map<String, Value>,
+        envelope: Option<&Map<String, Value>>,
+    ) {
         let options = &self.inner.options;
+        if name == MqttEventType::VehicleStatusPush.as_str() {
+            self.route_status_push_event(vin, respond_data, envelope);
+            return;
+        }
         let raw = Value::Object(respond_data.clone());
         match name {
             "vehicleInfo" => {
-                let energy_type = match self.state().vehicle(vin) {
-                    Some(vehicle) if vehicle.energy_type != EnergyType::Unknown => {
-                        vehicle.energy_type
-                    }
-                    _ => EnergyType::Ev,
-                };
-                let context = json!({"energy_type": {"EnergyType": energy_type as i64}});
+                let context = self.realtime_context(vin);
                 let Ok(parsed) = VehicleRealtimeData::parse_owned(raw, &context) else {
                     log::debug!("Failed to parse MQTT vehicleInfo");
                     return;
@@ -267,6 +299,69 @@ impl<E: ClientEnv> BydClient<E> {
             },
             _ => {}
         }
+    }
+
+    /// A `vehicleStatusPush`: only the sections of the car's state that
+    /// changed, each nested under its own key.
+    ///
+    /// The sections are looked for in `respond_data` and, when it has none,
+    /// in the `data` envelope. Realtime data is built from every realtime
+    /// section, HVAC only from `airStatusDto` and charging only from
+    /// `chargeStatusDto`, so a door push neither touches those two nor leaks
+    /// its keys into their `raw`. If any of the three does not validate the
+    /// whole push is skipped. The partial models go to the car layer only:
+    /// `on_vehicle_info` is for complete payloads and is not called.
+    fn route_status_push_event(
+        &self,
+        vin: &str,
+        respond_data: &Map<String, Value>,
+        envelope: Option<&Map<String, Value>>,
+    ) {
+        let mut push_payload = respond_data;
+        let mut flat_push = flatten_vehicle_status_push(push_payload, &REALTIME_STATUS_PUSH_DTOS);
+        if flat_push.is_empty()
+            && let Some(envelope) = envelope
+        {
+            push_payload = envelope;
+            flat_push = flatten_vehicle_status_push(push_payload, &REALTIME_STATUS_PUSH_DTOS);
+        }
+        if flat_push.is_empty() {
+            log::debug!("MQTT vehicleStatusPush had no recognised DTOs");
+            return;
+        }
+        let air_push =
+            flatten_vehicle_status_push(push_payload, &[VehicleStatusPushDto::AirStatus]);
+        let charge_push =
+            flatten_vehicle_status_push(push_payload, &[VehicleStatusPushDto::ChargeStatus]);
+        let context = self.realtime_context(vin);
+        let parsed = (|| -> Result<_, ValidationError> {
+            let realtime = VehicleRealtimeData::parse_owned(Value::Object(flat_push), &context)?;
+            let hvac = if air_push.is_empty() {
+                None
+            } else {
+                Some(HvacStatus::parse_owned(
+                    Value::Object(air_push),
+                    &Value::Null,
+                )?)
+            };
+            let charging = if charge_push.is_empty() {
+                None
+            } else {
+                Some(ChargingStatus::parse_owned(
+                    Value::Object(charge_push),
+                    &Value::Null,
+                )?)
+            };
+            Ok((realtime, hvac, charging))
+        })();
+        let Ok((realtime, hvac, charging)) = parsed else {
+            log::debug!("Failed to parse MQTT vehicleStatusPush");
+            return;
+        };
+        if let Some(router) = &self.inner.options.car_router {
+            router.handle_mqtt_status_push(vin, &realtime, hvac.as_ref(), charging.as_ref());
+        }
+        self.route_status_push(vin, &realtime, hvac.as_ref(), charging.as_ref());
     }
 
     /// The `try` block of step 4 of `_on_mqtt_event`. `Err` where pyBYD's

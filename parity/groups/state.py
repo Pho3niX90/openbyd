@@ -20,6 +20,12 @@ to the running clock). The operations:
   path in pyBYD; ``source`` only labels the case.
 - ``update_hvac``, ``update_gps``, ``update_charging``, ``update_energy``,
   ``update_charging_schedule`` with ``"raw"`` (and ``"source"``) likewise.
+- ``{"op": "patch_realtime", "raw": ..., "context": ...}`` validates the payload as
+  ``VehicleRealtimeData`` and calls ``patch_realtime`` with it as the partial.
+- ``{"op": "patch_status_push", "realtime": ..., "hvac": ..., "charging": ..., "context": ...}``
+  validates each payload that is not ``null`` (realtime, then HVAC, then
+  charging) and calls ``patch_status_push``. ``status_push_op`` builds one from
+  a ``vehicleStatusPush`` payload the way the client does.
 - ``{"op": "register_projections", "specs": [{"section", "field_name", "expected_value"}, ...]}``
 - ``{"op": "rollback_projections", "command_id": "cmd-1"}``
 - ``{"op": "advance", "seconds": 5.0}`` moves the monotonic clock forward.
@@ -38,6 +44,15 @@ recorded vectors small while comparing every snapshot exactly. ``active`` is
 ``active_projections`` as ``asdict``; ``held`` the number of projections the
 engine holds (expired ones linger until the next rebuild); ``notified`` the
 number of ``on_state_changed`` calls the step made.
+
+``state._build_section_patch`` takes ``section`` (``realtime``, ``hvac`` or
+``charging``), the raw ``base`` and ``partial`` (realtime with
+``base_context`` and ``context``) and answers the patched model's dump, or
+``null`` when the partial carries nothing. pyBYD reads which fields a partial
+carries from pydantic's ``model_fields_set``; openbyd reads it off the values
+(see ``crates/openbyd-protocol/src/state/patch.rs``), so these cases lean on
+fields given at their default value, sentinels, key aliases, field names used
+as keys and unknown keys.
 """
 
 from __future__ import annotations
@@ -53,7 +68,14 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-from pybyd._state_engine import FieldProjection, ProjectionSpec, VehicleSnapshot, VehicleStateEngine
+from pybyd._mqtt import VehicleStatusPushDto, flatten_vehicle_status_push
+from pybyd._state_engine import (
+    FieldProjection,
+    ProjectionSpec,
+    VehicleSnapshot,
+    VehicleStateEngine,
+    _build_section_patch,
+)
 from pybyd._validators import (
     _REALTIME_FIELD_FILTERS,
     _apply_model_field_filters,
@@ -88,7 +110,17 @@ from parity.groups.models_hvac import cases as hvac_cases
 from parity.groups.models_realtime import CONTEXTS, ENERGY_CONTEXTS, energy, python_context
 from parity.groups.models_realtime import cases as realtime_cases
 from parity.groups.models_vehicle import VEHICLE_SAMPLES
-from parity.models_support import SENTINELS, ModelCases, json_safe, jsonable, property_names, random_json
+from parity.groups.mqtt import AIR, CHARGE, SECTION_FIELDS, STATUS_PUSHES, random_status_push
+from parity.models_support import (
+    SENTINELS,
+    UNKNOWN_KEYS,
+    ModelCases,
+    json_safe,
+    jsonable,
+    property_names,
+    random_json,
+    random_value,
+)
 
 group = Group("state")
 
@@ -180,6 +212,17 @@ def gps_filters(previous: Any, incoming: Any) -> Any:
 @group.oracle("state._has_valid_coordinates", errors=_ERRORS)
 def has_valid_coordinates(gps: Any) -> bool:
     return _has_valid_coordinates(GpsInfo.model_validate(gps))
+
+
+_PATCHED = {"realtime": VehicleRealtimeData, "hvac": HvacStatus, "charging": ChargingStatus}
+
+
+@group.oracle("state._build_section_patch", errors=_ERRORS)
+def section_patch(section: str, base: Any, partial: Any, base_context: Any = None, context: Any = None) -> Any:
+    cls = _PATCHED[section]
+    if cls is VehicleRealtimeData:
+        return _dump(_build_section_patch(_realtime(base, base_context), _realtime(partial, context)))
+    return _dump(_build_section_patch(cls.model_validate(base), cls.model_validate(partial)))
 
 
 @group.oracle("state.ProjectionSpec")
@@ -284,6 +327,24 @@ def engine_sequence(vin: str, vehicle: Any, ops: list[dict[str, Any]], start: fl
                     step["error"] = type(exc).__name__
                 else:
                     _run(getattr(engine, method)(data))
+            elif kind == "patch_realtime":
+                try:
+                    partial = _realtime(op["raw"], op.get("context"))
+                except _ERRORS as exc:
+                    step["error"] = type(exc).__name__
+                else:
+                    _run(engine.patch_realtime(partial))
+            elif kind == "patch_status_push":
+                try:
+                    partials = {
+                        "realtime": _optional(VehicleRealtimeData, op.get("realtime"), op.get("context")),
+                        "hvac": _optional(HvacStatus, op.get("hvac")),
+                        "charging": _optional(ChargingStatus, op.get("charging")),
+                    }
+                except _ERRORS as exc:
+                    step["error"] = type(exc).__name__
+                else:
+                    _run(engine.patch_status_push(**partials))
             elif kind == "register_projections":
                 specs = [ProjectionSpec(s["section"], s["field_name"], s["expected_value"]) for s in op["specs"]]
                 step["result"] = engine.register_projections(specs)
@@ -401,6 +462,27 @@ def realtime_op(raw: Any, source: str = "http", context: Any = None) -> dict[str
 
 def update(section: str, raw: Any, source: str = "http") -> dict[str, Any]:
     return {"op": f"update_{section}", "raw": raw, "source": source}
+
+
+def patch_realtime(raw: Any, context: Any = None) -> dict[str, Any]:
+    return {"op": "patch_realtime", "raw": raw, "context": context}
+
+
+def patch_status_push(realtime: Any = None, hvac: Any = None, charging: Any = None,
+                      context: Any = None) -> dict[str, Any]:
+    return {"op": "patch_status_push", "realtime": realtime, "hvac": hvac, "charging": charging, "context": context}
+
+
+def status_push_op(payload: dict[str, Any], context: Any = None) -> dict[str, Any]:
+    """The ``patch_status_push`` the client makes of a push: realtime from every
+    realtime section, HVAC and charging each from their own, nothing at all
+    when no known section is there."""
+    flat = flatten_vehicle_status_push(payload)
+    if not flat:
+        return patch_status_push(context=context)
+    air = flatten_vehicle_status_push(payload, (VehicleStatusPushDto.AIR_STATUS,))
+    charge = flatten_vehicle_status_push(payload, (VehicleStatusPushDto.CHARGE_STATUS,))
+    return patch_status_push(flat, air or None, charge or None, context)
 
 
 def register(*specs: tuple[str, str, Any]) -> dict[str, Any]:
@@ -564,6 +646,27 @@ CLIMATE_OFF = [("hvac", "status", int(HvacOverallStatus.OFF)),
                ("realtime", "steering_wheel_heat_state", int(StearingWheelHeat.OFF))]
 
 
+def _every_field_cases() -> Iterator[tuple[str, dict[str, Any]]]:
+    """One value projected onto every field of a section at once.
+
+    How a value written without validation is dumped depends on the field's type (a bool
+    in an int field reads 0 or 1, in an enum field stays a bool), so this fails for any
+    field whose type changed upstream.
+    """
+    bases = {
+        "realtime": realtime_op(MQTT_PUSH, "mqtt"),
+        "hvac": update("hvac", {"status": 2, "pm": 5}),
+        "gps": update("gps", GPS_VALID),
+        "charging": update("charging", {"soc": 80, "chargingState": 1}),
+        "energy": update("energy", {}),
+        "charging_schedule": update("charging_schedule", {}, "http"),
+    }
+    for section in SECTIONS:
+        for value in (True, False, 2, 2.5, "x"):
+            specs = [(section, field, value) for field in _FIELDS[section] if field != "raw"]
+            yield _engine([bases[section], register(*specs), READ, bases[section], READ])
+
+
 def _engine_cases() -> Iterator[tuple[str, dict[str, Any]]]:
     on, off = int(HvacOverallStatus.ON), int(HvacOverallStatus.OFF)
     # tests/test_issue_74.py: a newer projection replaces the older one on the same field.
@@ -576,6 +679,13 @@ def _engine_cases() -> Iterator[tuple[str, dict[str, Any]]]:
                    realtime_op({**MQTT_PUSH, **{k: 1 for k in ("leftFrontDoorLock", "rightFrontDoorLock",
                                                                "leftRearDoorLock", "rightRearDoorLock")}},
                                "mqtt", HYBRID), READ])
+    # A bool projected onto a plain int field is dumped as 0 or 1, onto an enum field as it is
+    # (air_run_state is an int since pyBYD #94, repair_mode_switch an int or a string since #96).
+    for value in (True, False, 1.0, "x", None):
+        yield _engine([realtime_op(MQTT_PUSH, "mqtt"), update("hvac", {"status": 2, "pm": 5}),
+                       register(("realtime", "air_run_state", value), ("realtime", "repair_mode_switch", value),
+                                ("realtime", "trunk_lid_lower", value), ("realtime", "online_state", value),
+                                ("hvac", "air_run_state", value), ("hvac", "cycle_choice", value)), READ])
     # The command failed: rollback; an unknown id changes nothing.
     yield _engine([realtime_op(MQTT_PUSH, "mqtt"), register(*LOCK_SPECS), rollback("cmd-9"), rollback("cmd-1"),
                    rollback("cmd-1")])
@@ -639,16 +749,176 @@ def _engine_cases() -> Iterator[tuple[str, dict[str, Any]]]:
     yield _engine([], vehicle={"vin": VIN})
 
 
+def _patch(section: str, base: Any, partial: Any, base_context: Any = None, context: Any = None):
+    return "state._build_section_patch", {"section": section, "base": base, "partial": partial,
+                                           "base_context": base_context, "context": context}
+
+
+CHARGING_BASE = {"vin": VIN, "soc": 70, "chargingState": 1, "connectState": 1, "fullHour": 1, "fullMinute": 25,
+                 "chargePower": 5.1, "chargePowerUnit": "kW", "updateTime": 1700000000}
+REALTIME_CHARGING = {**MQTT_PUSH, "chargeState": 1, "chargingState": 1, "chargePower": 5.1, "chargePowerUnit": "kW",
+                     "tempInCar": 22.5, "leftFrontDoor": 0, "stearingWheelHeatState": 1, "mainSeatHeatState": 3}
+HVAC_BASE = {"status": 2, "cycleChoice": 1, "mainSettingTempNew": 21.0, "tempInCar": 21.0, "tempOutCar": 14.0, "pm": 8,
+             "mainSeatHeatState": 3, "stearingWheelHeatState": 1, "airRunState": 0}
+
+
+def _section_patch_cases() -> Iterator[tuple[str, dict[str, Any]]]:
+    """``_build_section_patch`` on its own: what a partial carries, field by field."""
+    realtime_partials: list[dict[str, Any]] = [
+        {},
+        # tests/test_mqtt_status_push.py: sentinels in a partial do not erase the base.
+        {"leftFrontDoor": 1, "leftFrontDoorLock": 1, "tempInCar": -129, "rightFrontDoorLock": -1},
+        # Zero is a reading here (the engine's filters come after the patch).
+        {"elecPercent": 0}, {"leftFrontDoorLock": 0}, {"speed": 0.0}, {"lessOneMin": False}, {"epb": 0},
+        # Fields given at the value they default to, and sentinels: not carried.
+        {"onlineState": -1}, {"connectState": -1, "vehicleState": -1, "chargingState": -1, "sentryStatus": -1},
+        {"elecPercent": None}, {"elecPercent": "--"}, {"elecPercent": -1}, {"totalEnergy": "--"}, {"fullHour": -1},
+        {"chargeState": -1}, {"leftFrontDoor": -1}, {"leftFrontDoor": 7}, {"powerGear": 0},
+        # Enum members that are not UNKNOWN or NO_DATA: carried, also when the value was not a member.
+        {"onlineState": 0}, {"onlineState": 5}, {"onlineState": 1}, {"sentryStatus": 4}, {"vehicleState": 2},
+        # StearingWheelHeat has ON at -1 and NO_DATA at 0; a seat's NO_DATA is 0 too.
+        {"stearingWheelHeatState": -1}, {"stearingWheelHeatState": 0}, {"stearingWheelHeatState": 2},
+        {"stearingWheelHeatState": 7}, {"mainSeatHeatState": 0}, {"mainSeatHeatState": -1}, {"mainSeatHeatState": 1},
+        # A charging state other than 1 clears the charge power, unless the partial brings one.
+        {"chargeState": 15}, {"chargingState": 0}, {"chargeState": 1}, {"chargeState": 1, "chargingState": 15},
+        {"chargeState": 15, "chargePower": 3.3}, {"chargeState": 15, "chargePowerUnit": "W"},
+        {"chargeState": 15, "chargePower": "--"}, {"chargeState": 15, "chargePower": 0}, {"chargingState": "1"},
+        # Key aliases, field names as keys, unknown keys (alone they carry nothing, raw included).
+        {"backCover": 1}, {"abs": 1}, {"time": 1700000123}, {"timestamp": 1700000456, "time": 1700000123},
+        {"elec_percent": 50}, {"elec_percent": 50, "elecPercent": 60}, {"left_front_door_lock": 1},
+        {"foo": 1}, {"foo": 1, "elecPercent": 60}, {"zzz": 1, "elecPercent": 60, "enduranceMileage": "410"},
+        {"leftFrontTirepressure": 2.4}, {"leftFrontTirePressure": 2.5, "leftFrontTirepressure": 2.4},
+        # The partial's own raw.
+        {"raw": {"own": 1}, "elecPercent": 5}, {"raw": {}, "elecPercent": 5}, {"raw": {"own": 1}},
+        # Other types: text, both kinds of repair switch, a timestamp, consumption strings.
+        {"requestSerial": "S1"}, {"repairModeSwitch": "1"}, {"repairModeSwitch": 0}, {"vehicleTimeZone": "UTC"},
+        {"totalEnergy": "6.8kW·h/100km+7.3L/100km"}, {"recent50kmEnergy": "N/A"},
+        {"nearestEnergyConsumption": "10.1", "nearestEnergyConsumptionUnit": "L/100km"},
+        {"energyConsumption": "6.1+8.4"}, {"tirePressUnit": 2}, {"tirePressUnit": 0},
+    ]
+    for partial in realtime_partials:
+        yield _patch("realtime", REALTIME_CHARGING, partial, HYBRID, HYBRID)
+    for partial in realtime_partials[:12]:
+        yield _patch("realtime", {}, partial)
+    yield _patch("realtime", REALTIME_CHARGING, REALTIME_CORPUS[4], HYBRID, EV)
+    yield _patch("realtime", REALTIME_CORPUS[4], ASLEEP_HTTP, EV, EV)
+    hvac_partials: list[dict[str, Any]] = [
+        {}, {"cycleModel": 2}, {"cycleModel": 2, "cycleChoice": 1}, {"cycleChoice": 0}, {"cycleModel": -1},
+        {"status": 0}, {"status": 1}, {"status": 2}, {"acSwitch": 0}, {"acSwitch": 2}, {"airRunState": 1},
+        {"airRunState": 0}, {"airRunState": -1}, {"tempInCar": -129}, {"tempInCar": 0}, {"tempOutCar": "--"},
+        {"tempInCar": 0, "tempOutCar": 0, "pm": 0}, {"mainSettingTempNew": 23.0}, {"mainSettingTemp": 7},
+        {"stearingWheelHeatState": 0}, {"stearingWheelHeatState": -1}, {"steeringWheelHeatState": 1},
+        {"mainSeatHeatState": 0}, {"mainSeatHeatState": 2}, {"windPosition": 9}, {"windPosition": 0},
+        {"statusNow": {"status": 1, "tempInCar": 19.5}}, {"statusNow": {}, "status": 1}, {"statusNow": "x", "status": 1},
+        {"foo": 1}, {"foo": 1, "pm": 3}, {"raw": {"own": 1}, "pm": 3}, {"time": 1700000000, "cycleModel": 2},
+        {"air_run_state": 2}, {"refrigeratorState": -1}, {"wiperHeatStatus": 0},
+    ]
+    for partial in hvac_partials:
+        yield _patch("hvac", HVAC_BASE, partial)
+    yield _patch("hvac", {}, {"cycleModel": 2})
+    yield _patch("hvac", HVAC_CORPUS[2], HVAC_PLACEHOLDER)
+    charging_partials: list[dict[str, Any]] = [
+        {}, {"chargingState": 15, "connectState": 0, "chargeState": 15}, {"chargingState": 1}, {"chargingState": 0},
+        {"chargingState": 0, "chargePower": 2.0}, {"chargingState": 0, "chargePowerUnit": "W"},
+        {"chargingState": -1}, {"chargingState": "1"}, {"chargingState": True}, {"connectState": 0},
+        {"vin": "TESTVIN0000000002"}, {"vin": "TESTVIN0000000002", "soc": 5}, {"vin": ""}, {"elecPercent": 60},
+        {"elecPercent": 60, "soc": 61}, {"soc": 0}, {"soc": -1}, {"time": 1700000999}, {"updateTime": 0},
+        {"updateTime": 1700000999, "time": 5}, {"fullHour": -1}, {"fullHour": 0, "fullMinute": 0},
+        {"chargePower": "--"}, {"chargePower": 0}, {"foo": 1}, {"raw": {"own": 1}, "soc": 5}, {"wait_status": 1},
+    ]
+    for partial in charging_partials:
+        yield _patch("charging", CHARGING_BASE, partial)
+    yield _patch("charging", {}, {"chargingState": 15})
+    # Payloads that do not validate, on either side; the base is validated first.
+    for section in ("realtime", "hvac", "charging"):
+        yield _patch(section, [], {})
+        yield _patch(section, {}, "x")
+        yield _patch(section, None, None)
+    yield _patch("realtime", {}, {}, None, 5)
+    yield _patch("realtime", {}, {"onlineState": [1]})
+    yield _patch("charging", {}, {"chargingState": "x"})
+    yield _patch("hvac", {"status": []}, {"status": {}})
+
+
+def _status_push_cases() -> Iterator[tuple[str, dict[str, Any]]]:
+    """``patch_realtime`` and ``patch_status_push`` on the engine."""
+    lock = ("realtime", "left_front_door_lock", int(LockState.UNLOCKED))
+    # tests/test_mqtt_status_push.py: a partial keeps the other fields, merges raw and confirms a projection.
+    yield _engine([
+        realtime_op({"elecPercent": 75, "enduranceMileage": 400, "tempInCar": 22.5, "leftFrontDoor": 0,
+                     "leftFrontDoorLock": 2}),
+        register(lock),
+        patch_realtime({"leftFrontDoor": 1, "leftFrontDoorLock": 1, "tempInCar": -129, "rightFrontDoorLock": -1}),
+        READ,
+    ])
+    # tests/test_mqtt_status_push.py: nothing before a base; then all three sections in one rebuild.
+    bases = [realtime_op({"elecPercent": 70, "chargeState": 1, "chargePower": 5.1}),
+             update("hvac", {"status": 2, "mainSettingTempNew": 21.0}),
+             update("charging", {"soc": 70, "chargingState": 1, "connectState": 1, "chargePower": 5.1})]
+    yield _engine([patch_realtime({"elecPercent": 80}), READ, *bases, status_push_op(STATUS_PUSHES[2]), READ])
+    full = [realtime_op(REALTIME_CHARGING, "mqtt", HYBRID), update("hvac", HVAC_BASE), update("charging", CHARGING_BASE)]
+    # Every upstream push on a full base, and on no base at all; a door-only push leaves HVAC and charging alone.
+    for push in STATUS_PUSHES:
+        yield _engine([*full, status_push_op(push, HYBRID), READ])
+        yield _engine([status_push_op(push), READ])
+    # A section without a base is skipped while the others are patched.
+    for kept in range(3):
+        yield _engine([full[kept], status_push_op(STATUS_PUSHES[2], HYBRID)])
+    # The realtime filters run on the patched section, with the section before as the previous value:
+    # a zero keeps the reading, a unit without pressures is not taken, a unit with the base's pressures is.
+    yield _engine([realtime_op(REALTIME_CHARGING, "mqtt", HYBRID),
+                   patch_realtime({"elecPercent": 0, "leftFrontDoorLock": 0, "totalMileage": 0, "speed": 0}),
+                   patch_realtime({"tirePressUnit": 3}), patch_realtime({"totalEnergy": "--", "recent50kmEnergy": "N/A"},
+                                                                         HYBRID)])
+    yield _engine([realtime_op({"elecPercent": 50}), patch_realtime({"tirePressUnit": 2}),
+                   patch_realtime({"tirePressUnit": 2, "leftFrontTirepressure": 38.4}),
+                   patch_realtime({"leftFrontTirepressure": 0}), patch_realtime({"tirePressUnit": 3})])
+    # The HVAC placeholder filter too: a patch that leaves all three sensors at zero clears them.
+    yield _engine([update("hvac", {"status": 2, "pm": 4}), patch_status_push(hvac={"pm": 0}),
+                   patch_status_push(hvac={"tempInCar": 21.0}), patch_status_push(hvac={"tempInCar": 0, "pm": 0}),
+                   patch_status_push(hvac={"tempInCar": 0, "tempOutCar": 3, "pm": 0})])
+    # The charge power goes when charging stops, in both sections.
+    yield _engine([*full, patch_status_push({"chargeState": 15}, None, {"chargingState": 15}, HYBRID),
+                   patch_status_push({"chargeState": 1, "chargePower": 7.0}, None, {"chargingState": 1}, HYBRID),
+                   patch_status_push({"chargingState": 0, "chargePower": 1.0}, None, {"chargingState": 0, "chargePower": 1})])
+    # Projections: confirmed by a patch, held against a contradicting one, expired by one.
+    on, off = int(HvacOverallStatus.ON), int(HvacOverallStatus.OFF)
+    yield _engine([*full, register(("hvac", "status", on), lock, ("charging", "soc", 80)),
+                   patch_status_push({"leftFrontDoorLock": 2}, {"status": off}, {"soc": 79}),
+                   patch_status_push({"leftFrontDoorLock": 1}, {"status": on}, {"soc": 80}), READ])
+    yield _engine([*full, register(("hvac", "status", on)), advance(31.0),
+                   # Nothing carried: no rebuild, so the expired projection is still held.
+                   patch_status_push({}, {}, {}), patch_status_push({"foo": 1}), patch_status_push(), READ,
+                   patch_status_push(charging={"soc": 71}), READ])
+    yield _engine([*full, register(("realtime", "charge_power", None), ("realtime", "elec_percent", 82)),
+                   status_push_op(STATUS_PUSHES[0], HYBRID), patch_realtime({"chargeState": 15})], ttl=5.0)
+    # Partials that do not validate are reported and nothing is patched, not even the valid ones.
+    yield _engine([*full, patch_realtime("x"), patch_realtime({}, 5), patch_realtime(None),
+                   patch_status_push({"elecPercent": 1}, [], {"soc": 2}),
+                   patch_status_push({"elecPercent": 1}, {"pm": 2}, {"soc": "x"}),
+                   patch_status_push({"onlineState": [1]}, {"pm": 2}, {"soc": 3}), READ])
+    # Patch after patch: raw keeps growing, the envelope's time moves the timestamp.
+    yield _engine([*full, status_push_op({"time": 1700000100, "doorStatusDto": {"leftFrontDoor": 1, "extra": "a"}}),
+                   status_push_op({"time": 1700000200, AIR: {"cycleModel": 2, "extra": "b"}}),
+                   status_push_op({"timestamp": 1700000300, CHARGE: {"chargingState": 15, "time": 1700000250}}),
+                   realtime_op({"elecPercent": 64}, "http"), status_push_op({"can4A505Dto": {"elecPercent": 65}})])
+
+
 @group.recorded
 def recorded() -> Iterator[tuple[str, dict[str, Any]]]:
     yield from _upstream_validators()
     yield from _rule_cases()
     yield from _engine_cases()
+    yield from _every_field_cases()
+    yield from _section_patch_cases()
+    yield from _status_push_cases()
     rng = random.Random("state-recorded")
     for _ in range(25):
         yield _random_engine(rng, max_steps=12)
     for _ in range(40):
         yield _random_filter(rng)
+    for _ in range(60):
+        yield _random_patch(rng)
 
 
 # ---------------------------------------------------------------------------
@@ -797,7 +1067,81 @@ def random_spec(rng: random.Random, last: dict[str, Any]) -> dict[str, Any]:
     return {"section": section, "field_name": field, "expected_value": value}
 
 
+_PATCH_CASES = {"realtime": realtime_cases, "hvac": hvac_cases, "charging": charging_cases}
+_PATCH_DTOS = {"hvac": (VehicleStatusPushDto.AIR_STATUS,), "charging": (VehicleStatusPushDto.CHARGE_STATUS,)}
+#: What a field reads when the payload does not have it, and BYD's ways of saying so.
+_DEFAULTS_AND_SENTINELS = [None, -1, "", "--", 0, "-1", -129, "NaN", 0.0]
+
+
+def random_base(rng: random.Random, section: str) -> Any:
+    if section == "realtime":
+        return random_realtime(rng)
+    if section == "hvac":
+        return random_hvac(rng)
+    return random_payload(rng, charging_cases)
+
+
+def sparse_partial(rng: random.Random, cases: ModelCases) -> dict[str, Any]:
+    """A handful of a model's fields under any of their keys, many of them at
+    the value the field defaults to or at a sentinel."""
+    payload: dict[str, Any] = {}
+    for spec in rng.sample(cases.specs, k=rng.randint(0, 6)):
+        key = spec.keys[0] if rng.random() < 0.6 else rng.choice(spec.all_keys)
+        if rng.random() < 0.3:
+            value = rng.choice(_DEFAULTS_AND_SENTINELS)
+        else:
+            value = random_value(rng, spec.kind, lambda cls: {})
+        if cases.accepts(spec, value):
+            payload[key] = value
+    if rng.random() < 0.15:
+        payload[rng.choice(UNKNOWN_KEYS)] = random_json(rng)
+    return payload if json_safe(payload) else {}
+
+
+def random_partial(rng: random.Random, section: str) -> Any:
+    """The raw payload of a partial model of ``section``."""
+    roll = rng.random()
+    if roll < 0.35:
+        # As the client builds it from a push.
+        dtos = _PATCH_DTOS.get(section)
+        push = random_status_push(rng)
+        return flatten_vehicle_status_push(push, dtos) if dtos else flatten_vehicle_status_push(push)
+    if roll < 0.45:
+        # One section's fields with their awkward values, without the envelope.
+        fields = SECTION_FIELDS[rng.choice(list(SECTION_FIELDS))]
+        keys = rng.sample(list(fields), k=rng.randint(1, min(4, len(fields))))
+        return {key: copy.deepcopy(rng.choice(fields[key])) for key in keys}
+    if roll < 0.75:
+        return sparse_partial(rng, _PATCH_CASES[section])
+    if roll < 0.92:
+        return random_base(rng, section)
+    if roll < 0.97:
+        return {}
+    return rng.choice([[], "x", 5, True])
+
+
+def _random_patch(rng: random.Random) -> tuple[str, dict[str, Any]]:
+    section = rng.choice(["realtime", "realtime", "hvac", "charging"])
+    contexts = ENERGY_CONTEXTS + [None]
+    base = random_base(rng, section) if rng.random() < 0.9 else {}
+    case = _patch(section, base, random_partial(rng, section), rng.choice(contexts), rng.choice(contexts))
+    return case if json_safe(case[1]) else _patch(section, {}, {})
+
+
+def random_patch_op(rng: random.Random) -> dict[str, Any]:
+    context = rng.choice(ENERGY_CONTEXTS + [None] * 3)
+    roll = rng.random()
+    if roll < 0.5:
+        return status_push_op(random_status_push(rng), context)
+    if roll < 0.7:
+        return patch_realtime(random_partial(rng, "realtime"), context)
+    partials = [random_partial(rng, section) if rng.random() < 0.6 else None for section in ("realtime", "hvac", "charging")]
+    return patch_status_push(*partials, context)
+
+
 def random_op(rng: random.Random, last: dict[str, Any], commands: int) -> dict[str, Any]:
+    if rng.random() < 0.18:
+        return random_patch_op(rng)
     roll = rng.random()
     source = rng.choice(["http", "mqtt"])
     if roll < 0.3:
@@ -884,3 +1228,9 @@ def fuzz_engine(rng: random.Random) -> Iterator[tuple[str, dict[str, Any]]]:
 def fuzz_filters(rng: random.Random) -> Iterator[tuple[str, dict[str, Any]]]:
     while True:
         yield _random_filter(rng)
+
+
+@group.fuzz
+def fuzz_patches(rng: random.Random) -> Iterator[tuple[str, dict[str, Any]]]:
+    while True:
+        yield _random_patch(rng)

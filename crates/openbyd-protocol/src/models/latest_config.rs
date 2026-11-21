@@ -66,7 +66,7 @@ pub const FEATURE_REGISTRY: &[FeatureSpec] = &[
     FeatureSpec {
         key: "battery_heat",
         name: "Battery heating",
-        function_nos: &["10300002", "10100001"],
+        function_nos: &["10300002", "10100001", "10100002"],
         category: "command",
         description: "",
     },
@@ -260,6 +260,27 @@ pub const FEATURE_REGISTRY: &[FeatureSpec] = &[
         description: "",
     },
     FeatureSpec {
+        key: "tpms",
+        name: "Tire pressure monitoring (TPMS)",
+        function_nos: &["1004"],
+        category: "sensor",
+        description: "",
+    },
+    FeatureSpec {
+        key: "direct_tpms",
+        name: "Direct tire pressure",
+        function_nos: &["10040001"],
+        category: "sensor",
+        description: "",
+    },
+    FeatureSpec {
+        key: "sentry",
+        name: "Sentry mode",
+        function_nos: &["1024"],
+        category: "sensor",
+        description: "",
+    },
+    FeatureSpec {
         key: "vehicle_health",
         name: "Vehicle health summary",
         function_nos: &["1023"],
@@ -302,9 +323,30 @@ pub const FEATURE_REGISTRY: &[FeatureSpec] = &[
         description: "",
     },
     FeatureSpec {
+        key: "health_oil_pressure",
+        name: "Health: oil pressure system",
+        function_nos: &["10230006"],
+        category: "sensor",
+        description: "",
+    },
+    FeatureSpec {
         key: "health_esp",
         name: "Health: ESP",
         function_nos: &["10230007"],
+        category: "sensor",
+        description: "",
+    },
+    FeatureSpec {
+        key: "health_engine",
+        name: "Health: engine status",
+        function_nos: &["10230008"],
+        category: "sensor",
+        description: "",
+    },
+    FeatureSpec {
+        key: "health_coolant",
+        name: "Health: engine coolant temperature",
+        function_nos: &["10230009"],
         category: "sensor",
         description: "",
     },
@@ -334,9 +376,9 @@ pub const FEATURE_REGISTRY: &[FeatureSpec] = &[
 /// Latest-config `functionNo` values that are known but are not command gates
 /// or registry features (parent nodes, metadata, names seen in the app).
 const OTHER_KNOWN_FUNCTION_NOS: &[&str] = &[
-    "1002", "1003", "1004", "1010", "10100001", "1014", "1030", "1031", "1018", "1019", "1024",
-    "1025", "1032", "1033", "10020006", "10030012", "10030014", "10030015", "10030016", "10030017",
-    "10020001", "10020002", "10020003", "10020004", "10020005", "10030011", "10030013", "10040001",
+    "1002", "1003", "1010", "1014", "1030", "1031", "1018", "1019", "1024", "1025", "1032", "1033",
+    "10020006", "10030012", "10030014", "10030015", "10030016", "10030017", "10020001", "10020002",
+    "10020003", "10020004", "10020005", "10030011", "10030013",
 ];
 
 /// All latest-config `functionNo` values pyBYD knows: the command gates'
@@ -565,6 +607,12 @@ pub struct VehicleCapabilities {
     /// Capability flag (see [`FEATURE_REGISTRY`]).
     pub energy_analysis: Option<bool>,
     /// Capability flag (see [`FEATURE_REGISTRY`]).
+    pub tpms: Option<bool>,
+    /// Capability flag (see [`FEATURE_REGISTRY`]).
+    pub direct_tpms: Option<bool>,
+    /// Capability flag (see [`FEATURE_REGISTRY`]).
+    pub sentry: Option<bool>,
+    /// Capability flag (see [`FEATURE_REGISTRY`]).
     pub vehicle_health: Option<bool>,
     /// Capability flag (see [`FEATURE_REGISTRY`]).
     pub health_tpms: Option<bool>,
@@ -577,7 +625,13 @@ pub struct VehicleCapabilities {
     /// Capability flag (see [`FEATURE_REGISTRY`]).
     pub health_battery: Option<bool>,
     /// Capability flag (see [`FEATURE_REGISTRY`]).
+    pub health_oil_pressure: Option<bool>,
+    /// Capability flag (see [`FEATURE_REGISTRY`]).
     pub health_esp: Option<bool>,
+    /// Capability flag (see [`FEATURE_REGISTRY`]).
+    pub health_engine: Option<bool>,
+    /// Capability flag (see [`FEATURE_REGISTRY`]).
+    pub health_coolant: Option<bool>,
     /// Capability flag (see [`FEATURE_REGISTRY`]).
     pub health_charging: Option<bool>,
     /// Capability flag (see [`FEATURE_REGISTRY`]).
@@ -628,13 +682,19 @@ impl VehicleCapabilities {
             "mobile_ota" => self.mobile_ota,
             "scheduled_departure" => self.scheduled_departure,
             "energy_analysis" => self.energy_analysis,
+            "tpms" => self.tpms,
+            "direct_tpms" => self.direct_tpms,
+            "sentry" => self.sentry,
             "vehicle_health" => self.vehicle_health,
             "health_tpms" => self.health_tpms,
             "health_steering" => self.health_steering,
             "health_srs" => self.health_srs,
             "health_powertrain" => self.health_powertrain,
             "health_battery" => self.health_battery,
+            "health_oil_pressure" => self.health_oil_pressure,
             "health_esp" => self.health_esp,
+            "health_engine" => self.health_engine,
+            "health_coolant" => self.health_coolant,
             "health_charging" => self.health_charging,
             "health_braking" => self.health_braking,
             "health_abs" => self.health_abs,
@@ -758,13 +818,19 @@ impl BydModel for VehicleCapabilities {
             mobile_ota: fields.opt("mobile_ota", coerce::boolean),
             scheduled_departure: fields.opt("scheduled_departure", coerce::boolean),
             energy_analysis: fields.opt("energy_analysis", coerce::boolean),
+            tpms: fields.opt("tpms", coerce::boolean),
+            direct_tpms: fields.opt("direct_tpms", coerce::boolean),
+            sentry: fields.opt("sentry", coerce::boolean),
             vehicle_health: fields.opt("vehicle_health", coerce::boolean),
             health_tpms: fields.opt("health_tpms", coerce::boolean),
             health_steering: fields.opt("health_steering", coerce::boolean),
             health_srs: fields.opt("health_srs", coerce::boolean),
             health_powertrain: fields.opt("health_powertrain", coerce::boolean),
             health_battery: fields.opt("health_battery", coerce::boolean),
+            health_oil_pressure: fields.opt("health_oil_pressure", coerce::boolean),
             health_esp: fields.opt("health_esp", coerce::boolean),
+            health_engine: fields.opt("health_engine", coerce::boolean),
+            health_coolant: fields.opt("health_coolant", coerce::boolean),
             health_charging: fields.opt("health_charging", coerce::boolean),
             health_braking: fields.opt("health_braking", coerce::boolean),
             health_abs: fields.opt("health_abs", coerce::boolean),

@@ -289,6 +289,27 @@ pub fn normalize_unit(text: Option<&str>) -> Option<String> {
 // Datetimes
 // ---------------------------------------------------------------------------
 
+/// The wall-clock time of a datetime in a time zone, with the offset it has
+/// there: what `model_dump` shows and `timestamp()` is worked out from.
+impl From<&wallclock::DateTime> for PyDateTime {
+    fn from(zoned: &wallclock::DateTime) -> Self {
+        let local = chrono::NaiveDate::from_ymd_opt(zoned.year(), zoned.month(), zoned.day())
+            .and_then(|date| {
+                date.and_hms_micro_opt(
+                    zoned.hour(),
+                    zoned.minute(),
+                    zoned.second(),
+                    zoned.microsecond(),
+                )
+            })
+            .expect("a wallclock datetime is a calendar date and a time of day");
+        Self {
+            local,
+            offset_us: zoned.utcoffset().total_microseconds() as i64,
+        }
+    }
+}
+
 /// An aware Python `datetime`, as pyBYD's timestamp fields hold it.
 ///
 /// Python keeps the wall-clock time and the offset separately, and an
@@ -309,6 +330,27 @@ impl PyDateTime {
             local,
             offset_us: 0,
         }
+    }
+
+    /// The same wall-clock time and offset as a [`wallclock::DateTime`], the
+    /// type that can be moved into a time zone (`astimezone`) and stepped
+    /// by calendar days as Python steps it.
+    ///
+    /// `None` where wallclock cannot hold it: a year outside 1 to 9999.
+    pub fn to_zoned(&self) -> Option<wallclock::DateTime> {
+        let offset = wallclock::TimeDelta::from_micros(i128::from(self.offset_us)).ok()?;
+        let tz = wallclock::Tz::fixed_delta(offset).ok()?;
+        let local = self.local;
+        wallclock::DateTime::new(local.year(), local.month(), local.day(), &tz)
+            .and_then(|date| {
+                date.with_time(
+                    local.hour(),
+                    local.minute(),
+                    local.second(),
+                    local.nanosecond() / 1000,
+                )
+            })
+            .ok()
     }
 
     /// The same instant as a chrono value. A sub-second offset is truncated to whole seconds.
@@ -1601,6 +1643,46 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn datetimes_go_to_wallclock_and_back() {
+        use chrono::NaiveDate;
+
+        let local = NaiveDate::from_ymd_opt(2026, 10, 24)
+            .unwrap()
+            .and_hms_micro_opt(8, 30, 15, 250)
+            .unwrap();
+        let fixed = super::PyDateTime {
+            local,
+            offset_us: 7_200_000_000,
+        };
+        let zoned = fixed.to_zoned().unwrap();
+        assert_eq!(zoned.isoformat(), "2026-10-24T08:30:15.000250+02:00");
+        assert_eq!(super::PyDateTime::from(&zoned), fixed);
+        // In a time zone it keeps the instant and takes the zone's offset.
+        let madrid = zoned
+            .astimezone(&wallclock::Tz::zone("Europe/Madrid").unwrap())
+            .unwrap();
+        assert_eq!(super::PyDateTime::from(&madrid), fixed);
+        let tokyo = zoned
+            .astimezone(&wallclock::Tz::zone("Asia/Tokyo").unwrap())
+            .unwrap();
+        assert_eq!(
+            super::PyDateTime::from(&tokyo).isoformat(),
+            "2026-10-24T15:30:15.000250+09:00"
+        );
+        // What wallclock cannot hold: a year outside 1 to 9999, an offset of a day.
+        let year_zero = NaiveDate::from_ymd_opt(0, 12, 31)
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap();
+        assert!(super::PyDateTime::utc(year_zero).to_zoned().is_none());
+        let day_off = super::PyDateTime {
+            local,
+            offset_us: 86_400_000_000,
+        };
+        assert!(day_off.to_zoned().is_none());
+    }
+
     use super::*;
 
     #[test]

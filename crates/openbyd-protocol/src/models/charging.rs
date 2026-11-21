@@ -40,9 +40,10 @@ pub struct ChargingStatus {
 const KEY_ALIASES: &[(&str, &str)] = &[("elecPercent", "soc"), ("time", "updateTime")];
 
 impl ChargingStatus {
-    /// Whether a charging cable is connected (`connect_state` set and not 0).
+    /// Whether a charging cable is connected (`connect_state` above 0; `-1`
+    /// is the "not reported" sentinel).
     pub fn is_connected(&self) -> bool {
-        self.connect_state.is_some_and(|state| state != 0)
+        self.connect_state.is_some_and(|state| state > 0)
     }
 
     /// Whether the car is charging (`charging_state == 1`).

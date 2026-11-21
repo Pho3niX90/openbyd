@@ -38,6 +38,11 @@ def minutes_to_time_span(minutes) -> int:
     return _constants.minutes_to_time_span(minutes)
 
 
+@group.oracle("constants.time_span_to_minutes")
+def time_span_to_minutes(code) -> int | None:
+    return _constants.time_span_to_minutes(code)
+
+
 NUMBERS = [0, 1, 14, 15, 15.0, 16.5, 17, 17.0, 21, 21.5, 22.5, 31, 31.0, 31.5, 33, 33.0, 14.999, -1, 1e300, -0.0, True]
 
 
@@ -53,6 +58,9 @@ def recorded():
             yield "constants.celsius_to_scale", {"temp_c": value, "offset": offset}
     for minutes in [10, 15, 20, 25, 30, 10.0, 30.0, 10.5, 0, 5, 35, -10, True, False, "10", None, [10], {}, 1e20]:
         yield "constants.minutes_to_time_span", {"minutes": minutes}
+    # Codes are compared with ==, so 1.0 and True find a duration and "1" does not.
+    for code in [1, 2, 3, 4, 5, 0, 6, -1, 1.0, 5.0, 2.5, True, False, "1", "", None, [1], {}, 2**63, 2**64 - 1, 1e300]:
+        yield "constants.time_span_to_minutes", {"code": code}
 
 
 def random_number(rng):
@@ -81,3 +89,4 @@ def fuzz(rng):
             args["offset"] = rng.choice([14.0, 16.0, 15.5, 16, random_number(rng)])
         yield "constants.celsius_to_scale", args
         yield "constants.minutes_to_time_span", {"minutes": rng.choice([10, 15, 20, 25, 30, random_number(rng)])}
+        yield "constants.time_span_to_minutes", {"code": rng.choice([1, 2, 3, 4, 5, random_number(rng)])}

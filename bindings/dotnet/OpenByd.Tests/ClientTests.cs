@@ -442,7 +442,7 @@ public sealed class ClientTests(ITestOutputHelper output)
 
             world.Server.ExpireSessions(User);
             var expired = await Assert.ThrowsAsync<BydSessionExpiredException>(() => restored.GetHvacStatusAsync(Vin));
-            Assert.Equal("relogin_disabled", expired.Code);
+            Assert.Equal("1002", expired.Code); // BYD's own expiry code, not "relogin_disabled"
             restored.InvalidateSession();
         }
         await Assert.ThrowsAsync<DataException>(

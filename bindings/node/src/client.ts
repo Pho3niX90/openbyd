@@ -70,7 +70,7 @@ export type PinResolver = (commandPwd: string | null, controlPin: string | null)
  * What to do when a new session is needed:
  *
  * - `"password"` (the default, pyBYD's): log in again.
- * - `"never"`: fail with `BydSessionExpiredError` (code `relogin_disabled`).
+ * - `"never"`: fail with `BydSessionExpiredError` (BYD's own expiry code, or `relogin_disabled` when there was no session).
  * - a function returning a session (as `exportSession` gives it). What it
  *   throws is what the call throws.
  */

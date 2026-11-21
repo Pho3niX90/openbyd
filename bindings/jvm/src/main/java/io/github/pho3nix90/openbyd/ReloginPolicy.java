@@ -18,7 +18,7 @@ public interface ReloginPolicy {
     /** Log in again with the password. The default, and pyBYD's rule. */
     ReloginPolicy PASSWORD = () -> CompletableFuture.failedFuture(new IllegalStateException("the core logs in"));
 
-    /** Never log in: fail with {@link BydSessionExpiredException} (code {@code relogin_disabled}). */
+    /** Never log in: fail with {@link BydSessionExpiredException} (BYD's own expiry code, or {@code relogin_disabled} when there was no session). */
     ReloginPolicy NEVER = () -> CompletableFuture.failedFuture(new IllegalStateException("the core refuses"));
 
     /** A new session, as {@link Client#exportSession} gives one. */

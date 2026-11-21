@@ -197,7 +197,8 @@ class Client:
       pyBYD's rule (32 hex digits are a digest, anything else is hashed).
     - ``relogin``: what to do when a new session is needed: ``"password"``
       (log in again, pyBYD's), ``"never"`` (fail with
-      ``BydSessionExpiredError``, code ``relogin_disabled``) or an async
+      ``BydSessionExpiredError`` with BYD's own expiry code, or ``relogin_disabled``
+      when there was no session) or an async
       callable returning a session dict (as :meth:`export_session` gives).
     - ``request_observer``: a callable given a dict per request sent:
       ``endpoint``, ``outcome`` (``"reply"``, ``"transport"``, ``"failed"``),

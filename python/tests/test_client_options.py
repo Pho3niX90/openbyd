@@ -288,7 +288,7 @@ def test_relogin_never(world) -> None:
 
     error = run(main())
     # BYD's own expiry code, not "relogin_disabled", so the caller can tell why.
-    assert error.code in ("1002", "1005")
+    assert error.code == "1002"
     assert len(world.requests(LOGIN)) == 1
 
 
@@ -528,5 +528,5 @@ def test_relogin_never_keeps_guest_flips_and_the_reason(world) -> None:
             return raised.value, client.guest_vins
 
     error, guests = run(restored())
-    assert error.code in ("1002", "1005")
+    assert error.code == "1002"
     assert guests == saved["guest_vins"]

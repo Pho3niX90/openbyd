@@ -1,0 +1,37 @@
+[package]
+name = "openbyd-node"
+description = "Node.js bindings for openbyd"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+doc = false
+# It is tested from JavaScript (bindings/node): a Rust test binary could not
+# find Node's symbols.
+test = false
+doctest = false
+
+[features]
+# `testingCall`: the fake BYD server and the MQTT test broker. The package's
+# tests build with it; released add-ons leave it out.
+testing = ["openbyd-host/testing"]
+
+[dependencies]
+openbyd-host.workspace = true
+serde_json.workspace = true
+# No `tokio_rt`: calls run on openbyd's own runtime and settle a deferred
+# promise, so the add-on starts no second runtime.
+napi = "3"
+napi-derive = "3"
+
+[build-dependencies]
+napi-build = "2"
+
+# The N-API macros expand to `unsafe`; the rest of the workspace forbids it,
+# so this crate does not take the workspace's lints.
+[lints.clippy]
+all = { level = "warn", priority = -1 }

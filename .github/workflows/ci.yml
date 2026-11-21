@@ -46,7 +46,8 @@ jobs:
         with:
           tool: cargo-llvm-cov
       - name: Run the tests with coverage
-        run: cargo llvm-cov --workspace --exclude openbyd-py --all-features --no-report
+        # The Python extension and the Node add-on are tested from their own languages.
+        run: cargo llvm-cov --workspace --exclude openbyd-py --exclude openbyd-node --all-features --no-report
       - name: Write the lcov file
         run: cargo llvm-cov report --lcov --output-path lcov.info
       - name: Per-file summary, and the 90% gate
@@ -83,6 +84,8 @@ jobs:
           python parity/dev_install.py
       - name: Recorded vectors are what pyBYD answers
         run: python parity/generate.py --check
+      - name: The other languages' typed layers are what pyBYD's models give
+        run: python bindings/generate.py --check
       - name: Surface audit report
         run: |
           python parity/surface.py
@@ -130,6 +133,89 @@ jobs:
           python parity/dev_install.py
       - name: Tests
         run: pytest -v
+
+  node:
+    # The npm package: the add-on built with the fake server, then the
+    # package's own tests (end to end, the recorded vectors, every recorded
+    # model dump against the published types, and the types themselves).
+    name: Node package (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, node: 22 }
+          - { os: ubuntu-latest, node: 24 }
+          - { os: windows-latest, node: 22 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: bindings/node/package-lock.json
+      - name: Build the add-on and test the package
+        working-directory: bindings/node
+        run: |
+          npm ci
+          npm run build:native -- --debug --testing
+          npm test
+
+  jvm:
+    # The Maven package, for Java and Kotlin, on the oldest JDK it supports
+    # and on a current one.
+    name: Java and Kotlin package (${{ matrix.os }}, JDK ${{ matrix.java }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, java: 17 }
+          - { os: ubuntu-latest, java: 25 }
+          - { os: windows-latest, java: 21 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+          cache-dependency-path: bindings/jvm/pom.xml
+      - name: Build the C library with the fake server
+        run: cargo build -p openbyd-capi --features testing
+      - name: Test the package
+        working-directory: bindings/jvm
+        run: mvn --batch-mode --quiet test
+
+  dotnet:
+    # The NuGet package. The library targets .NET 8; its tests run on .NET 9.
+    name: .NET package (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      DOTNET_NOLOGO: "1"
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+      - name: Build the C library with the fake server
+        run: cargo build -p openbyd-capi --features testing
+      - name: Test the package
+        working-directory: bindings/dotnet
+        run: dotnet test
 
   wheel:
     name: Linux wheel (${{ matrix.target }})

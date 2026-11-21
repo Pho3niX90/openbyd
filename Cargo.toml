@@ -6,6 +6,9 @@ members = [
     "crates/openbyd-client",
     "crates/openbyd-cli",
     "crates/openbyd-py",
+    "crates/openbyd-host",
+    "crates/openbyd-capi",
+    "crates/openbyd-node",
 ]
 
 [workspace.package]
@@ -19,6 +22,7 @@ wallclock = { git = "https://github.com/Pho3niX90/wallclock", rev = "eddb12777a9
 openbyd-crypto = { path = "crates/openbyd-crypto", version = "0.1.2" }
 openbyd-protocol = { path = "crates/openbyd-protocol", version = "0.1.2" }
 openbyd-client = { path = "crates/openbyd-client", version = "0.1.2" }
+openbyd-host = { path = "crates/openbyd-host", version = "0.1.2" }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 

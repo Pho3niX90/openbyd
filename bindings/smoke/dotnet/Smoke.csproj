@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A project that uses the packed OpenByd package the way an application
+    does. The release workflow points it at the folder with the .nupkg:
+
+      dotnet run -p:OpenBydVersion=0.1.1 -p:RestoreAdditionalProjectSources=/path/to/packages
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <!-- Run on whichever .NET is installed, 8 or later. -->
+    <RollForward>LatestMajor</RollForward>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenByd" Version="$(OpenBydVersion)" />
+  </ItemGroup>
+
+</Project>

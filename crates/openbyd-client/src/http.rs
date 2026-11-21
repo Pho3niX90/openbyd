@@ -272,6 +272,20 @@ impl HttpEnv {
     }
 }
 
+/// Where the production monotonic clocks start, in seconds.
+///
+/// pyBYD reads `time.monotonic()`, whose reference point is undefined and in
+/// practice is the system's boot, so it is never small. pyBYD's client starts
+/// its cooldown timestamps at 0.0 (`_mqtt_reauth_at`, for one) and compares
+/// them with that clock: `now - 0.0 < 60` is false from the first second.
+/// openbyd counts from an [`Instant`] taken in the process, so without this
+/// offset the first readings are near 0 and every such cooldown holds for the
+/// first minutes of a process (a decrypt failure then never logs in again).
+/// About eleven days: far more than any cooldown, backoff or TTL compared
+/// against a timestamp that starts at 0.0, and still exact to the nanosecond
+/// in an `f64`.
+pub const MONOTONIC_ORIGIN_S: f64 = 1_000_000.0;
+
 impl Env for HttpEnv {
     fn now_ms(&self) -> i64 {
         SystemTime::now()
@@ -281,7 +295,7 @@ impl Env for HttpEnv {
 
     fn monotonic(&self) -> f64 {
         static ORIGIN: OnceLock<Instant> = OnceLock::new();
-        ORIGIN.get_or_init(Instant::now).elapsed().as_secs_f64()
+        MONOTONIC_ORIGIN_S + ORIGIN.get_or_init(Instant::now).elapsed().as_secs_f64()
     }
 
     fn random_bytes(&self) -> [u8; 16] {
@@ -339,6 +353,22 @@ mod tests {
         assert_eq!(env.base_url(), "https://dilinkappoversea-eu.byd.auto");
         assert_eq!(env.pool().timeout(), DEFAULT_TIMEOUT);
         assert!(format!("{env:?}").contains("dilinkappoversea"));
+    }
+
+    #[test]
+    fn the_monotonic_clock_never_starts_near_zero() {
+        // Cooldowns start at 0.0, as pyBYD's do: a clock read early in a
+        // process must already be past the longest of them, jitter included.
+        let longest = crate::client::push::MQTT_RECOVERY_BACKOFF_MAX_S * 1.2;
+        assert!(MONOTONIC_ORIGIN_S > 100.0 * longest);
+        let env = HttpEnv::new(&HttpPool::new(), "http://127.0.0.1:1");
+        assert!(env.monotonic() >= MONOTONIC_ORIGIN_S);
+        let car = crate::car::SystemClock::new();
+        assert!(crate::car::Clock::monotonic(&car) >= MONOTONIC_ORIGIN_S);
+        assert!(
+            env.monotonic() - crate::client::push::MQTT_REAUTH_COOLDOWN_S > 0.0,
+            "a first decrypt failure must be able to log in again at once"
+        );
     }
 
     #[tokio::test]

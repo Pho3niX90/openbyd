@@ -100,7 +100,7 @@ mod cars;
 mod commands;
 pub(crate) mod parity;
 mod production;
-mod push;
+pub(crate) mod push;
 
 use std::collections::HashMap;
 use std::fmt;

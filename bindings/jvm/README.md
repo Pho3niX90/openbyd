@@ -12,7 +12,7 @@ Java 17 or later.
 <dependency>
   <groupId>io.github.pho3nix90</groupId>
   <artifactId>openbyd</artifactId>
-  <version>0.1.2</version>
+  <version>0.1.3</version>
 </dependency>
 ```
 

@@ -164,3 +164,40 @@ def test_cheap_on_a_full_realtime_payload(capsys):
 
 def test_exported():
     assert openbyd.shadow is shadow
+
+
+def _capabilities_cases():
+    """pyBYD's ways of making VehicleCapabilities: its client's two and a dict of flags (as BydCar does)."""
+    from pybyd.models.latest_config import VehicleCapabilities, VehicleLatestConfig
+
+    vin = "TESTVIN0000000001"
+    for entry in json.loads((CORPUS / "VehicleLatestConfig.json").read_text("utf-8")):
+        latest = VehicleLatestConfig.model_validate(entry["payload"])
+        yield VehicleCapabilities.from_latest_config(vin, latest)
+    yield VehicleCapabilities.from_latest_config(vin, VehicleLatestConfig.model_validate({}))
+    yield VehicleCapabilities.unknown(vin, reason="fetch_error")
+    yield VehicleCapabilities.model_validate({"vin": vin, "source": "implicit_default", "lock": True, "climate": True})
+    yield VehicleCapabilities.model_validate({"vin": vin, "lock": True})  # "latest_config" by default
+
+
+def test_capabilities_are_compared_the_way_pybyd_builds_them():
+    # Production saw every flag differ on every reply when the latest-config
+    # reply in `raw` was parsed as if it were the capabilities.
+    cases = list(_capabilities_cases())
+    assert any(case.lock for case in cases[:2])
+    for model in cases:
+        assert shadow.compare(model) == [], model.source
+
+
+def test_a_changed_capability_is_reported():
+    from pybyd.models.latest_config import VehicleCapabilities, VehicleLatestConfig
+
+    payload = json.loads((CORPUS / "VehicleLatestConfig.json").read_text("utf-8"))[0]["payload"]
+    model = VehicleCapabilities.from_latest_config("TESTVIN0000000001", VehicleLatestConfig.model_validate(payload))
+    dump = model.model_dump(mode="json")
+    dump["lock"] = not dump["lock"]
+    dump["function_nos"] = dump["function_nos"][1:]
+    changed = _named("VehicleCapabilities", raw=model.raw, dump=dump)
+    assert shadow.compare(changed) == ["function_nos", "lock"]
+    other_vin = _named("VehicleCapabilities", raw=model.raw, dump={**model.model_dump(mode="json"), "vin": "OTHER"})
+    assert shadow.compare(other_vin) == []  # the VIN is pyBYD's input, not something it parsed

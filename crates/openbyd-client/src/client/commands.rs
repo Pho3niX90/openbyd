@@ -131,6 +131,15 @@ impl<E: ClientEnv> BydClient<E> {
         self.state().commands_enabled
     }
 
+    /// Enables remote commands without checking the PIN with BYD first
+    /// (openbyd's addition). For an application that verified the PIN
+    /// elsewhere and builds a new client per request, as pyBYD users do by
+    /// setting `_commands_enabled`. Every command still sends the PIN, and
+    /// BYD still refuses a wrong one.
+    pub fn enable_commands(&self) {
+        self.state().commands_enabled = true;
+    }
+
     /// Checks the control PIN once and enables remote commands (pyBYD's
     /// `verify_command_access`). A wrong PIN fails with
     /// `BydControlPasswordError` and leaves commands disabled.

@@ -287,8 +287,20 @@ def test_relogin_never(world) -> None:
             return raised.value
 
     error = run(main())
-    assert error.code == "relogin_disabled"
+    # BYD's own expiry code, not "relogin_disabled", so the caller can tell why.
+    assert error.code in ("1002", "1005")
     assert len(world.requests(LOGIN)) == 1
+
+
+def test_relogin_never_without_a_session_says_so(world) -> None:
+    async def main() -> Any:
+        async with world.client(relogin="never") as client:
+            with pytest.raises(exceptions.BydSessionExpiredError) as raised:
+                await client.get_hvac_status(VIN)
+            return raised.value
+
+    assert run(main()).code == "relogin_disabled"
+    assert world.requests(LOGIN) == []
 
 
 def test_relogin_handler(world) -> None:
@@ -443,3 +455,78 @@ def test_the_extension_keeps_working_across_event_loops(world) -> None:
     assert run(use())["ac_switch"] == 1
     assert run(use())["ac_switch"] == 1
     assert world.requests(LOGIN), "logged in"
+
+
+# ---------------------------------------------------------------------------
+# openbyd's additions for applications that build a client per request
+# ---------------------------------------------------------------------------
+
+
+def test_commands_can_be_enabled_without_verifying_the_pin(world) -> None:
+    world.server.reply(LATEST_CONFIG, world.Reply.data({VIN: {"cfFixedList": [{"functionNo": "1005"}]}}))
+    world.server.reply(REMOTE, world.Reply.data(DONE))
+
+    async def disabled() -> Any:
+        async with world.client() as client:
+            with pytest.raises(exceptions.BydControlPasswordError) as raised:
+                await client.lock(VIN)
+            return raised.value
+
+    assert run(disabled()).code == "commands_disabled"
+    assert world.requests(REMOTE) == []
+
+    async def by_keyword() -> Any:
+        async with world.client(commands_enabled=True) as client:
+            assert client.commands_enabled
+            return await client.lock(VIN)
+
+    async def by_method() -> Any:
+        async with world.client() as client:
+            client.enable_commands()
+            assert client.commands_enabled
+            return await client.lock(VIN)
+
+    assert run(by_keyword())["success"] is True
+    assert run(by_method())["success"] is True
+    assert world.requests("/vehicle/vehicleswitch/verifyControlPassword") == [], "the PIN was never verified"
+    sent = world.requests(REMOTE)
+    assert len(sent) == 2 and all(request["inner"].get("commandPwd") for request in sent), "the PIN still goes out"
+
+
+def test_guest_vins_survive_invalidating_the_session(world) -> None:
+    async def main() -> tuple[dict, dict | None, dict]:
+        async with world.client() as client:
+            await client.login()
+            await client.get_vehicles()
+            before = client.guest_vins
+            client.invalidate_session()
+            return before, client.export_session(), client.guest_vins
+
+    before, exported, after = run(main())
+    assert before == {VIN: False}
+    assert exported is None
+    assert after == before
+
+
+def test_relogin_never_keeps_guest_flips_and_the_reason(world) -> None:
+    saved: dict = {}
+
+    async def first() -> None:
+        async with world.client() as client:
+            await client.login()
+            await client.get_vehicles()
+            saved.update(client.export_session())
+
+    run(first())
+
+    async def restored() -> tuple[Any, dict]:
+        client = openbyd.Client.from_session(saved, username=USER, base_url=world.server.url, mqtt_enabled=False)
+        async with client:
+            world.server.expire_sessions(USER)
+            with pytest.raises(exceptions.BydSessionExpiredError) as raised:
+                await client.get_hvac_status(VIN)
+            return raised.value, client.guest_vins
+
+    error, guests = run(restored())
+    assert error.code in ("1002", "1005")
+    assert guests == saved["guest_vins"]

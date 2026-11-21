@@ -71,7 +71,15 @@ macro_rules! with_reauth {
                 {
                     retried = true;
                     $client.invalidate_session();
-                    $client.ensure_session().await?;
+                    if let Err(relogin) = $client.ensure_session().await {
+                        // With re-login disabled, the expiry BYD reported
+                        // (its code says why) is more useful than ours.
+                        break Err(if relogin.code() == $crate::client::RELOGIN_DISABLED {
+                            error
+                        } else {
+                            relogin
+                        });
+                    }
                 }
                 other => break other,
             }
@@ -180,6 +188,15 @@ pub type CommandAckCallback = Arc<dyn Fn(&CommandAckEvent) + Send + Sync>;
 pub type CommandLifecycleCallback = Arc<dyn Fn(&CommandLifecycleEvent) + Send + Sync>;
 /// Called after every accepted MQTT connection (pyBYD's `on_mqtt_connect`).
 pub type MqttConnectCallback = Arc<dyn Fn() + Send + Sync>;
+/// The code of the `BydSessionExpiredError` a client with
+/// [`ReloginPolicy::Never`] raises when it has no session at all.
+pub const RELOGIN_DISABLED: &str = "relogin_disabled";
+/// Called when the MQTT connection drops, with the reason. openbyd's
+/// addition: pyBYD only logs it.
+pub type MqttDisconnectCallback = Arc<dyn Fn(&str) + Send + Sync>;
+/// Called on every refused MQTT connection, with how many in a row.
+/// openbyd's addition: pyBYD only logs it.
+pub type MqttConnackRefusedCallback = Arc<dyn Fn(u32) + Send + Sync>;
 /// Decides whether a command may be sent despite (or because of) the
 /// command gate's verdict: given the VIN and the verdict, returns `true` to
 /// send. See [`ClientOptions::gate_policy`].
@@ -203,7 +220,10 @@ pub enum ReloginPolicy {
     #[default]
     Password,
     /// Never log in by itself: the call fails with
-    /// `BydSessionExpiredError` (code `"relogin_disabled"`) and MQTT
+    /// `BydSessionExpiredError` and MQTT recovery stays idle. The error
+    /// keeps the code of BYD's own expiry reply (1002, 1005, ...) when a call
+    /// was refused; it is [`RELOGIN_DISABLED`] when there was no session to
+    /// begin with. The rest of this note: MQTT
     /// recovery stays idle. For clients restored from saved tokens that
     /// must never send the password; the application logs in or imports a
     /// new session itself.
@@ -311,6 +331,10 @@ pub struct ClientOptions {
     pub on_command_lifecycle: Option<CommandLifecycleCallback>,
     /// pyBYD's `on_mqtt_connect`.
     pub on_mqtt_connect: Option<MqttConnectCallback>,
+    /// Every dropped MQTT connection, with the reason (openbyd's addition).
+    pub on_mqtt_disconnect: Option<MqttDisconnectCallback>,
+    /// Every refused MQTT connection, with the count in a row (openbyd's addition).
+    pub on_mqtt_connack_refused: Option<MqttConnackRefusedCallback>,
     /// How long a sent command waits for its MQTT acknowledgement before it
     /// counts as expired (default 300 seconds; not above 0 means 300).
     pub command_ack_ttl_seconds: f64,
@@ -344,6 +368,8 @@ impl Default for ClientOptions {
             on_command_ack: None,
             on_command_lifecycle: None,
             on_mqtt_connect: None,
+            on_mqtt_disconnect: None,
+            on_mqtt_connack_refused: None,
             command_ack_ttl_seconds: 300.0,
             gate_policy: None,
             command_retries: 3,
@@ -367,6 +393,14 @@ impl fmt::Debug for ClientOptions {
                 &set(self.on_command_lifecycle.is_some()),
             )
             .field("on_mqtt_connect", &set(self.on_mqtt_connect.is_some()))
+            .field(
+                "on_mqtt_disconnect",
+                &set(self.on_mqtt_disconnect.is_some()),
+            )
+            .field(
+                "on_mqtt_connack_refused",
+                &set(self.on_mqtt_connack_refused.is_some()),
+            )
             .field("command_ack_ttl_seconds", &self.command_ack_ttl_seconds)
             .field("gate_policy", &set(self.gate_policy.is_some()))
             .field("command_retries", &self.command_retries)
@@ -836,7 +870,7 @@ impl<E: ClientEnv> BydClient<E> {
             ReloginPolicy::Never => Err(Error::api(
                 ErrorKind::BydSessionExpiredError,
                 "Session expired and re-login is disabled for this client",
-                "relogin_disabled",
+                RELOGIN_DISABLED,
                 "",
             )),
             ReloginPolicy::Handler(handler) => {
@@ -881,6 +915,14 @@ impl<E: ClientEnv> BydClient<E> {
             ttl,
         );
         self.install_session(session).await
+    }
+
+    /// Whether the account reaches each VIN as a guest, as the client knows
+    /// it now. Unlike [`export_session`](Self::export_session) it is there
+    /// after [`invalidate_session`](Self::invalidate_session), so guest flips
+    /// learnt during a refused call can still be saved (openbyd's addition).
+    pub fn guest_vins(&self) -> HashMap<String, bool> {
+        self.state().guest_map()
     }
 
     /// The current session as an application stores it, or `None` when
@@ -1480,6 +1522,12 @@ impl<E: ClientEnv> MqttSink for Inner<E> {
     fn on_connected(&self) {
         if let Some(inner) = self.me.upgrade() {
             BydClient { inner }.on_mqtt_connected();
+        }
+    }
+
+    fn on_disconnected(&self, reason: &str) {
+        if let Some(inner) = self.me.upgrade() {
+            BydClient { inner }.on_mqtt_disconnected(reason);
         }
     }
 }

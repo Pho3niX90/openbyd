@@ -335,7 +335,11 @@ async fn a_restored_client_never_sends_the_password() {
     world.server.expire_sessions(USER);
     let error = restored.get_hvac_status(VIN).await.unwrap_err();
     assert_eq!(error.kind(), ErrorKind::BydSessionExpiredError);
-    assert_eq!(error.code(), "relogin_disabled");
+    // BYD's own expiry code, not "relogin_disabled": the caller can tell why.
+    assert_eq!(
+        error.code(),
+        openbyd_client::testing::codes::SESSION_EXPIRED
+    );
     assert_eq!(world.logins(), 1);
     assert!(restored.export_session().is_none());
 

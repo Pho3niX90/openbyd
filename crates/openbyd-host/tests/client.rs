@@ -562,7 +562,11 @@ fn sessions_are_exported_imported_and_renewed_by_the_host() {
     );
     let expired = call(&restored, "get_hvac_status", vin()).unwrap_err();
     assert_eq!(expired.class, "BydSessionExpiredError");
-    assert_eq!(expired.code.as_deref(), Some("relogin_disabled"));
+    // BYD's own expiry code survives a disabled re-login.
+    assert_eq!(
+        expired.code.as_deref(),
+        Some(openbyd_client::testing::codes::SESSION_EXPIRED)
+    );
     restored
         .call_sync("invalidate_session", Value::Null)
         .unwrap();

@@ -178,6 +178,10 @@ class Client:
     - ``on_command_ack(ack)``: every remote-control acknowledgement.
     - ``on_command_lifecycle(event)``: registered, matched, expired, uncorrelated.
     - ``on_mqtt_connect()``: every accepted MQTT connection.
+    - ``on_mqtt_disconnect(reason)``: every dropped MQTT connection, with
+      the reason as text (it reconnects by itself). openbyd's addition.
+    - ``on_mqtt_connack_refused(consecutive)``: every refused MQTT
+      connection, with how many in a row. openbyd's addition.
     - ``command_ack_ttl_seconds``: how long a command waits for its acknowledgement.
 
     openbyd's options:
@@ -200,6 +204,8 @@ class Client:
       ``code``, ``status``, ``error`` and ``duration`` in seconds.
     - ``session``: a session dict to restore at :meth:`start`, so no
       password login is needed (see :meth:`from_session`).
+    - ``commands_enabled``: start with remote commands enabled, without
+      :meth:`verify_command_access` (see :meth:`enable_commands`).
     """
 
     def __init__(
@@ -211,6 +217,8 @@ class Client:
         on_command_ack: Callable[[dict[str, Any]], None] | None = None,
         on_command_lifecycle: Callable[[dict[str, Any]], None] | None = None,
         on_mqtt_connect: Callable[[], None] | None = None,
+        on_mqtt_disconnect: Callable[[str], None] | None = None,
+        on_mqtt_connack_refused: Callable[[int], None] | None = None,
         command_ack_ttl_seconds: float = 300.0,
         gate_policy: GatePolicy | None = None,
         command_retries: int = 3,
@@ -218,6 +226,7 @@ class Client:
         relogin: ReloginPolicy | None = None,
         request_observer: Callable[[dict[str, Any]], None] | None = None,
         session: Mapping[str, Any] | None = None,
+        commands_enabled: bool = False,
         _test_tls: bool = False,
         **config_fields: Any,
     ) -> None:
@@ -233,12 +242,15 @@ class Client:
             on_command_ack=on_command_ack,
             on_command_lifecycle=on_command_lifecycle,
             on_mqtt_connect=on_mqtt_connect,
+            on_mqtt_disconnect=on_mqtt_disconnect,
+            on_mqtt_connack_refused=on_mqtt_connack_refused,
             command_ack_ttl_seconds=command_ack_ttl_seconds,
             gate_policy=gate_policy,
             command_retries=command_retries,
             pin_resolver=pin_resolver,
             relogin=relogin,
             request_observer=request_observer,
+            commands_enabled=commands_enabled,
             test_tls=_test_tls,
         )
         self._restore = dict(session) if session is not None else None
@@ -341,6 +353,32 @@ class Client:
     def commands_enabled(self) -> bool:
         """Whether remote commands are available: ``True`` once :meth:`verify_command_access` succeeded."""
         return self._native.commands_enabled
+
+    def enable_commands(self) -> None:
+        """Enable remote commands without checking the PIN with BYD first (openbyd's addition).
+
+        For an application that verified the PIN elsewhere and builds a new
+        client per request (pyBYD users set ``_commands_enabled``). Every
+        command still sends the PIN, and BYD still refuses a wrong one.
+        """
+        self._native.enable_commands()
+
+    @property
+    def guest_vins(self) -> dict[str, bool]:
+        """Whether the account reaches each VIN as a guest, as the client knows it now.
+
+        Unlike :meth:`export_session` it survives :meth:`invalidate_session`,
+        so guest flips learnt during a refused call can still be saved.
+        """
+        return self._native.guest_vins
+
+    def stop_mqtt(self) -> None:
+        """Stop MQTT (pyBYD's ``_stop_mqtt``); :meth:`start_mqtt` starts it again.
+
+        A call waiting for an MQTT push stops waiting with
+        ``asyncio.CancelledError``, as in pyBYD.
+        """
+        self._native.stop_mqtt()
 
     @property
     def mqtt_is_running(self) -> bool:

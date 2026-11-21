@@ -473,7 +473,13 @@ pub fn shadow_compare(
     ) else {
         return error();
     };
-    let ours = py.detach(|| {
+    let Some(theirs) = theirs else {
+        return error();
+    };
+    let capabilities_vin = (name == "VehicleCapabilities")
+        .then(|| built_from_latest_config(&theirs))
+        .flatten();
+    let parse = |raw: Value| {
         catch_unwind(AssertUnwindSafe(|| {
             run(raw, &context)
                 .ok()
@@ -481,11 +487,59 @@ pub fn shadow_compare(
         }))
         .ok()
         .flatten()
-    });
-    match (ours, theirs) {
-        (Some(ours), Some(theirs)) => differing_fields(&ours, theirs),
-        _ => error(),
+    };
+    py.detach(|| match capabilities_vin {
+        None => match parse(raw) {
+            Some(ours) => differing_fields(&ours, theirs),
+            None => error(),
+        },
+        Some(vin) => {
+            let derived = catch_unwind(AssertUnwindSafe(|| {
+                latest_config::VehicleLatestConfig::parse(&raw, &context)
+                    .ok()
+                    .and_then(|latest| {
+                        latest_config::VehicleCapabilities::from_latest_config(&vin, &latest)
+                            .fields()
+                    })
+            }))
+            .ok()
+            .flatten();
+            let derived = derived.map(|ours| differing_fields(&ours, theirs.clone()));
+            if derived.as_ref().is_some_and(Vec::is_empty) {
+                return Vec::new();
+            }
+            // A model validated straight from a dict of flags keeps that dict
+            // as `raw` and says "latest_config" too (the field's default).
+            let direct = parse(raw).map(|ours| differing_fields(&ours, theirs));
+            match (derived, direct) {
+                (_, Some(direct)) if direct.is_empty() => direct,
+                (Some(derived), _) => derived,
+                (None, Some(direct)) => direct,
+                (None, None) => error(),
+            }
+        }
+    })
+}
+
+/// The VIN of a pyBYD `VehicleCapabilities` built by `from_latest_config`
+/// (`source` is `"latest_config"`), whose `raw` is the latest-config reply,
+/// not the capabilities. `None` for one built any other way.
+///
+/// pyBYD's client never validates capabilities from a reply: it builds them
+/// with `from_latest_config(vin, latest)`, `unknown(vin, reason)` or (in
+/// `BydCar`) from a dict of flags. The last two keep their input as `raw`, so
+/// the plain parse reproduces them; the first needs the same construction.
+fn built_from_latest_config(theirs: &ExpectedFields) -> Option<String> {
+    let field = |name: &str| {
+        theirs
+            .iter()
+            .find(|(key, _)| key == name)
+            .and_then(|(_, value)| value.as_ref())
+    };
+    if field("source")? != "latest_config" {
+        return None;
     }
+    field("vin")?.as_str().map(str::to_owned)
 }
 
 /// `expected` as `(key, value)` pairs, converted as [`Mode::Lenient`]

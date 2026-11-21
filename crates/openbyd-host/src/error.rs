@@ -179,6 +179,24 @@ impl From<openbyd_crypto::Error> for HostError {
     }
 }
 
+impl From<wallclock::Error> for HostError {
+    fn from(error: wallclock::Error) -> Self {
+        let class = error.python_exception();
+        let message = error.to_string();
+        match ErrorKind::from_class_name(class) {
+            Some(kind) => Self::new(kind, message),
+            None if class == "ZoneInfoNotFoundError" => {
+                // CPython's ZoneInfoNotFoundError inherits from KeyError and LookupError.
+                let mut host = Self::value(message);
+                host.class = class.to_owned();
+                host.bases = vec!["KeyError".to_owned(), "LookupError".to_owned()];
+                host
+            }
+            None => Self::builtin(class, message),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -259,5 +277,25 @@ mod tests {
         let error = HostError::from(openbyd_crypto::decode_envelope("").unwrap_err());
         assert_eq!(error.class, "BangcleError");
         assert_eq!(error.bases, ["BydCryptoError", "BydError"]);
+    }
+
+    #[test]
+    fn wallclock_errors_carry_python_class_and_bases() {
+        let missing = HostError::from(wallclock::Tz::zone("Mars/Olympus_Mons").unwrap_err());
+        assert_eq!(missing.class, "ZoneInfoNotFoundError");
+        assert_eq!(missing.bases, ["KeyError", "LookupError"]);
+
+        let bad_key = HostError::from(wallclock::Tz::zone("/Europe/Madrid").unwrap_err());
+        assert_eq!(bad_key.class, "ValueError");
+        assert!(bad_key.bases.is_empty());
+
+        let madrid = wallclock::Tz::zone("Europe/Madrid").unwrap();
+        let edge = wallclock::DateTime::new(9999, 12, 31, &wallclock::Tz::UTC)
+            .unwrap()
+            .with_time(23, 30, 0, 0)
+            .unwrap();
+        let overflow = HostError::from(edge.astimezone(&madrid).unwrap_err());
+        assert_eq!(overflow.class, "OverflowError");
+        assert_eq!(overflow.bases, ["ValueError"]);
     }
 }

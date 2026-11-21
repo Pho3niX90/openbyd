@@ -50,7 +50,7 @@ Each emitter (`gen/typescript.py`, `gen/java.py`, `gen/csharp.py`) writes into d
 
 - **Names** are pyBYD's in the language's own case: `get_vehicle_realtime` is `getVehicleRealtime` in TypeScript and Java and `GetVehicleRealtimeAsync` in C#. Model, enum and error class names are pyBYD's (Java and C# say `Exception` where pyBYD says `Error`).
 - **Results keep pyBYD's JSON.** TypeScript returns it as it is, so fields are snake_case. Java records and C# records name their members in their own case and map them to the snake_case JSON.
-- **What a caller passes** (the config, options, parameter objects) is in the language's own case.
+- **What a caller passes** (the config, options, parameter objects) is in the language's own case. `StandbySchedule` also accepts an optional `zone` (an IANA time zone name such as `Europe/Madrid`) so a daily preconditioning plan follows that zone's wall clock across daylight-saving changes; `zone` is ignored on other schedules.
 - **Errors** are pyBYD's hierarchy under one root, `OpenBydError`, which carries `kind`, the Python class name. Python built-ins pyBYD lets through (`ValueError`, `TypeError`, a reply that is not JSON) are `DataError`; pydantic's `ValidationError` is `ValidationError`, a `DataError`.
 - **Callbacks never run on the core's threads**, and one that throws does not affect the client.
 - **Nothing is lost quietly**: a NaN argument, an unknown option value or a wrong type is an error.

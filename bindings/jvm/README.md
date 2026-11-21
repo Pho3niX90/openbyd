@@ -63,7 +63,7 @@ client.getVehicleRealtime(vin, new PollOptions().pollAttempts(3).mqttTimeout(5))
 client.startClimate(vin, new ClimateStartParams().temperature(21).timeSpan(2));
 ```
 
-What is not set is not sent, so the core applies pyBYD's default.
+What is not set is not sent, so the core applies pyBYD's default. Preconditioning plans use `getStandbyPlans`, `saveStandbyPlan`, `createStandbyPlan`, `setDefaultStandbyPlan`, `deleteStandbyPlan` and `runStandbyPlan`; on a daily `StandbySchedule`, call `.zone("Europe/Madrid")` (an IANA time zone name) so the next run follows that zone's wall clock across daylight-saving changes.
 
 **Results** are pyBYD's models as records, exactly what `model_dump(mode="json")` gives: the same fields, in camelCase, with pyBYD's enums as Java enums (`EnergyType.EV`, whose `value()` is pyBYD's). An integer is a `long`, a float a `double`, a date or time the string pyBYD writes, and `raw` the reply as BYD sent it. A float JSON cannot hold (NaN, an infinity) is that `double`.
 

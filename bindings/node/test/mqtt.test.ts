@@ -180,7 +180,22 @@ test("a car merges, projects and rolls back", async () => {
   car.handleMqttRealtime(realtime(2, 1_700_000_400, 79));
   await until("the charging push", () => car.state.charging?.soc === 81);
   await until("the realtime push", () => car.state.realtime?.elec_percent === 79);
+  car.handleMqttStatusPush(
+    { elecPercent: 77 },
+    { hvac: { acSwitch: 1, tempInCar: 22 }, charging: { elecPercent: 77, chargingState: 1 } },
+  );
+  await until(
+    "the status push",
+    () =>
+      car.state.realtime?.elec_percent === 77 &&
+      car.state.hvac?.temp_in_car === 22 &&
+      car.state.charging?.soc === 77,
+  );
   assert.throws(() => car.handleMqttCharging({ elecPercent: "lots" }), ValidationError);
+  assert.throws(
+    () => car.handleMqttStatusPush({ elecPercent: 55 }, { hvac: { tempInCar: "warm" } }),
+    ValidationError,
+  );
 
   // The client closed: the car's calls fail as a closed client's do.
   client.close();

@@ -1,6 +1,6 @@
 {
  "version": "0.1.2",
- "pybyd_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
+ "pybyd_commit": "c1e88052f4f724343507bd8bda0ef990129071ba",
  "structs": [
   {
    "name": "ClimateBooking",
@@ -355,6 +355,55 @@
      "name": "request_serial",
      "type": {
       "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "battery_heat_result",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "battery_heat_result_message",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "battery_temperature",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "expect_heat_minute",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "heat_surplus_minute",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "heat_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "need_heat_index",
+     "type": {
+      "opt": "int"
      },
      "required": true
     }
@@ -1280,6 +1329,13 @@
      "required": true
     },
     {
+     "name": "air_run_state",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
      "name": "main_setting_temp",
      "type": {
       "opt": "float"
@@ -1839,6 +1895,27 @@
      "required": true
     },
     {
+     "name": "tpms",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "direct_tpms",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "sentry",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
      "name": "vehicle_health",
      "type": {
       "opt": "bool"
@@ -1881,7 +1958,28 @@
      "required": true
     },
     {
+     "name": "health_oil_pressure",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
      "name": "health_esp",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "health_engine",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "health_coolant",
      "type": {
       "opt": "bool"
      },
@@ -2224,9 +2322,7 @@
     {
      "name": "air_run_state",
      "type": {
-      "opt": {
-       "ref": "AirCirculationMode"
-      }
+      "opt": "int"
      },
      "required": true
     },
@@ -2421,6 +2517,15 @@
     },
     {
      "name": "trunk_lid",
+     "type": {
+      "opt": {
+       "ref": "DoorOpenState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "trunk_lid_lower",
      "type": {
       "opt": {
        "ref": "DoorOpenState"
@@ -3116,7 +3221,12 @@
     {
      "name": "repair_mode_switch",
      "type": {
-      "opt": "str"
+      "opt": {
+       "union": [
+        "int",
+        "str"
+       ]
+      }
      },
      "required": true
     },
@@ -3378,6 +3488,243 @@
      "name": "current_limit_list",
      "type": {
       "list": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "StandbyPlanCommand",
+   "role": "output",
+   "pybyd": "standby",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "command_type",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "command_id",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "control_params_map",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "StandbySchedule",
+   "role": "input",
+   "pybyd": "standby",
+   "fields": [
+    {
+     "name": "repeat",
+     "type": {
+      "ref": "StandbyScheduleRepeat"
+     },
+     "required": true
+    },
+    {
+     "name": "at",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "start_time",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
+     "name": "weekly_days",
+     "type": {
+      "list": "int"
+     },
+     "required": false,
+     "default": []
+    },
+    {
+     "name": "zone",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ]
+  },
+  {
+   "name": "StandbyPlan",
+   "role": "output",
+   "pybyd": "standby",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "id",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "plan_name",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "plan_type",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "default_plan",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "execute_type",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "start_time",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "weekly_days",
+     "type": {
+      "list": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "execute_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    },
+    {
+     "name": "rec_execute_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    },
+    {
+     "name": "time_zone",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "commands",
+     "type": {
+      "list": {
+       "ref": "StandbyPlanCommand"
+      }
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "StandbyPlanList",
+   "role": "output",
+   "pybyd": "standby",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "plans",
+     "type": {
+      "list": {
+       "ref": "StandbyPlan"
+      }
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "StandbyPlanRunResult",
+   "role": "output",
+   "pybyd": "standby",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "request_serial",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "res",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "message",
+     "type": {
+      "opt": "str"
      },
      "required": true
     }
@@ -3695,13 +4042,13 @@
      "name": "app_version",
      "type": "str",
      "required": false,
-     "default": "3.5.1"
+     "default": "3.6.0"
     },
     {
      "name": "app_inner_version",
      "type": "str",
      "required": false,
-     "default": "351"
+     "default": "363"
     },
     {
      "name": "soft_type",
@@ -4204,6 +4551,16 @@
    }
   },
   {
+   "name": "RemoteControlRes",
+   "base": "int",
+   "members": {
+    "PENDING": 1,
+    "SUCCESS": 2,
+    "FAILURE": 3,
+    "SUCCESS_ALT": 4
+   }
+  },
+  {
    "name": "CommandLifecycleStatus",
    "base": "str",
    "members": {
@@ -4282,8 +4639,8 @@
    "base": "int",
    "members": {
     "UNKNOWN": -1,
-    "ONLINE": 1,
-    "OFFLINE": 2
+    "OFFLINE": 0,
+    "ONLINE": 1
    }
   },
   {
@@ -4367,6 +4724,7 @@
    "members": {
     "UNKNOWN": -1,
     "OFF": 1,
+    "STARTING": 2,
     "ON": 3
    }
   },
@@ -4408,6 +4766,16 @@
     "EV": 0,
     "ICE": 1,
     "HYBRID": 2
+   }
+  },
+  {
+   "name": "StandbyScheduleRepeat",
+   "base": "str",
+   "members": {
+    "OFF": "off",
+    "ONCE": "once",
+    "DAILY": "daily",
+    "WEEKLY": "weekly"
    }
   },
   {
@@ -5013,6 +5381,185 @@
    "prop": false,
    "returns": {
     "ref": "BookingList"
+   }
+  },
+  {
+   "name": "get_standby_plans",
+   "wire": "get_standby_plans",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "StandbyPlanList"
+   }
+  },
+  {
+   "name": "save_standby_plan",
+   "wire": "save_standby_plan",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "plan",
+     "type": {
+      "ref": "StandbyPlan"
+     },
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "schedule",
+     "type": {
+      "opt": {
+       "ref": "StandbySchedule"
+      }
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "StandbyScheduleOptions",
+   "prop": false,
+   "returns": {
+    "ref": "StandbyPlanList"
+   }
+  },
+  {
+   "name": "create_standby_plan",
+   "wire": "create_standby_plan",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "name",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "commands",
+     "type": {
+      "list": {
+       "ref": "StandbyPlanCommand"
+      }
+     },
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "schedule",
+     "type": {
+      "opt": {
+       "ref": "StandbySchedule"
+      }
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "StandbyScheduleOptions",
+   "prop": false,
+   "returns": {
+    "ref": "StandbyPlan"
+   }
+  },
+  {
+   "name": "set_default_standby_plan",
+   "wire": "set_default_standby_plan",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "plan_id",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "StandbyPlanList"
+   }
+  },
+  {
+   "name": "delete_standby_plan",
+   "wire": "delete_standby_plan",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "plan_id",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "StandbyPlanList"
+   }
+  },
+  {
+   "name": "run_standby_plan",
+   "wire": "run_standby_plan",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "plan_id",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "poll_attempts",
+     "type": "int",
+     "required": false,
+     "default": 10
+    },
+    {
+     "name": "poll_interval",
+     "type": "float",
+     "required": false,
+     "default": 1.5
+    }
+   ],
+   "options_name": "RunStandbyPlanOptions",
+   "prop": false,
+   "returns": {
+    "ref": "StandbyPlanRunResult"
    }
   },
   {
@@ -5771,6 +6318,48 @@
    "returns": null
   },
   {
+   "name": "handle_mqtt_status_push",
+   "wire": "car.handle_mqtt_status_push",
+   "sync": true,
+   "params": [
+    {
+     "name": "data",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "hvac",
+     "type": {
+      "opt": {
+       "map": "any",
+       "key": "str"
+      }
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "charging",
+     "type": {
+      "opt": {
+       "map": "any",
+       "key": "str"
+      }
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "StatusPushOptions",
+   "prop": false,
+   "returns": null
+  },
+  {
    "name": "handle_mqtt_charging",
    "wire": "car.handle_mqtt_charging",
    "sync": true,
@@ -6335,7 +6924,9 @@
     "AttributeError",
     "AssertionError",
     "JSONDecodeError",
-    "UnicodeDecodeError"
+    "UnicodeDecodeError",
+    "KeyError",
+    "LookupError"
    ],
    "fields": []
   },
@@ -6621,6 +7212,32 @@
     "default": 1
    }
   ],
+  "StandbyScheduleOptions": [
+   {
+    "name": "schedule",
+    "type": {
+     "opt": {
+      "ref": "StandbySchedule"
+     }
+    },
+    "required": false,
+    "default": null
+   }
+  ],
+  "RunStandbyPlanOptions": [
+   {
+    "name": "poll_attempts",
+    "type": "int",
+    "required": false,
+    "default": 10
+   },
+   {
+    "name": "poll_interval",
+    "type": "float",
+    "required": false,
+    "default": 1.5
+   }
+  ],
   "CommandOptions": [
    {
     "name": "command_pwd",
@@ -6687,6 +7304,30 @@
     "type": "bool",
     "required": false,
     "default": true
+   }
+  ],
+  "StatusPushOptions": [
+   {
+    "name": "hvac",
+    "type": {
+     "opt": {
+      "map": "any",
+      "key": "str"
+     }
+    },
+    "required": false,
+    "default": null
+   },
+   {
+    "name": "charging",
+    "type": {
+     "opt": {
+      "map": "any",
+      "key": "str"
+     }
+    },
+    "required": false,
+    "default": null
    }
   ],
   "ClimateOptions": [

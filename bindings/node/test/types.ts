@@ -11,6 +11,7 @@ import {
   LockState,
   SeatLevel,
   SeatPosition,
+  StandbyScheduleRepeat,
   parseModel,
   type Car,
   type ChargingHomepage,
@@ -19,6 +20,9 @@ import {
   type JsonObject,
   type RemoteControlResult,
   type SessionTokens,
+  type StandbyPlan,
+  type StandbyPlanList,
+  type StandbyPlanRunResult,
   type Vehicle,
   type VehicleRealtimeData,
   type VehicleSnapshot,
@@ -122,6 +126,15 @@ export async function checks(client: Client, car: Car): Promise<void> {
     }
   }
   exact<ReturnType<typeof parseModel<"GpsInfo">>, GpsInfo>(true);
+  exact<Awaited<ReturnType<Client["getStandbyPlans"]>>, StandbyPlanList>(true);
+  exact<Awaited<ReturnType<Client["createStandbyPlan"]>>, StandbyPlan>(true);
+  exact<Awaited<ReturnType<Client["runStandbyPlan"]>>, StandbyPlanRunResult>(true);
+  await client.saveStandbyPlan("VIN", (await client.getStandbyPlans("VIN")).plans[0]!, {
+    schedule: { repeat: StandbyScheduleRepeat.DAILY, at: "2026-10-24T08:00:00+02:00", zone: "Europe/Madrid" },
+  });
+  // @ts-expect-error repeat must be a StandbyScheduleRepeat value
+  await client.createStandbyPlan("VIN", "P", [], { schedule: { repeat: "hourly" } });
+  car.handleMqttStatusPush({ elecPercent: 70 }, { hvac: { acSwitch: 1 } });
   // @ts-expect-error there is no such model
   parseModel("Weather", {});
 }

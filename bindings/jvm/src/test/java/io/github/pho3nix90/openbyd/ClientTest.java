@@ -38,10 +38,17 @@ import io.github.pho3nix90.openbyd.model.NotificationOptions;
 import io.github.pho3nix90.openbyd.model.PollOptions;
 import io.github.pho3nix90.openbyd.model.RemoteControlResult;
 import io.github.pho3nix90.openbyd.model.RequestRecord;
+import io.github.pho3nix90.openbyd.model.RunStandbyPlanOptions;
 import io.github.pho3nix90.openbyd.model.SeatClimateParams;
 import io.github.pho3nix90.openbyd.model.SeedOptions;
 import io.github.pho3nix90.openbyd.model.SessionInfo;
 import io.github.pho3nix90.openbyd.model.SessionTokens;
+import io.github.pho3nix90.openbyd.model.StandbyPlan;
+import io.github.pho3nix90.openbyd.model.StandbyPlanList;
+import io.github.pho3nix90.openbyd.model.StandbyPlanRunResult;
+import io.github.pho3nix90.openbyd.model.StandbySchedule;
+import io.github.pho3nix90.openbyd.model.StandbyScheduleOptions;
+import io.github.pho3nix90.openbyd.model.StandbyScheduleRepeat;
 import io.github.pho3nix90.openbyd.model.Vehicle;
 import io.github.pho3nix90.openbyd.model.VehicleLatestConfig;
 import io.github.pho3nix90.openbyd.model.VehicleMsgItemInfo;
@@ -565,6 +572,107 @@ class ClientTest {
                 assertEquals(AcSwitch.OFF, await(status).acSwitch());
             }
             assertEquals(100, world.server.requests(LOGIN).size());
+        }
+    }
+
+    @Test
+    void standbyPlansRoundTripWithZone() throws Exception {
+        String listEndpoint = "/control/standby-vehicles/list";
+        String saveEndpoint = "/control/standby-vehicles/save";
+        String setDefaultEndpoint = "/control/standby-vehicles/setDefault";
+        String deleteEndpoint = "/control/standby-vehicles/delete";
+        String sendEndpoint = "/control/standby-vehicles/send";
+        String sendResultEndpoint = "/control/standby-vehicles/send-result";
+
+        try (World world = new World()) {
+            List<Map<String, Object>> commands =
+                    List.of(
+                            Map.of(
+                                    "commandType", "OPENAIR",
+                                    "commandId", "1",
+                                    "controlParamsMap", "{\"temperature\":21,\"timeSpan\":2}"));
+            Map<String, Object> preset =
+                    Map.of(
+                            "id", "101",
+                            "planName", "Preset",
+                            "planType", 1,
+                            "defaultPlan", 1,
+                            "enable", 1,
+                            "executeType", "2",
+                            "startTime", "",
+                            "weeklyDays", List.of(),
+                            "controlParams", commands);
+            Map<String, Object> created =
+                    Map.of(
+                            "id", "202",
+                            "planName", "Morning",
+                            "planType", 2,
+                            "defaultPlan", 0,
+                            "enable", 1,
+                            "executeType", "1",
+                            "startTime", "",
+                            "weeklyDays", List.of(),
+                            "controlParams", commands);
+            world.server.reply(saveEndpoint, Reply.data(Map.of()));
+            world.server.reply(setDefaultEndpoint, Reply.data(Map.of()));
+            world.server.reply(deleteEndpoint, Reply.data(Map.of()));
+            world.server.reply(sendEndpoint, Reply.data(Map.of("requestSerial", "RUN1")));
+            world.server.reply(
+                    sendResultEndpoint, Reply.data(Map.of("requestSerial", "RUN1", "res", 2, "message", "ok")));
+            world.server.script(
+                    listEndpoint,
+                    Reply.data(List.of(preset)),
+                    Reply.data(List.of(preset)),
+                    Reply.data(List.of(preset)),
+                    Reply.data(List.of(preset, created)),
+                    Reply.data(List.of(preset, created)),
+                    Reply.data(List.of(preset)));
+
+            Client client = world.client();
+            StandbyPlanList list = await(client.getStandbyPlans(VIN));
+            assertEquals(1, list.plans().size());
+            StandbyPlan plan = list.plans().get(0);
+
+            StandbySchedule daily =
+                    new StandbySchedule(StandbyScheduleRepeat.DAILY)
+                            .at("2026-10-24T08:00:00+02:00")
+                            .zone("Europe/Madrid");
+            StandbyPlanList saved =
+                    await(client.saveStandbyPlan(VIN, plan, new StandbyScheduleOptions().schedule(daily)));
+            assertEquals("101", saved.plans().get(0).id());
+            Map<?, ?> saveInner = assertInstanceOf(Map.class, world.server.requests(saveEndpoint).get(0).inner());
+            assertEquals("1", saveInner.get("executeType"));
+            assertTrue(assertInstanceOf(Number.class, saveInner.get("executeTime")).longValue() > 0);
+
+            StandbySchedule badZone =
+                    new StandbySchedule(StandbyScheduleRepeat.DAILY)
+                            .at("2026-10-24T08:00:00+02:00")
+                            .zone("Mars/Olympus_Mons");
+            DataException missing =
+                    assertInstanceOf(
+                            DataException.class,
+                            thrown(() -> client.saveStandbyPlan(VIN, plan, new StandbyScheduleOptions().schedule(badZone))));
+            assertEquals("ZoneInfoNotFoundError", missing.kind());
+
+            StandbySchedule weekly =
+                    new StandbySchedule(StandbyScheduleRepeat.WEEKLY)
+                            .startTime("07:30")
+                            .weeklyDays(List.of(0L, 1L, 2L, 3L, 4L));
+            StandbyPlan newPlan =
+                    await(
+                            client.createStandbyPlan(
+                                    VIN, "Morning", plan.commands(), new StandbyScheduleOptions().schedule(weekly)));
+            assertEquals("202", newPlan.id());
+
+            assertEquals(2, await(client.setDefaultStandbyPlan(VIN, "202")).plans().size());
+            assertEquals(1, await(client.deleteStandbyPlan(VIN, "202")).plans().size());
+
+            StandbyPlanRunResult run =
+                    await(
+                            client.runStandbyPlan(
+                                    VIN, "101", new RunStandbyPlanOptions().pollAttempts(2).pollInterval(0.01)));
+            assertEquals(2L, run.res());
+            assertEquals(VIN, run.vin());
         }
     }
 }

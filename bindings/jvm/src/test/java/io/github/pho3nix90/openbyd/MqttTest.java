@@ -39,6 +39,7 @@ import io.github.pho3nix90.openbyd.model.SeatClimateParams;
 import io.github.pho3nix90.openbyd.model.SeatLevel;
 import io.github.pho3nix90.openbyd.model.SeatMode;
 import io.github.pho3nix90.openbyd.model.SeatPosition;
+import io.github.pho3nix90.openbyd.model.StatusPushOptions;
 import io.github.pho3nix90.openbyd.model.VehicleRealtimeData;
 import io.github.pho3nix90.openbyd.model.VehicleSnapshot;
 import io.github.pho3nix90.openbyd.testing.RecordedRequest;
@@ -264,7 +265,25 @@ class MqttTest {
             car.handleMqttRealtime(realtime(2, 1_700_000_400, 79));
             until("the charging push", () -> Long.valueOf(81).equals(soc(car.state().charging())));
             until("the realtime push", () -> Double.valueOf(79).equals(percent(car.state().realtime())));
+            car.handleMqttStatusPush(
+                    Map.of("elecPercent", 77),
+                    new StatusPushOptions()
+                            .hvac(Map.of("acSwitch", 1, "tempInCar", 22))
+                            .charging(Map.of("elecPercent", 77, "chargingState", 1)));
+            until(
+                    "the status push",
+                    () ->
+                            Double.valueOf(77).equals(percent(car.state().realtime()))
+                                    && car.state().hvac() != null
+                                    && Double.valueOf(22).equals(car.state().hvac().tempInCar())
+                                    && Long.valueOf(77).equals(soc(car.state().charging())));
             assertThrows(ValidationException.class, () -> car.handleMqttCharging(Map.of("elecPercent", "lots")));
+            assertThrows(
+                    ValidationException.class,
+                    () ->
+                            car.handleMqttStatusPush(
+                                    Map.of("elecPercent", 55),
+                                    new StatusPushOptions().hvac(Map.of("tempInCar", "warm"))));
             assertThrows(DataException.class, () -> car.handleMqttEnergy(Map.of("time", Double.NaN)));
 
             // The client closed: the car's calls fail as a closed client's do.

@@ -525,6 +525,111 @@ public sealed class ClientTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public async Task StandbyPlansRoundTripWithZone()
+    {
+        const string listEndpoint = "/control/standby-vehicles/list";
+        const string saveEndpoint = "/control/standby-vehicles/save";
+        const string setDefaultEndpoint = "/control/standby-vehicles/setDefault";
+        const string deleteEndpoint = "/control/standby-vehicles/delete";
+        const string sendEndpoint = "/control/standby-vehicles/send";
+        const string sendResultEndpoint = "/control/standby-vehicles/send-result";
+
+        using var world = new World();
+        var preset = World.Json("""
+            {
+              "id": "101",
+              "planName": "Preset",
+              "planType": 1,
+              "defaultPlan": 1,
+              "enable": 1,
+              "executeType": "2",
+              "startTime": "",
+              "weeklyDays": [],
+              "controlParams": [
+                {"commandType": "OPENAIR", "commandId": "1", "controlParamsMap": "{\"temperature\":21,\"timeSpan\":2}"}
+              ]
+            }
+            """);
+        var created = World.Json("""
+            {
+              "id": "202",
+              "planName": "Morning",
+              "planType": 2,
+              "defaultPlan": 0,
+              "enable": 1,
+              "executeType": "1",
+              "startTime": "",
+              "weeklyDays": [],
+              "controlParams": [
+                {"commandType": "OPENAIR", "commandId": "2", "controlParamsMap": "{\"temperature\":21,\"timeSpan\":2}"}
+              ]
+            }
+            """);
+        world.Server.Reply(saveEndpoint, Reply.Data(new JsonObject()));
+        world.Server.Reply(setDefaultEndpoint, Reply.Data(new JsonObject()));
+        world.Server.Reply(deleteEndpoint, Reply.Data(new JsonObject()));
+        world.Server.Reply(sendEndpoint, Reply.Data(World.Json("""{"requestSerial": "RUN1"}""")));
+        world.Server.Reply(
+            sendResultEndpoint, Reply.Data(World.Json("""{"requestSerial": "RUN1", "res": 2, "message": "ok"}""")));
+        world.Server.Script(
+            listEndpoint,
+            Reply.Data(new JsonArray(preset.DeepClone())),
+            Reply.Data(new JsonArray(preset.DeepClone())),
+            Reply.Data(new JsonArray(preset.DeepClone())),
+            Reply.Data(new JsonArray(preset.DeepClone(), created.DeepClone())),
+            Reply.Data(new JsonArray(preset.DeepClone(), created.DeepClone())),
+            Reply.Data(new JsonArray(preset.DeepClone())));
+
+        var client = world.Client();
+        var list = await client.GetStandbyPlansAsync(Vin);
+        var plan = Assert.Single(list.Plans);
+
+        var saved = await client.SaveStandbyPlanAsync(
+            Vin,
+            plan,
+            schedule: new StandbySchedule
+            {
+                Repeat = StandbyScheduleRepeat.Daily,
+                At = "2026-10-24T08:00:00+02:00",
+                Zone = "Europe/Madrid",
+            });
+        Assert.Equal("101", saved.Plans[0].Id);
+        var saveInner = world.Server.Requests(saveEndpoint)[0].Inner;
+        Assert.Equal("1", saveInner.GetProperty("executeType").GetString());
+        Assert.True(saveInner.GetProperty("executeTime").GetInt64() > 0);
+
+        var badZone = await Assert.ThrowsAsync<DataException>(() => client.SaveStandbyPlanAsync(
+            Vin,
+            plan,
+            schedule: new StandbySchedule
+            {
+                Repeat = StandbyScheduleRepeat.Daily,
+                At = "2026-10-24T08:00:00+02:00",
+                Zone = "Mars/Olympus_Mons",
+            }));
+        Assert.Equal("ZoneInfoNotFoundError", badZone.Kind);
+
+        var newPlan = await client.CreateStandbyPlanAsync(
+            Vin,
+            "Morning",
+            plan.Commands,
+            schedule: new StandbySchedule
+            {
+                Repeat = StandbyScheduleRepeat.Weekly,
+                StartTime = "07:30",
+                WeeklyDays = [0, 1, 2, 3, 4],
+            });
+        Assert.Equal("202", newPlan.Id);
+
+        Assert.Equal(2, (await client.SetDefaultStandbyPlanAsync(Vin, "202")).Plans.Count);
+        Assert.Single((await client.DeleteStandbyPlanAsync(Vin, "202")).Plans);
+
+        var run = await client.RunStandbyPlanAsync(Vin, "101", pollAttempts: 2, pollInterval: 0.01);
+        Assert.Equal(2, run.Res);
+        Assert.Equal(Vin, run.Vin);
+    }
+
+    [Fact]
     public async Task ACallInFlightKeepsItsClientAndADroppedClientIsCollected()
     {
         using var world = new World();

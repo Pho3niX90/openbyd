@@ -11,6 +11,7 @@ describe it here, and run `python bindings/generate.py`.
 
 from __future__ import annotations
 
+import dataclasses
 import enum
 import importlib
 import inspect
@@ -45,11 +46,31 @@ from gen.ir import (
 
 ROOT = Path(__file__).resolve().parents[1]
 
-#: pyBYD models that are not part of the surface: bases and internals.
-SKIPPED_MODELS = {"BydBaseModel", "ControlParams", "AuthToken"}
+#: pyBYD models that are not part of the surface: bases, internals and Python-only helpers.
+SKIPPED_MODELS = {"BydBaseModel", "ControlParams", "AuthToken", "PlanClimate", "PlanSeats"}
 
 #: pyBYD's parameter models: built by the caller, never returned.
-INPUT_MODELS = {"ClimateStartParams", "ClimateScheduleParams", "SeatClimateParams", "BatteryHeatParams"}
+INPUT_MODELS = {
+    "ClimateStartParams",
+    "ClimateScheduleParams",
+    "SeatClimateParams",
+    "BatteryHeatParams",
+    "StandbySchedule",
+}
+
+#: Extra fields openbyd adds to pyBYD's parameter models.
+EXTRA_INPUT_FIELDS: dict[str, tuple[Field, ...]] = {
+    "StandbySchedule": (
+        Field(
+            "zone",
+            opt(STR),
+            "IANA time zone name (such as `Europe/Madrid`) for a daily schedule, so the next run follows "
+            "that zone's wall clock across daylight-saving changes. Ignored on other schedules; an openbyd addition.",
+            required=False,
+            default=None,
+        ),
+    ),
+}
 
 
 def version() -> str:
@@ -82,11 +103,17 @@ def add_pybyd_models(surface: Surface) -> None:
                 continue
             if issubclass(cls, BaseModel):
                 role = "input" if cls_name in INPUT_MODELS else "output"
-                surface.add(reader.struct(cls, role, name))
+                struct = reader.struct(cls, role, name)
+                extra = EXTRA_INPUT_FIELDS.get(cls_name)
+                if extra:
+                    struct = dataclasses.replace(struct, fields=(*struct.fields, *extra))
+                surface.add(struct)
             elif issubclass(cls, enum.Enum):
                 surface.add(enum_from_class(cls, name))
     for cls in (pybyd.config.DeviceProfile, pybyd.config.BydConfig):
         surface.add(reader.struct(cls, "input", "config"))
+    for generated in reader.enums.values():
+        surface.add(generated)
     surface.add(enum_from_class(pybyd.SeatPosition))
     surface.add(enum_from_class(pybyd.SeatLevel))
     missing = reader.referenced - set(surface.structs) - set(surface.enums)
@@ -447,6 +474,70 @@ def client_methods() -> list[Method]:
             returns=ref("CommandAck"),
         ),
         read("get_booking_list", ref("BookingList"), "The scheduled-climate timers."),
+        # Preconditioning plans
+        read("get_standby_plans", ref("StandbyPlanList"), "The preconditioning plans for a vehicle."),
+        Method(
+            "save_standby_plan",
+            "save_standby_plan",
+            "Save a preconditioning plan's name, commands and schedule, then return the fresh plans.",
+            (VIN, Field("plan", ref("StandbyPlan"), "The plan to save.")),
+            (
+                option(
+                    "schedule",
+                    opt(ref("StandbySchedule")),
+                    None,
+                    "The schedule to save; null keeps the plan's current schedule on save, or leaves a new plan unscheduled.",
+                ),
+            ),
+            "StandbyScheduleOptions",
+            ref("StandbyPlanList"),
+        ),
+        Method(
+            "create_standby_plan",
+            "create_standby_plan",
+            "Create a user preconditioning plan and return it.",
+            (
+                VIN,
+                Field("name", STR, "The plan name."),
+                Field("commands", list_of(ref("StandbyPlanCommand")), "The remote commands in the plan; must include `OPENAIR`."),
+            ),
+            (
+                option(
+                    "schedule",
+                    opt(ref("StandbySchedule")),
+                    None,
+                    "The schedule to save; null keeps the plan's current schedule on save, or leaves a new plan unscheduled.",
+                ),
+            ),
+            "StandbyScheduleOptions",
+            ref("StandbyPlan"),
+        ),
+        Method(
+            "set_default_standby_plan",
+            "set_default_standby_plan",
+            "Make a preconditioning plan the default, then return the fresh plans.",
+            (VIN, Field("plan_id", STR, "The plan ID.")),
+            returns=ref("StandbyPlanList"),
+        ),
+        Method(
+            "delete_standby_plan",
+            "delete_standby_plan",
+            "Delete a user preconditioning plan, then return the fresh plans.",
+            (VIN, Field("plan_id", STR, "The plan ID.")),
+            returns=ref("StandbyPlanList"),
+        ),
+        Method(
+            "run_standby_plan",
+            "run_standby_plan",
+            "Run a preconditioning plan now without changing its schedule.",
+            (VIN, Field("plan_id", STR, "The plan ID.")),
+            (
+                option("poll_attempts", INT, 10, "How many times `send-result` is polled."),
+                option("poll_interval", FLOAT, 1.5, "Seconds between polls."),
+            ),
+            "RunStandbyPlanOptions",
+            ref("StandbyPlanRunResult"),
+        ),
         # Commands
         Method(
             "verify_command_access",
@@ -578,6 +669,18 @@ def car_methods() -> list[Method]:
             ref("ChargeChangeResult"),
         ),
         push("realtime", "vehicleInfo", ", after any command in flight"),
+        Method(
+            "handle_mqtt_status_push",
+            "car.handle_mqtt_status_push",
+            "Merge a partial `vehicleStatusPush` (its raw `respondData`), optionally with HVAC and charging sections.",
+            (Field("data", OBJECT, "The push's `respondData`."),),
+            (
+                option("hvac", opt(OBJECT), None, "The push's raw HVAC section, when present."),
+                option("charging", opt(OBJECT), None, "The push's raw charging section, when present."),
+            ),
+            "StatusPushOptions",
+            sync=True,
+        ),
         push("charging", "smartCharge", " (live charging state only)"),
         push("energy", "energyConsumption"),
         Method("close", "car.close", "Release the car's resources (nothing yet; pyBYD's lifecycle hook).", sync=True),
@@ -775,7 +878,16 @@ def errors() -> list[ErrorClass]:
             "OpenBydError",
             "A value could not be used: an argument, or a reply that is not what it should be. `kind` names the "
             "Python built-in exception pyBYD lets through (`ValueError`, `TypeError`, `JSONDecodeError`, ...).",
-            ("ValueError", "TypeError", "AttributeError", "AssertionError", "JSONDecodeError", "UnicodeDecodeError"),
+            (
+                "ValueError",
+                "TypeError",
+                "AttributeError",
+                "AssertionError",
+                "JSONDecodeError",
+                "UnicodeDecodeError",
+                "KeyError",
+                "LookupError",
+            ),
         ),
         ErrorClass(
             "ValidationError",

@@ -37,7 +37,7 @@ if (car.lock.available) await car.lock.lock();
 await car.hvac.start({ temperature: 21, duration: 20 });
 ```
 
-Methods are pyBYD's, in camelCase: `get_vehicle_realtime` is `getVehicleRealtime`. One that waits on the network returns a promise; one that answers at once (`exportSession()`, `commandsEnabled`, `car.state`) returns its value. Optional arguments are an options object: `getVehicleRealtime(vin, { pollAttempts: 3 })`.
+Methods are pyBYD's, in camelCase: `get_vehicle_realtime` is `getVehicleRealtime`. One that waits on the network returns a promise; one that answers at once (`exportSession()`, `commandsEnabled`, `car.state`) returns its value. Optional arguments are an options object: `getVehicleRealtime(vin, { pollAttempts: 3 })`. Preconditioning plans use `getStandbyPlans`, `saveStandbyPlan`, `createStandbyPlan`, `setDefaultStandbyPlan`, `deleteStandbyPlan` and `runStandbyPlan`; on a daily `StandbySchedule`, set `zone` to an IANA time zone name (such as `"Europe/Madrid"`) so the next run follows that zone's wall clock across daylight-saving changes.
 
 ## Types
 

@@ -979,3 +979,192 @@ fn every_car_command_reaches_the_client() {
         }
     }
 }
+
+#[test]
+fn standby_plans_and_status_push() {
+    const LIST: &str = "/control/standby-vehicles/list";
+    const SAVE: &str = "/control/standby-vehicles/save";
+    const SET_DEFAULT: &str = "/control/standby-vehicles/setDefault";
+    const DELETE: &str = "/control/standby-vehicles/delete";
+    const SEND: &str = "/control/standby-vehicles/send";
+    const SEND_RESULT: &str = "/control/standby-vehicles/send-result";
+
+    let world = World::new();
+    let preset = json!({
+        "id": "101",
+        "planName": "Preset",
+        "planType": 1,
+        "defaultPlan": 1,
+        "enable": 1,
+        "executeType": "2",
+        "startTime": "",
+        "weeklyDays": [],
+        "controlParams": [
+            {"commandType": "OPENAIR", "commandId": "1", "controlParamsMap": "{\"temperature\":21,\"timeSpan\":2}"}
+        ]
+    });
+    let created = json!({
+        "id": "202",
+        "planName": "Morning",
+        "planType": 2,
+        "defaultPlan": 0,
+        "enable": 1,
+        "executeType": "1",
+        "startTime": "",
+        "weeklyDays": [],
+        "controlParams": [
+            {"commandType": "OPENAIR", "commandId": "2", "controlParamsMap": "{\"temperature\":21,\"timeSpan\":2}"}
+        ]
+    });
+    world.reply(SAVE, json!({"data": {}}));
+    world.reply(SET_DEFAULT, json!({"data": {}}));
+    world.reply(DELETE, json!({"data": {}}));
+    world.reply(SEND, json!({"data": {"requestSerial": "RUN1"}}));
+    world.reply(
+        SEND_RESULT,
+        json!({"data": {"requestSerial": "RUN1", "res": 2, "message": "ok"}}),
+    );
+    testing(
+        "server.script",
+        json!({
+            "server": world.server,
+            "endpoint": LIST,
+            "replies": [
+                {"data": [preset.clone()]},
+                {"data": [preset.clone()]},
+                {"data": [preset.clone()]},
+                {"data": [preset.clone(), created.clone()]},
+                {"data": [preset.clone(), created.clone()]},
+                {"data": [preset.clone()]},
+            ],
+        }),
+    );
+
+    let (client, _) = world.client(json!({}), json!({}));
+    let list = ok(&client, "get_standby_plans", vin());
+    assert_eq!(list["plans"].as_array().unwrap().len(), 1);
+    let plan = list["plans"][0].clone();
+
+    let saved = ok(
+        &client,
+        "save_standby_plan",
+        json!({
+            "vin": VIN,
+            "plan": plan,
+            "schedule": {
+                "repeat": "daily",
+                "at": "2026-10-24T08:00:00+02:00",
+                "zone": "Europe/Madrid",
+            },
+        }),
+    );
+    assert_eq!(saved["plans"][0]["id"], "101");
+    let save_req = &world.requests(SAVE)[0]["inner"];
+    assert_eq!(save_req["executeType"], "1");
+    assert!(save_req["executeTime"].as_i64().unwrap() > 0);
+
+    let bad_zone = call(
+        &client,
+        "save_standby_plan",
+        json!({
+            "vin": VIN,
+            "plan": plan,
+            "schedule": {
+                "repeat": "daily",
+                "at": "2026-10-24T08:00:00+02:00",
+                "zone": "Mars/Olympus_Mons",
+            },
+        }),
+    )
+    .unwrap_err();
+    assert_eq!(bad_zone.class, "ZoneInfoNotFoundError");
+    assert_eq!(bad_zone.bases, ["KeyError", "LookupError"]);
+
+    let new_plan = ok(
+        &client,
+        "create_standby_plan",
+        json!({
+            "vin": VIN,
+            "name": "Morning",
+            "commands": plan["commands"],
+            "schedule": {"repeat": "weekly", "start_time": "07:30", "weekly_days": [0, 1, 2, 3, 4]},
+        }),
+    );
+    assert_eq!(new_plan["id"], "202");
+
+    let defaulted = ok(
+        &client,
+        "set_default_standby_plan",
+        json!({"vin": VIN, "plan_id": "202"}),
+    );
+    assert_eq!(defaulted["plans"].as_array().unwrap().len(), 2);
+
+    let after_delete = ok(
+        &client,
+        "delete_standby_plan",
+        json!({"vin": VIN, "plan_id": "202"}),
+    );
+    assert_eq!(after_delete["plans"].as_array().unwrap().len(), 1);
+
+    let run = ok(
+        &client,
+        "run_standby_plan",
+        json!({"vin": VIN, "plan_id": "101", "poll_attempts": 2, "poll_interval": 0.01}),
+    );
+    assert_eq!(run["res"], 2);
+    assert_eq!(run["vin"], VIN);
+
+    // car.handle_mqtt_status_push patches existing realtime, HVAC and charging sections.
+    let car = ok(&client, "get_car", vin())["car"].clone();
+    ok(&client, "car.update_hvac", json!({"car": car}));
+    client
+        .call_sync(
+            "car.handle_mqtt_realtime",
+            json!({"car": car, "data": {"elecPercent": 80, "time": 1_700_000_000}}),
+        )
+        .unwrap();
+    client
+        .call_sync(
+            "car.handle_mqtt_charging",
+            json!({"car": car, "data": {"elecPercent": 80, "chargingState": 0}}),
+        )
+        .unwrap();
+    until("base sections seeded", || {
+        let state = client.call_sync("car.state", json!({"car": car})).unwrap();
+        state["realtime"]["elec_percent"] == 80.0
+            && state["hvac"]["temp_in_car"] == 21.0
+            && state["charging"]["soc"] == 80
+    });
+    client
+        .call_sync(
+            "car.handle_mqtt_status_push",
+            json!({
+                "car": car,
+                "data": {"elecPercent": 77, "leftFrontDoor": 2},
+                "hvac": {"acSwitch": 1, "tempInCar": 22},
+                "charging": {"elecPercent": 77, "chargingState": 1},
+            }),
+        )
+        .unwrap();
+    until("status push merged", || {
+        let state = client.call_sync("car.state", json!({"car": car})).unwrap();
+        state["realtime"]["elec_percent"] == 77.0
+            && state["hvac"]["temp_in_car"] == 22.0
+            && state["charging"]["soc"] == 77
+    });
+
+    // An invalid optional section fails without merging anything.
+    let bad = client
+        .call_sync(
+            "car.handle_mqtt_status_push",
+            json!({
+                "car": car,
+                "data": {"elecPercent": 55},
+                "hvac": {"tempInCar": "not-a-number"},
+            }),
+        )
+        .unwrap_err();
+    assert_eq!(bad.class, "ValidationError");
+    let state = client.call_sync("car.state", json!({"car": car})).unwrap();
+    assert_eq!(state["realtime"]["elec_percent"], 77.0);
+}

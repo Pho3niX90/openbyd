@@ -526,24 +526,35 @@ fn pure_error(error: Error) -> ParityError {
     error.into()
 }
 
-/// The `zone` argument: a daily schedule's `at` moved into that time zone
-/// (`at.astimezone(ZoneInfo(zone))`), so its days are that zone's.
-fn in_zone(schedule: StandbySchedule, zone: Option<&str>) -> Result<StandbySchedule, ParityError> {
+/// Moves a daily schedule's `at` into the IANA time zone `zone`
+/// (`at.astimezone(ZoneInfo(zone))`), so its days follow that zone's wall
+/// clock across daylight-saving changes.
+///
+/// Non-daily schedules and a `None` zone are returned unchanged. Fails with
+/// [`wallclock::Error`] on an unknown or malformed zone key, or when moving
+/// `at` into `zone` overflows Python's year range 1 to 9999.
+pub fn schedule_in_zone(
+    schedule: StandbySchedule,
+    zone: Option<&str>,
+) -> Result<StandbySchedule, wallclock::Error> {
     let (Some(zone), Repeat::Daily) = (zone, schedule.repeat()) else {
         return Ok(schedule);
     };
     let Some(at) = schedule.at().and_then(|at| at.aware()) else {
         return Ok(schedule);
     };
-    let python =
-        |error: wallclock::Error| ParityError::new(error.python_exception(), error.to_string());
-    let tz = wallclock::Tz::zone(zone).map_err(python)?;
-    let at = at
-        .to_zoned()
-        .ok_or_else(|| ParityError::bad_arguments("at is outside years 1 to 9999"))?
-        .astimezone(&tz)
-        .map_err(python)?;
+    let tz = wallclock::Tz::zone(zone)?;
+    let Some(zoned) = at.to_zoned() else {
+        return Err(wallclock::Error::InvalidValue("year is out of range"));
+    };
+    let at = zoned.astimezone(&tz)?;
     Ok(StandbySchedule::daily_in_zone(at))
+}
+
+/// The `zone` argument of the parity calls: [`schedule_in_zone`] mapped to [`ParityError`].
+fn in_zone(schedule: StandbySchedule, zone: Option<&str>) -> Result<StandbySchedule, ParityError> {
+    schedule_in_zone(schedule, zone)
+        .map_err(|error| ParityError::new(error.python_exception(), error.to_string()))
 }
 
 /// `schedule_fields` and `build_save_inner`: plain calls that read the

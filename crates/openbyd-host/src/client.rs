@@ -15,10 +15,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use openbyd_client::api::smart_charging::EnergyTypeArg;
+use openbyd_client::api::standby::schedule_in_zone;
 use openbyd_client::car::{ClimateStart, SeatLevel, SeatMode, SeatPosition};
 use openbyd_client::client::{
     BydClient, ChargePollSettings, ClientCar, ClientOptions, GetCarOptions, PollSettings,
-    ProductionEnv, ReloginPolicy, RequestOutcome, RequestRecord, SessionTokens,
+    ProductionEnv, ReloginPolicy, RequestOutcome, RequestRecord, RunPollSettings, SessionTokens,
     resolve_command_pwd,
 };
 use openbyd_client::http::HttpEnv;
@@ -32,8 +33,10 @@ use openbyd_protocol::models::control::{
     BatteryHeatParams, ClimateScheduleParams, ClimateStartParams, SeatClimateParams,
 };
 use openbyd_protocol::models::energy::EnergyConsumption;
+use openbyd_protocol::models::hvac::HvacStatus;
 use openbyd_protocol::models::message_center::NotificationCategory;
 use openbyd_protocol::models::realtime::VehicleRealtimeData;
+use openbyd_protocol::models::standby::{StandbyPlan, StandbyPlanCommand, StandbySchedule};
 use openbyd_protocol::models::vehicle::{EnergyType, Vehicle};
 use openbyd_protocol::state::{StateChangedCallback, VehicleSnapshot};
 use serde_json::{Map, Value, json};
@@ -58,7 +61,7 @@ pub const EVENTS: [&str; 6] = [
 ];
 
 /// The methods [`Client::call`] runs.
-pub const ASYNC_METHODS: [&str; 65] = [
+pub const ASYNC_METHODS: [&str; 71] = [
     "login",
     "ensure_session",
     "import_session",
@@ -82,6 +85,12 @@ pub const ASYNC_METHODS: [&str; 65] = [
     "get_all_notifications",
     "rename_vehicle",
     "get_booking_list",
+    "get_standby_plans",
+    "save_standby_plan",
+    "create_standby_plan",
+    "set_default_standby_plan",
+    "delete_standby_plan",
+    "run_standby_plan",
     "verify_command_access",
     "lock",
     "unlock",
@@ -127,7 +136,7 @@ pub const ASYNC_METHODS: [&str; 65] = [
 ];
 
 /// The methods [`Client::call_sync`] runs.
-pub const SYNC_METHODS: [&str; 17] = [
+pub const SYNC_METHODS: [&str; 18] = [
     "start",
     "close",
     "resolve",
@@ -142,6 +151,7 @@ pub const SYNC_METHODS: [&str; 17] = [
     "car.capabilities",
     "car.features",
     "car.handle_mqtt_realtime",
+    "car.handle_mqtt_status_push",
     "car.handle_mqtt_charging",
     "car.handle_mqtt_energy",
     "car.close",
@@ -649,6 +659,32 @@ impl Client {
                 car.handle_mqtt_realtime(VehicleRealtimeData::parse_owned(raw, &context)?);
                 Value::Null
             }
+            "car.handle_mqtt_status_push" => {
+                let car = self.car(&args)?;
+                let raw = Value::Object(args.object("data")?.clone());
+                let energy_type = match car.state().vehicle.energy_type {
+                    EnergyType::Unknown => EnergyType::Ev,
+                    known => known,
+                };
+                let context = json!({"energy_type": {"EnergyType": energy_type as i64}});
+                let data = VehicleRealtimeData::parse_owned(raw, &context)?;
+                let hvac = match args.opt_object("hvac")? {
+                    Some(raw) => Some(HvacStatus::parse_owned(
+                        Value::Object(raw.clone()),
+                        &Value::Null,
+                    )?),
+                    None => None,
+                };
+                let charging = match args.opt_object("charging")? {
+                    Some(raw) => Some(ChargingStatus::parse_owned(
+                        Value::Object(raw.clone()),
+                        &Value::Null,
+                    )?),
+                    None => None,
+                };
+                car.handle_mqtt_status_push(data, hvac, charging);
+                Value::Null
+            }
             "car.handle_mqtt_charging" => {
                 let raw = Value::Object(args.object("data")?.clone());
                 self.car(&args)?
@@ -798,6 +834,55 @@ impl Client {
             }
             "rename_vehicle" => dump(&client.rename_vehicle(vin, &args.str("name")?).await?)?,
             "get_booking_list" => dump(&client.get_booking_list(vin).await?)?,
+            "get_standby_plans" => dump(&client.get_standby_plans(vin).await?)?,
+            "save_standby_plan" => {
+                let plan =
+                    StandbyPlan::parse(&Value::Object(args.object("plan")?.clone()), &Value::Null)?;
+                let schedule = args
+                    .opt_object("schedule")?
+                    .map(parse_schedule)
+                    .transpose()?;
+                dump(
+                    &client
+                        .save_standby_plan(vin, &plan, schedule.as_ref())
+                        .await?,
+                )?
+            }
+            "create_standby_plan" => {
+                let name = args.str("name")?;
+                let commands = parse_commands(&args)?;
+                let schedule = args
+                    .opt_object("schedule")?
+                    .map(parse_schedule)
+                    .transpose()?;
+                dump(
+                    &client
+                        .create_standby_plan(vin, &name, &commands, schedule.as_ref())
+                        .await?,
+                )?
+            }
+            "set_default_standby_plan" => dump(
+                &client
+                    .set_default_standby_plan(vin, &args.str("plan_id")?)
+                    .await?,
+            )?,
+            "delete_standby_plan" => dump(
+                &client
+                    .delete_standby_plan(vin, &args.str("plan_id")?)
+                    .await?,
+            )?,
+            "run_standby_plan" => {
+                let defaults = RunPollSettings::default();
+                let settings = RunPollSettings {
+                    poll_attempts: args.int_or("poll_attempts", defaults.poll_attempts)?,
+                    poll_interval: args.float_or("poll_interval", defaults.poll_interval)?,
+                };
+                dump(
+                    &client
+                        .run_standby_plan(vin, &args.str("plan_id")?, settings)
+                        .await?,
+                )?
+            }
             "verify_command_access" => dump(&client.verify_command_access(vin, pwd).await?)?,
             "lock" => dump(&client.lock(vin, pwd).await?)?,
             "unlock" => dump(&client.unlock(vin, pwd).await?)?,
@@ -921,6 +1006,29 @@ fn notification_category(value: i64) -> Result<NotificationCategory, HostError> 
         .ok_or_else(|| HostError::value(format!("{value} is not a valid NotificationCategory")))
 }
 
+/// Parses a `StandbySchedule` argument and, for a daily schedule with `zone`,
+/// moves `at` into that IANA time zone so the next run follows its wall clock.
+fn parse_schedule(map: &Map<String, Value>) -> Result<StandbySchedule, HostError> {
+    let zone = match map.get("zone") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(text)) => Some(text.as_str()),
+        Some(_) => return Err(HostError::type_error("zone must be a string")),
+    };
+    let schedule = StandbySchedule::from_kwargs(map)?;
+    Ok(schedule_in_zone(schedule, zone)?)
+}
+
+fn parse_commands(args: &Args) -> Result<Vec<StandbyPlanCommand>, HostError> {
+    let items = args
+        .get("commands")
+        .and_then(Value::as_array)
+        .ok_or_else(|| HostError::type_error("commands must be a list"))?;
+    items
+        .iter()
+        .map(|item| StandbyPlanCommand::parse(item, &Value::Null).map_err(HostError::from))
+        .collect()
+}
+
 impl Drop for Client {
     fn drop(&mut self) {
         // MQTT's tasks hold the client's core; stop them so it is freed.
@@ -983,5 +1091,71 @@ mod tests {
         let count = names.len();
         names.dedup();
         assert_eq!(names.len(), count);
+    }
+
+    #[test]
+    fn daily_schedule_zone_follows_wall_clock_across_dst() {
+        use openbyd_client::api::standby::schedule_fields;
+        use openbyd_client::scripted::ScriptedEnv;
+
+        // 2026-10-24 08:00+02:00 in Europe/Madrid; clocks fall back to +01:00 overnight.
+        let schedule = parse_schedule(&fields(json!({
+            "repeat": "daily",
+            "at": "2026-10-24T08:00:00+02:00",
+            "zone": "Europe/Madrid",
+        })))
+        .unwrap();
+        // Now is 2026-10-24T09:00:00Z (past 08:00+02:00 = 06:00Z).
+        let env = ScriptedEnv::new(1_792_832_400_000, "", Vec::new());
+        let saved = schedule_fields(&env, &schedule, None).unwrap();
+        assert_eq!(saved["executeType"], "1");
+        // Next run is 2026-10-25T08:00:00+01:00 = 2026-10-25T07:00:00Z (25 hours after 06:00Z).
+        assert_eq!(saved["executeTime"], 1_792_911_600_000_i64);
+
+        // Without zone, fixed +02:00 steps by 24 hours to 2026-10-25T06:00:00Z (07:00+01:00).
+        let plain = parse_schedule(&fields(json!({
+            "repeat": "daily",
+            "at": "2026-10-24T08:00:00+02:00",
+        })))
+        .unwrap();
+        let saved_plain = schedule_fields(&env, &plain, None).unwrap();
+        assert_eq!(saved_plain["executeTime"], 1_792_908_000_000_i64);
+
+        // Non-daily schedules ignore zone, even an unknown name.
+        let once = parse_schedule(&fields(json!({
+            "repeat": "once",
+            "at": "2026-10-24T08:00:00+02:00",
+            "zone": "Mars/Olympus_Mons",
+        })))
+        .unwrap();
+        assert_eq!(
+            schedule_fields(&env, &once, None).unwrap()["executeType"],
+            "0"
+        );
+
+        let missing = parse_schedule(&fields(json!({
+            "repeat": "daily",
+            "at": "2026-10-24T08:00:00+02:00",
+            "zone": "Mars/Olympus_Mons",
+        })))
+        .unwrap_err();
+        assert_eq!(missing.class, "ZoneInfoNotFoundError");
+        assert_eq!(missing.bases, ["KeyError", "LookupError"]);
+
+        let bad_key = parse_schedule(&fields(json!({
+            "repeat": "daily",
+            "at": "2026-10-24T08:00:00+02:00",
+            "zone": "/Europe/Madrid",
+        })))
+        .unwrap_err();
+        assert_eq!(bad_key.class, "ValueError");
+
+        let wrong_type = parse_schedule(&fields(json!({
+            "repeat": "daily",
+            "at": "2026-10-24T08:00:00+02:00",
+            "zone": 42,
+        })))
+        .unwrap_err();
+        assert_eq!(wrong_type.class, "TypeError");
     }
 }

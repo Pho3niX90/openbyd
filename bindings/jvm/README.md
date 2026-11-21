@@ -16,7 +16,7 @@ Java 17 or later.
 </dependency>
 ```
 
-The package is not in a public repository: build it from this directory ([Building and testing this package](#building-and-testing-this-package)) and put the jar in a repository of your own. It needs openbyd's native library, `openbyd_c`: see [The native library](#the-native-library).
+The jar is on Maven Central and carries openbyd's native library for Windows (x64), Linux (x64 and arm64, glibc) and macOS (arm64 and x64). On another platform, such as Alpine, see [The native library](#the-native-library).
 
 ## Use it from Java
 
@@ -126,7 +126,9 @@ The package loads `openbyd_c` (`openbyd_c.dll`, `libopenbyd_c.so`, `libopenbyd_c
 
 1. in the directories of the system property `jna.library.path`: `java -Djna.library.path=/path/to/openbyd/target/release ...`;
 2. where the system keeps its libraries;
-3. in the jar, under JNA's prefix for the platform: `win32-x86-64/`, `linux-x86-64/`, `linux-aarch64/`, `darwin-aarch64/` or `darwin-x86-64/`. A jar that carries the libraries there needs nothing else.
+3. in the jar, under JNA's prefix for the platform: `win32-x86-64/`, `linux-x86-64/`, `linux-aarch64/`, `darwin-aarch64/` or `darwin-x86-64/`. The released jar carries the library for each of those, so on them nothing else is needed.
+
+The Linux libraries in the jar need glibc 2.17 or later. JNA has no prefix for musl, so on Alpine build the library there and name its directory in `jna.library.path`.
 
 Build the library from the repository's root:
 
@@ -159,7 +161,7 @@ python bindings/generate.py jvm        # write the generated sources
 python bindings/generate.py --check    # fail if any is out of date
 ```
 
-The tests need the native library with the feature `testing`, and Maven 3.9 with a JDK from 17 on:
+The tests need the native library with the feature `testing`, and Maven 3.8 or later with a JDK from 17 on:
 
 ```sh
 cargo build -p openbyd-capi --features testing    # target/debug/

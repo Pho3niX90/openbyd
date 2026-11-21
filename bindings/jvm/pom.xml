@@ -24,6 +24,7 @@
   <developers>
     <developer>
       <id>Pho3niX90</id>
+      <name>Pho3niX90</name>
       <url>https://github.com/Pho3niX90</url>
     </developer>
   </developers>
@@ -41,6 +42,9 @@
 
     <!-- Where the tests find the C library; the README says how to build it. -->
     <openbyd.native.dir>${project.basedir}/../../target/debug</openbyd.native.dir>
+    <!-- What a release puts in the jar: each platform's C library under JNA's prefix for it
+         (win32-x86-64/openbyd_c.dll, linux-aarch64/libopenbyd_c.so, ...). Empty in a checkout. -->
+    <openbyd.natives.dir>${project.basedir}/natives</openbyd.natives.dir>
 
     <jna.version>5.19.1</jna.version>
     <jackson.version>2.23.0</jackson.version>
@@ -109,6 +113,14 @@
   </dependencies>
 
   <build>
+    <resources>
+      <resource>
+        <directory>${project.basedir}/src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>${openbyd.natives.dir}</directory>
+      </resource>
+    </resources>
     <plugins>
       <!-- The typed layer is generated (bindings/generate.py) into a source root of its own. -->
       <plugin>
@@ -199,6 +211,44 @@
   </build>
 
   <profiles>
+    <!--
+      Publishing to Maven Central, with the release profile: mvn -Prelease,publish deploy.
+      It signs every file and uploads through the Central Portal. The credentials are the
+      server "central" of settings.xml (a Portal user token) and a GPG key; the release
+      workflow provides both.
+    -->
+    <profile>
+      <id>publish</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>3.2.8</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.sonatype.central</groupId>
+            <artifactId>central-publishing-maven-plugin</artifactId>
+            <version>0.12.0</version>
+            <extensions>true</extensions>
+            <configuration>
+              <publishingServerId>central</publishingServerId>
+              <autoPublish>true</autoPublish>
+              <waitUntil>published</waitUntil>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
     <!-- A release carries its sources and its Javadoc: mvn -Prelease package -->
     <profile>
       <id>release</id>
@@ -208,6 +258,10 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-source-plugin</artifactId>
             <version>3.4.0</version>
+            <configuration>
+              <!-- The resources are the native libraries, which are not sources. -->
+              <excludeResources>true</excludeResources>
+            </configuration>
             <executions>
               <execution>
                 <id>attach-sources</id>

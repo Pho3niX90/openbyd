@@ -4,7 +4,7 @@ openbyd's client is written once, in Rust. Python has its own binding (`crates/o
 
 | Language | Package | Loads | Typed layer |
 |---|---|---|---|
-| JavaScript / TypeScript | [`node/`](node) (npm `openbyd`) | `crates/openbyd-node`, a Node add-on | `node/src/generated` |
+| JavaScript / TypeScript | [`node/`](node) (npm [`openbyd`](https://www.npmjs.com/package/openbyd)) | `crates/openbyd-node`, a Node add-on | `node/src/generated` |
 | Java / Kotlin | [`jvm/`](jvm) (Maven `openbyd`) | `crates/openbyd-capi`, a C library, through JNA | `jvm/src/generated` |
 | C# / .NET | [`dotnet/`](dotnet) (NuGet `OpenByd`) | `crates/openbyd-capi`, through P/Invoke | `dotnet/OpenByd/Generated` |
 
@@ -62,6 +62,14 @@ Each emitter (`gen/typescript.py`, `gen/java.py`, `gen/csharp.py`) writes into d
 3. Run `python bindings/generate.py`, then each package's tests.
 
 `cargo test -p openbyd-host --all-features` fails when `surface.json` and the core's method lists disagree.
+
+## Releasing
+
+`.github/workflows/release-bindings.yml` builds the Node add-on and the C library for every platform (Windows x64, Linux x64 and arm64 for glibc and musl, macOS arm64 and x64), packs the three packages with them, installs each packed package into a project of its own on every platform (`bindings/smoke`), and only then publishes: to npm (the package `openbyd` and one `openbyd-<platform>` per add-on), Maven Central and NuGet.
+
+A tag `v<version>` publishes all three, alongside the Python package. Run by hand, the workflow publishes to the registries ticked, or to none: then it is a rehearsal, and the packages are an artifact of the run. A pull request that changes the workflow or what it runs rehearses it too.
+
+A package's version is the workspace's (`Cargo.toml`); `generate.py` fails when one says otherwise, and the workflow refuses a tag that names another version.
 
 ## Building and testing a package
 

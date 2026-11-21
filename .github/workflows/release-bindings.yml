@@ -1,0 +1,418 @@
+name: Release bindings
+
+# Builds the npm, Maven and NuGet packages with the native library of every
+# platform, installs each packed package on every platform, and publishes.
+#
+# - A tag like v0.1.2 publishes all three, alongside release.yml, which
+#   publishes the Python package.
+# - Run by hand ("Run workflow"), it publishes to the registries ticked; with
+#   none ticked it builds, packs and tests, and the packages are an artifact
+#   of the run.
+# - A pull request that changes this file, or what it runs, does everything
+#   but publish.
+#
+# Publishing needs these repository secrets:
+#   NPM_TOKEN                          an npm token that may publish openbyd and openbyd-*
+#   NUGET_API_KEY                      a nuget.org key that may push OpenByd
+#   CENTRAL_USERNAME, CENTRAL_PASSWORD a user token of the Maven Central Portal
+#   MAVEN_GPG_PRIVATE_KEY, MAVEN_GPG_PASSPHRASE
+#                                      the key the Maven files are signed with
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      npm:
+        description: Publish to npm
+        type: boolean
+        default: false
+      maven:
+        description: Publish to Maven Central
+        type: boolean
+        default: false
+      nuget:
+        description: Publish to NuGet
+        type: boolean
+        default: false
+  pull_request:
+    paths:
+      - .github/workflows/release-bindings.yml
+      - bindings/smoke/**
+      - bindings/node/scripts/**
+      - bindings/jvm/pom.xml
+      - bindings/dotnet/OpenByd/OpenByd.csproj
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-bindings-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  natives:
+    # The Node add-on and the C library for one platform, without the fake
+    # server. Linux is linked with zig: against glibc 2.17, so the libraries
+    # load on old distributions, and against musl for Alpine.
+    name: Native libraries (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # name: Node's platform name; jna: JNA's resource prefix; rid: .NET's runtime identifier.
+          - name: win32-x64-msvc
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            jna: win32-x86-64
+            rid: win-x64
+            # No dependency on the Visual C++ runtime being installed.
+            rustflags: -C target-feature=+crt-static
+          - name: darwin-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            jna: darwin-aarch64
+            rid: osx-arm64
+          - name: darwin-x64
+            os: macos-latest
+            target: x86_64-apple-darwin
+            jna: darwin-x86-64
+            rid: osx-x64
+          - name: linux-x64-gnu
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            zig: true
+            glibc: ".2.17"
+            jna: linux-x86-64
+            rid: linux-x64
+          - name: linux-arm64-gnu
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            zig: true
+            glibc: ".2.17"
+            jna: linux-aarch64
+            rid: linux-arm64
+          # JNA has no prefix for musl, so the jar carries no musl library.
+          - name: linux-x64-musl
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            zig: true
+            rid: linux-musl-x64
+            # A library that is loaded at run time links musl dynamically.
+            rustflags: -C target-feature=-crt-static
+          - name: linux-arm64-musl
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            zig: true
+            rid: linux-musl-arm64
+            rustflags: -C target-feature=-crt-static
+    env:
+      RUSTFLAGS: ${{ matrix.rustflags }}
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.name }}
+      - uses: mlugg/setup-zig@v2
+        if: matrix.zig
+        with:
+          version: 0.13.0
+      - uses: taiki-e/install-action@v2
+        if: matrix.zig
+        with:
+          tool: cargo-zigbuild
+      - name: Build
+        shell: bash
+        run: |
+          if [ "${{ matrix.zig }}" = "true" ]; then
+            cargo zigbuild --release -p openbyd-capi -p openbyd-node --target "${{ matrix.target }}${{ matrix.glibc }}"
+          else
+            cargo build --release -p openbyd-capi -p openbyd-node --target "${{ matrix.target }}"
+          fi
+      - name: Lay the libraries out as each package carries them
+        shell: bash
+        run: |
+          built="target/${{ matrix.target }}/release"
+          case "${{ matrix.target }}" in
+            *windows*) c=openbyd_c.dll; node=openbyd_node.dll ;;
+            *apple*) c=libopenbyd_c.dylib; node=libopenbyd_node.dylib ;;
+            *) c=libopenbyd_c.so; node=libopenbyd_node.so ;;
+          esac
+          mkdir -p natives/node "natives/dotnet/runtimes/${{ matrix.rid }}/native"
+          cp "$built/$node" "natives/node/openbyd.${{ matrix.name }}.node"
+          cp "$built/$c" "natives/dotnet/runtimes/${{ matrix.rid }}/native/"
+          if [ -n "${{ matrix.jna }}" ]; then
+            mkdir -p "natives/jvm/${{ matrix.jna }}"
+            cp "$built/$c" "natives/jvm/${{ matrix.jna }}/"
+          fi
+          find natives -type f -exec ls -l {} +
+      - uses: actions/upload-artifact@v4
+        with:
+          name: natives-${{ matrix.name }}
+          path: natives
+          if-no-files-found: error
+
+  pack:
+    # The three packages as they will be published, with every platform's library.
+    name: Pack
+    needs: natives
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: The version, which a tag must name
+        id: version
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Version $version"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::the tag $GITHUB_REF_NAME is not v$version, the version in Cargo.toml"
+            exit 1
+          fi
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: natives-*
+          merge-multiple: true
+          path: natives
+      - name: Put the libraries where each package takes them from
+        run: |
+          mkdir -p bindings/jvm/natives bindings/dotnet/OpenByd/runtimes
+          cp -r natives/jvm/. bindings/jvm/natives/
+          cp -r natives/dotnet/runtimes/. bindings/dotnet/OpenByd/runtimes/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: npm packages
+        working-directory: bindings/node
+        run: |
+          npm ci
+          npm run build
+          node scripts/platform-packages.mjs ../../natives/node npm
+          mkdir -p ../../packages/npm
+          npm pack --pack-destination ../../packages/npm
+          for directory in npm/*/; do
+            (cd "$directory" && npm pack --pack-destination "$GITHUB_WORKSPACE/packages/npm")
+          done
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+          cache-dependency-path: bindings/jvm/pom.xml
+      - name: Maven package, and what it needs to run
+        working-directory: bindings/jvm
+        run: |
+          mvn --batch-mode --quiet -Prelease -Dmaven.test.skip=true package
+          mvn --batch-mode --quiet dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=target/deps
+          mkdir -p ../../packages/maven/deps
+          cp target/openbyd-*.jar ../../packages/maven/
+          cp target/deps/*.jar ../../packages/maven/deps/
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: NuGet package
+        run: dotnet pack bindings/dotnet/OpenByd -c Release -o packages/nuget
+      - name: What the packages hold
+        run: |
+          version=${{ steps.version.outputs.version }}
+          ls -l packages/npm packages/maven packages/nuget
+          tar -tzf "packages/npm/openbyd-$version.tgz"
+          unzip -l "packages/maven/openbyd-$version.jar" | grep -E "openbyd_c|META-INF/MANIFEST"
+          unzip -l "packages/nuget/OpenByd.$version.nupkg" | grep -E "runtimes/|lib/|README"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: packages
+          if-no-files-found: error
+
+  smoke:
+    # Each packed package installed in a project of its own, on every
+    # platform a library was built for that has a hosted runner.
+    name: Install and run (${{ matrix.os }})
+    needs: pack
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-latest, macos-15-intel]
+    env:
+      VERSION: ${{ needs.pack.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: bindings/smoke
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: packages
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: npm
+        shell: bash
+        run: |
+          platform=$(node -p "process.platform + '-' + process.arch + (process.platform === 'win32' ? '-msvc' : process.platform === 'linux' ? '-gnu' : '')")
+          mkdir -p smoke-npm && cd smoke-npm
+          cp ../bindings/smoke/smoke.cjs .
+          npm init -y > /dev/null
+          npm install --no-fund --no-audit "../packages/npm/openbyd-$VERSION.tgz" "../packages/npm/openbyd-$platform-$VERSION.tgz"
+          node smoke.cjs "$VERSION"
+      - name: Maven
+        shell: bash
+        run: |
+          separator=":"; [ "$RUNNER_OS" = "Windows" ] && separator=";"
+          java -cp "packages/maven/openbyd-$VERSION.jar${separator}packages/maven/deps/*" bindings/smoke/Smoke.java "$VERSION"
+      - name: NuGet
+        run: dotnet run --project bindings/smoke/dotnet "-p:OpenBydVersion=${{ env.VERSION }}" "-p:RestoreAdditionalProjectSources=${{ github.workspace }}/packages/nuget" -- ${{ env.VERSION }}
+
+  smoke-containers:
+    # The same, where a hosted runner does not reach: Alpine (musl) and an
+    # older glibc than the runners have.
+    name: Install and run (${{ matrix.name }})
+    needs: pack
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "npm, Alpine", image: "node:22-alpine", package: npm, platform: linux-x64-musl }
+          - { name: "npm, Debian 11", image: "node:20-bullseye-slim", package: npm, platform: linux-x64-gnu }
+          - { name: "Maven, Ubuntu 20.04", image: "eclipse-temurin:17-jdk-focal", package: maven }
+          - { name: "NuGet, Alpine", image: "mcr.microsoft.com/dotnet/sdk:8.0-alpine", package: nuget }
+    env:
+      VERSION: ${{ needs.pack.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: bindings/smoke
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: packages
+      - name: npm
+        if: matrix.package == 'npm'
+        shell: sh
+        run: |
+          mkdir -p smoke-npm && cd smoke-npm
+          cp ../bindings/smoke/smoke.cjs .
+          npm init -y > /dev/null
+          npm install --no-fund --no-audit "../packages/npm/openbyd-$VERSION.tgz" "../packages/npm/openbyd-${{ matrix.platform }}-$VERSION.tgz"
+          node smoke.cjs "$VERSION"
+      - name: Maven
+        if: matrix.package == 'maven'
+        shell: sh
+        run: java -cp "packages/maven/openbyd-$VERSION.jar:packages/maven/deps/*" bindings/smoke/Smoke.java "$VERSION"
+      - name: NuGet
+        if: matrix.package == 'nuget'
+        shell: sh
+        run: dotnet run --project bindings/smoke/dotnet "-p:OpenBydVersion=$VERSION" "-p:RestoreAdditionalProjectSources=$GITHUB_WORKSPACE/packages/nuget" -- "$VERSION"
+
+  publish-npm:
+    name: Publish to npm
+    needs: [pack, smoke, smoke-containers]
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.npm)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # for the provenance statement
+    env:
+      VERSION: ${{ needs.pack.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: packages
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Publish the add-ons, then the package that names them
+        working-directory: packages/npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          publish() {
+            name=$(tar -xOzf "$1" package/package.json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).name")
+            if npm view "$name@$VERSION" version > /dev/null 2>&1; then
+              echo "$name@$VERSION is published already"
+            else
+              npm publish "$1" --access public --provenance
+            fi
+          }
+          for tarball in *.tgz; do
+            [ "$tarball" = "openbyd-$VERSION.tgz" ] || publish "$tarball"
+          done
+          publish "openbyd-$VERSION.tgz"
+
+  publish-maven:
+    name: Publish to Maven Central
+    needs: [pack, smoke, smoke-containers]
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.maven)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: natives-*
+          merge-multiple: true
+          path: natives
+      - name: Put the libraries in the jar's resources
+        run: |
+          mkdir -p bindings/jvm/natives
+          cp -r natives/jvm/. bindings/jvm/natives/
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+          cache-dependency-path: bindings/jvm/pom.xml
+          server-id: central
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+      - name: Sign and publish
+        working-directory: bindings/jvm
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: mvn --batch-mode -Prelease,publish -Dmaven.test.skip=true deploy
+
+  publish-nuget:
+    name: Publish to NuGet
+    needs: [pack, smoke, smoke-containers]
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.nuget)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: packages
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Push
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: dotnet nuget push packages/nuget/*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate

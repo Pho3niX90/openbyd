@@ -19,3 +19,9 @@ lcov.info
 /bindings/jvm/target/
 /bindings/dotnet/**/bin/
 /bindings/dotnet/**/obj/
+# What a release adds to a checkout: each platform's native library
+/bindings/node/npm/
+/bindings/jvm/natives/
+/bindings/dotnet/OpenByd/runtimes/
+/bindings/smoke/dotnet/bin/
+/bindings/smoke/dotnet/obj/

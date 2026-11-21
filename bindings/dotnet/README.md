@@ -4,7 +4,11 @@ An unofficial client for the BYD overseas app API: [pyBYD](https://github.com/jk
 
 This project is not affiliated with, endorsed by or supported by BYD. It has not yet been run against BYD's live service; see the [status](../../README.md#status) of the whole project.
 
-The package is `OpenByd`, for .NET 8 and later. It is not on NuGet yet: build it from this repository ([below](#build-and-test)).
+```sh
+dotnet add package OpenByd
+```
+
+For .NET 8 and later, on Windows (x64), Linux (x64 and arm64, glibc and musl) and macOS (arm64 and x64).
 
 ## Use it
 
@@ -96,7 +100,7 @@ A client that is dropped without being disposed is collected like any object, on
 
 The package calls openbyd's C library, `openbyd_c` (`crates/openbyd-capi`), through P/Invoke.
 
-- **A packed package** carries it for each platform under `runtimes/<rid>/native/`, where .NET finds it by itself. Whatever is in `OpenByd/runtimes/` when `dotnet pack` runs is packed there; nothing is checked in.
+- **The released package** carries it for each platform under `runtimes/<rid>/native/` (`win-x64`, `linux-x64`, `linux-arm64`, `linux-musl-x64`, `linux-musl-arm64`, `osx-arm64`, `osx-x64`), where .NET finds it by itself. Whatever is in `OpenByd/runtimes/` when `dotnet pack` runs is packed there; nothing is checked in.
 - **In this repository** the library is copied next to whatever is built on the project, from the directory the MSBuild property `OpenBydNativeDir` names. By default that is the repository's `target/debug`, where `cargo build -p openbyd-capi` puts it. Build with `-p:OpenBydNativeDir=<directory>` to take it from elsewhere, such as `target/release`.
 
 ## Testing your own code

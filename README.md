@@ -16,7 +16,7 @@ All of pyBYD is ported and compared with pyBYD in the tests. **It has not yet be
 | Signing, envelopes, reply models, error codes, command gating, state engine | `openbyd-protocol` | Ported; compared with pyBYD on recorded and random inputs |
 | Async client: sessions, reads, commands, MQTT, the car layer | `openbyd-client` | Ported; every request sequence compared with pyBYD's against a script, plus tests over real sockets with a fake server and broker |
 | Python package | `openbyd` | `openbyd.Client` and `openbyd.Car` with pyBYD's method names, returning plain dicts |
-| TypeScript, Java and Kotlin, C# packages | [`bindings/`](bindings/README.md) | The same client and car, typed: the types are generated from pyBYD's own models and every recorded pyBYD model dump is checked against them. Not published yet: build them from this repository |
+| TypeScript, Java and Kotlin, C# packages | [`bindings/`](bindings/README.md) | The same client and car, typed: the types are generated from pyBYD's own models and every recorded pyBYD model dump is checked against them. On npm (`openbyd`), Maven Central (`io.github.pho3nix90:openbyd`) and NuGet (`OpenByd`) |
 | Command-line tool | `openbyd-cli` | `openbyd login`, `vehicles`, `dump`, `get`, `watch`, `command` ([usage](crates/openbyd-cli/README.md)) |
 | Drop-in speed-up for pyBYD | `openbyd.pybyd_accel` | See below |
 

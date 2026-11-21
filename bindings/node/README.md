@@ -4,7 +4,11 @@ An unofficial client for the BYD overseas app API: [pyBYD](https://github.com/jk
 
 This project is not affiliated with, endorsed by or supported by BYD. It has not yet been run against BYD's live service; see the [status](../../README.md#status) of the whole project.
 
-The package is `openbyd`, for Node.js 20 and later. It is not on npm yet: build it from this repository ([below](#build-and-test)).
+```sh
+npm install openbyd
+```
+
+For Node.js 20 and later, on Windows (x64), Linux (x64 and arm64, glibc and musl) and macOS (arm64 and x64).
 
 ## Use it
 
@@ -114,7 +118,9 @@ Sessions can be saved and resumed without a password login: `client.exportSessio
 
 ## The native add-on
 
-The package loads a compiled add-on for the platform it runs on, from `native/openbyd.<platform>.node` inside the package, or from the package `openbyd-<platform>` (`win32-x64-msvc`, `linux-x64-gnu`, `linux-arm64-musl`, `darwin-arm64`, ...). Released packages will carry prebuilt add-ons that way; from this repository, build it yourself.
+The client is compiled code. Each platform's add-on is a package of its own, `openbyd-<platform>` (`win32-x64-msvc`, `linux-x64-gnu`, `linux-arm64-musl`, `darwin-arm64`, ...), which `openbyd` lists as an optional dependency: npm installs the one that fits the machine. An install with `--omit=optional` or `--no-optional` leaves it out, and the package then fails to load, saying which one is missing.
+
+On another platform, or to run your own build, put the add-on at `native/openbyd.<platform>.node` inside the package ([Build and test](#build-and-test)); that file is looked for first.
 
 ## Testing your own code
 

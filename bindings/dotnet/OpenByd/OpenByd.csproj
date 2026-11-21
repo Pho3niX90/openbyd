@@ -17,7 +17,7 @@
   <PropertyGroup>
     <PackageId>OpenByd</PackageId>
     <!-- The workspace's version (the root Cargo.toml); the tests compare it with the core's. -->
-    <Version>0.1.2</Version>
+    <Version>0.1.3</Version>
     <Authors>Shaun Jansen Van Nieuwenhuizen</Authors>
     <Description>Unofficial client for the BYD overseas app API, with a Rust core</Description>
     <PackageTags>byd;ev;vehicle;telemetry</PackageTags>

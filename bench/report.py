@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import common  # noqa: E402
 
-NAMES = ("micro", "load", "mqtt_idle", "replay_worker")
+NAMES = ("micro", "load", "mqtt_idle", "replay_worker", "replay_detect")
 
 
 def duration(seconds: float) -> str:
@@ -440,7 +440,54 @@ def render_replay_worker(result: dict[str, Any]) -> list[str]:
     return lines
 
 
-RENDERERS = {"micro": render_micro, "load": render_load, "mqtt_idle": render_mqtt, "replay_worker": render_replay_worker}
+def render_replay_detect(result: dict[str, Any]) -> list[str]:
+    """Render coverage, repeat checks and per-field findings from a detection replay."""
+    if not result.get("redacted") and result["scenario"]["header"].get("source") != "synthetic":
+        raise SystemExit("this is the complete results file of a scenario that is not synthetic: render the aggregate one in bench/results")
+    coverage = result["coverage"]
+    window = coverage["window"]
+    lines = [
+        "## Deterministic detection replay", "",
+        f"Coverage {coverage['covered']}/{coverage['total']} accounts, from {window['start_s']} to {window['end_s']} s.",
+        "",
+    ]
+    if window["omitted_s"]:
+        lines += [f"The window omits {window['omitted_s']} s and {sum(coverage['lines_after_window'].values())} timeline lines in the selected accounts.", ""]
+    labels = {True: "Yes", False: "**No**", None: "Not checked"}
+    lines += table(
+        ["Variant", "Repeat", "Drives", "Charges", "Open drives", "Open charges", "Cars with detections", "Identical across repeats"],
+        [[row["variant"], str(row["repeat"]), *(str(row["counts"][kind]) for kind in ("drives", "charges", "open_drive", "open_charge")),
+          str(row["cars_with_detections"]["any"]), labels[result["determinism"][row["variant"]]["identical"]]]
+         for row in result["rows"]],
+    ) + [""]
+    problems = [f"{row['variant']}#{row['repeat']}: {problem}" for row in result["rows"] for problem in row["problems"]]
+    nondeterministic = [name for name, check in result["determinism"].items() if check["identical"] is False]
+    if nondeterministic:
+        lines += [f"**Not deterministic:** {', '.join(nondeterministic)}. Variant comparison withheld.", ""]
+    if problems:
+        lines += ["**Run problems**", ""] + [f"- {problem}" for problem in problems] + [""]
+    blocked = sum(row["guard"]["blocked_total"] for row in result["rows"])
+    if blocked:
+        lines += [f"The loopback guard refused {blocked} non-loopback connection or lookup attempt(s).", ""]
+    pairs = result["comparison"]
+    if pairs and all(pair["equal"] for pair in pairs):
+        lines += ["The variants agree exactly.", ""]
+    elif pairs:
+        lines += ["### Differences between variants", ""]
+        lines += table(
+            ["Runs", "Kind", "Difference", "Field", "Count", "Cars affected", "Min", "Median", "Max", "Unit"],
+            [[f"{pair['reference']} / {pair['other']}", item["kind"], item["type"], _cell(item["field"]),
+              str(item["count"]), str(item["cars_affected"]), *(str(item[key]) if item[key] is not None else "—" for key in ("min", "median", "max")),
+              _cell(item["unit"])]
+             for pair in pairs for item in pair["summary"]],
+        ) + [""]
+    elif result["settings"]["no_repeat"]:
+        lines += ["Determinism not checked.", ""]
+    return lines
+
+
+RENDERERS = {"micro": render_micro, "load": render_load, "mqtt_idle": render_mqtt, "replay_worker": render_replay_worker,
+             "replay_detect": render_replay_detect}
 
 
 def newest(name: str, quick: bool) -> Path | None:

@@ -956,7 +956,7 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "openbyd-cli"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "clap",
  "log",
@@ -971,7 +971,7 @@ dependencies = [
 
 [[package]]
 name = "openbyd-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "bytes",
  "getrandom 0.2.17",
@@ -996,14 +996,14 @@ dependencies = [
 
 [[package]]
 name = "openbyd-crypto"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "openbyd-protocol"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "aes",
  "chrono",
@@ -1019,7 +1019,7 @@ dependencies = [
 
 [[package]]
 name = "openbyd-py"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "mimalloc",
  "openbyd-client",

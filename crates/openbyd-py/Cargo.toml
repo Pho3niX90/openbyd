@@ -34,8 +34,11 @@ pyo3 = { version = "0.30", features = ["abi3-py311"] }
 tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "time", "sync", "net"] }
 # `local_dynamic_tls`: the extension is loaded with dlopen, where initial-exec
 # TLS (mimalloc's default on Unix) can fail to load ("cannot allocate memory
-# in static TLS block").
-mimalloc = { version = "0.1.52", default-features = false, features = ["local_dynamic_tls"], optional = true }
+# in static TLS block"). `v2`: mimalloc 3 (the crate's default) crashed the
+# extension on Linux in `mi_thread_init` when a Python thread started after
+# others had exited made its first Rust allocation (seen in
+# `test_report_and_cli`, which replays with a fresh thread pool per repeat).
+mimalloc = { version = "0.1.52", default-features = false, features = ["local_dynamic_tls", "v2"], optional = true }
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }

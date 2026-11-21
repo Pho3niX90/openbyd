@@ -60,7 +60,8 @@ pub trait Clock: Send + Sync {
     fn monotonic(&self) -> f64;
 }
 
-/// The system's monotonic clock, counted from when the value was made.
+/// The system's monotonic clock, counted from when the value was made and
+/// starting at [`MONOTONIC_ORIGIN_S`](crate::http::MONOTONIC_ORIGIN_S), never near 0.
 #[derive(Debug, Clone, Copy)]
 pub struct SystemClock(Instant);
 
@@ -79,7 +80,7 @@ impl Default for SystemClock {
 
 impl Clock for SystemClock {
     fn monotonic(&self) -> f64 {
-        self.0.elapsed().as_secs_f64()
+        crate::http::MONOTONIC_ORIGIN_S + self.0.elapsed().as_secs_f64()
     }
 }
 

@@ -7,6 +7,7 @@ own their tables of implementations.
 
 from __future__ import annotations
 
+import contextlib
 import datetime as dt
 import json
 import os
@@ -143,7 +144,7 @@ def versions_info() -> dict[str, Any]:
     }
 
 
-def write_results(name: str, quick: bool, payload: dict[str, Any], *, directory: Path | None = None) -> Path:
+def write_results(name: str, quick: bool, payload: dict[str, Any], *, directory: Path | None = None, unique: bool = False) -> Path:
     """Write ``bench/results/<name>-<timestamp>[-quick].json`` with the date, machine and commits.
 
     ``directory`` is another place to write it (results that must stay out of the repository).
@@ -159,7 +160,8 @@ def write_results(name: str, quick: bool, payload: dict[str, Any], *, directory:
         "versions": versions_info(),
         **payload,
     }
-    path = results / f"{name}-{now:%Y%m%d-%H%M%S}{'-quick' if quick else ''}.json"
+    stamp = now.strftime("%Y%m%d-%H%M%S-%f" if unique else "%Y%m%d-%H%M%S")
+    path = results / f"{name}-{stamp}{'-quick' if quick else ''}.json"
     path.write_text(json.dumps(document, indent=1) + "\n", encoding="utf-8")
     return path
 
@@ -211,26 +213,33 @@ class Child:
     """
 
     def __init__(
-        self, cmd: list[str | Path], label: str, *, env: dict[str, str] | None = None, cwd: Path | None = None
+        self, cmd: list[str | Path], label: str, *, env: dict[str, str] | None = None, cwd: Path | None = None,
+        log: Path | None = None,
     ) -> None:
-        SCRATCH.mkdir(parents=True, exist_ok=True)
         self.label = label
-        self.log = SCRATCH / f"{label.replace(' ', '_').replace('+', '_')}-{os.getpid()}.log"
+        self.log = log if log is not None else SCRATCH / f"{label.replace(' ', '_').replace('+', '_')}-{os.getpid()}.log"
+        self.log.parent.mkdir(parents=True, exist_ok=True)
         self._stderr = self.log.open("wb")
         env = dict(os.environ if env is None else env)
         env.setdefault("PYTHONUNBUFFERED", "1")
-        self.proc = subprocess.Popen(
-            [str(part) for part in cmd],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=self._stderr,
-            text=True,
-            bufsize=1,
-            env=env,
-            cwd=cwd or ROOT,
-        )
+        try:
+            self.proc = subprocess.Popen(
+                [str(part) for part in cmd],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=self._stderr,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+                env=env,
+                cwd=cwd or ROOT,
+            )
+        except BaseException:
+            self._stderr.close()
+            raise
         self.lines: queue.Queue[str | None] = queue.Queue()
-        threading.Thread(target=self._read, daemon=True).start()
+        self.reader = threading.Thread(target=self._read, daemon=True)
+        self.reader.start()
 
     def _read(self) -> None:
         assert self.proc.stdout is not None  # noqa: S101
@@ -263,6 +272,26 @@ class Child:
     def ask(self, command: str, timeout: float = 60) -> str:
         self.send(command)
         return self.read(timeout)
+
+    def finish(self, timeout: float) -> int:
+        """Close input and wait for a child whose protocol ends at EOF."""
+        self.proc.stdin.close()
+        return self.proc.wait(timeout=timeout)
+
+    def reap(self) -> None:
+        """Terminate a child if needed and close its pipes and log."""
+        if self.proc.poll() is None:
+            self.proc.kill()
+        self.proc.wait()
+        try:
+            # After a failed write the pipe still holds the unsent line and closing it fails again.
+            with contextlib.suppress(OSError, ValueError):
+                self.proc.stdin.close()
+            self.reader.join()
+            with contextlib.suppress(OSError, ValueError):
+                self.proc.stdout.close()
+        finally:
+            self._stderr.close()
 
     def close(self) -> None:
         try:

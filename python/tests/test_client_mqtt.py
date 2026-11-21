@@ -283,3 +283,20 @@ def test_every_car_command_reaches_the_client(world) -> None:
 
     assert run(main()) == [], "every feature the car has goes through"
     assert len(world.requests(REMOTE)) >= 12
+
+
+def test_a_payload_that_does_not_decrypt_logs_in_again_at_once(world) -> None:
+    # Live, BYD sent a push the fresh session could not decrypt. pyBYD logged
+    # in again within milliseconds; openbyd did nothing, because its clock
+    # started at 0 and the 60 s re-login cooldown (from 0.0) still held.
+    logins_before = len(world.requests("/app/account/login"))
+
+    async def main() -> None:
+        async with world.client(mqtt_enabled=True) as client:
+            await client.login()
+            await world.until_subscribed(client)
+            topic = "oversea/res/" + client.export_session()["user_id"]
+            assert world.broker.publish(topic, b"00" * 48) == 1  # hex, but not sealed with this session's key
+            await until(lambda: len(world.requests("/app/account/login")) >= logins_before + 2, "a second login")
+
+    run(main())

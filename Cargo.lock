@@ -1961,7 +1961,8 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 [[package]]
 name = "wallclock"
 version = "0.1.0"
-source = "git+https://github.com/Pho3niX90/wallclock?rev=eddb12777a94dcc29d961d4ff8be1d151846e154#eddb12777a94dcc29d961d4ff8be1d151846e154"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a274ad5e9f9c0e3a703b5c4d64ab4897d2420d441eb3e339a068265a229250d"
 dependencies = [
  "jiff",
 ]

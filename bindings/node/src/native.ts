@@ -5,7 +5,7 @@
  *
  * 1. `native/openbyd.<platform>.node` inside this package: a build from
  *    source (`npm run build:native`).
- * 2. The package `openbyd-<platform>`: the prebuilt add-on for this
+ * 2. The package `@openbyd/<platform>`: the prebuilt add-on for this
  *    platform, installed as an optional dependency.
  *
  * `<platform>` is Node's platform and architecture with the C library where
@@ -53,7 +53,7 @@ function load(): Native {
   const platform = platformName();
   const local = join(__dirname, "..", "native", `openbyd.${platform}.node`);
   const failures: string[] = [];
-  for (const candidate of [local, `openbyd-${platform}`]) {
+  for (const candidate of [local, `@openbyd/${platform}`]) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       return require(candidate) as Native;
@@ -62,7 +62,7 @@ function load(): Native {
     }
   }
   throw new Error(
-    `openbyd has no compiled add-on for ${platform}. Install the package openbyd-${platform}, ` +
+    `openbyd has no compiled add-on for ${platform}. Install the package @openbyd/${platform}, ` +
       `or build it from source (npm run build:native).\n${failures.join("\n")}`,
   );
 }

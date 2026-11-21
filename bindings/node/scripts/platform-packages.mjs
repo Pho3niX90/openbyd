@@ -1,7 +1,9 @@
 // Prepares a release of the npm packages. Each platform's add-on goes in a
-// package of its own, `openbyd-<platform>`, which the main package lists as
+// package of its own, `@openbyd/<platform>`, which the main package lists as
 // an optional dependency: npm installs the one that fits the machine and
-// skips the rest, and src/native.ts loads it.
+// skips the rest, and src/native.ts loads it. The packages are scoped because
+// npm's spam filter refuses unscoped names of this shape (it refused
+// `openbyd-win32-x64-msvc`).
 //
 //   node scripts/platform-packages.mjs <add-ons directory> <output directory>
 //
@@ -39,8 +41,8 @@ for (const file of readdirSync(addOns).sort()) {
   const match = /^openbyd\.(.+)\.node$/.exec(file);
   if (!match) continue;
   const platform = match[1];
-  const name = `openbyd-${platform}`;
-  const directory = join(output, name);
+  const name = `@openbyd/${platform}`;
+  const directory = join(output, platform);
   mkdirSync(directory, { recursive: true });
   copyFileSync(join(addOns, file), join(directory, file));
   const platformManifest = {
@@ -51,6 +53,7 @@ for (const file of readdirSync(addOns).sort()) {
     repository: manifest.repository,
     main: file,
     files: [file],
+    publishConfig: { access: "public" },
     engines: manifest.engines,
     ...fits(platform),
   };

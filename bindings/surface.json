@@ -1,0 +1,6723 @@
+{
+ "version": "0.1.2",
+ "pybyd_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef",
+ "structs": [
+  {
+   "name": "ClimateBooking",
+   "role": "output",
+   "pybyd": "booking",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "booking_id",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "booking_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    },
+    {
+     "name": "main_setting_temp",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "main_setting_temp_new",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "time_span",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "ac_switch",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "cycle_mode",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "wind_level",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "wind_mode",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "air_condition_temp_range",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "BookingList",
+   "role": "output",
+   "pybyd": "booking",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "allow_setting",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "config_data",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "bookings",
+     "type": {
+      "list": {
+       "ref": "ClimateBooking"
+      }
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "ChargingStatus",
+   "role": "output",
+   "pybyd": "charging",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "soc",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "charging_state",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "connect_state",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "wait_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "full_hour",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "full_minute",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "charge_power",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "charge_power_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "update_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "CommandGateRule",
+   "role": "output",
+   "pybyd": "command_gating",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "gate_id",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "command",
+     "type": {
+      "ref": "RemoteCommand"
+     },
+     "required": true
+    },
+    {
+     "name": "required_function_nos",
+     "type": {
+      "list": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "required_learn_info_keys",
+     "type": {
+      "list": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "CommandGateVerdict",
+   "role": "output",
+   "pybyd": "command_gating",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "command",
+     "type": {
+      "ref": "RemoteCommand"
+     },
+     "required": true
+    },
+    {
+     "name": "gate_id",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "supported",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "reason",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "required_function_nos",
+     "type": {
+      "list": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "matched_function_nos",
+     "type": {
+      "list": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "counterpart_function_nos",
+     "type": {
+      "list": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "required_learn_info_keys",
+     "type": {
+      "list": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "matched_learn_info_keys",
+     "type": {
+      "list": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "RemoteControlResult",
+   "role": "output",
+   "pybyd": "control",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "control_state",
+     "type": {
+      "ref": "ControlState"
+     },
+     "required": true
+    },
+    {
+     "name": "success",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "request_serial",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "CommandAck",
+   "role": "output",
+   "pybyd": "control",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "result",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "request_serial",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "ChargeChangeResult",
+   "role": "output",
+   "pybyd": "control",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "res",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "message",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "request_serial",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "CommandAckEvent",
+   "role": "output",
+   "pybyd": "control",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "request_serial",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "raw_uuid",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "result",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "success",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "timestamp",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "CommandLifecycleEvent",
+   "role": "output",
+   "pybyd": "control",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "status",
+     "type": {
+      "ref": "CommandLifecycleStatus"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "request_serial",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "command",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "timestamp",
+     "type": "int",
+     "required": true
+    },
+    {
+     "name": "ack",
+     "type": {
+      "opt": {
+       "ref": "CommandAckEvent"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "reason",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "CommandAckDiagnostics",
+   "role": "output",
+   "pybyd": "control",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "pending",
+     "type": "int",
+     "required": true
+    },
+    {
+     "name": "matched",
+     "type": "int",
+     "required": true
+    },
+    {
+     "name": "expired",
+     "type": "int",
+     "required": true
+    },
+    {
+     "name": "uncorrelated",
+     "type": "int",
+     "required": true
+    },
+    {
+     "name": "pending_by_vin",
+     "type": {
+      "map": "int",
+      "key": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "VerifyControlPasswordResponse",
+   "role": "output",
+   "pybyd": "control",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "ok",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "ClimateStartParams",
+   "role": "input",
+   "pybyd": "control",
+   "fields": [
+    {
+     "name": "temperature",
+     "type": {
+      "opt": "float"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "copilot_temperature",
+     "type": {
+      "opt": "float"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "temp_offset",
+     "type": "float",
+     "required": false,
+     "default": 14.0
+    },
+    {
+     "name": "cycle_mode",
+     "type": "int",
+     "required": false,
+     "default": 2
+    },
+    {
+     "name": "time_span",
+     "type": {
+      "opt": "int"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "remote_mode",
+     "type": "int",
+     "required": false,
+     "default": 4
+    },
+    {
+     "name": "air_accuracy",
+     "type": "int",
+     "required": false,
+     "default": 1
+    },
+    {
+     "name": "air_conditioning_mode",
+     "type": "int",
+     "required": false,
+     "default": 1
+    },
+    {
+     "name": "wind_level",
+     "type": {
+      "opt": "int"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "air_set",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ]
+  },
+  {
+   "name": "ClimateScheduleParams",
+   "role": "input",
+   "pybyd": "control",
+   "fields": [
+    {
+     "name": "temperature",
+     "type": {
+      "opt": "float"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "copilot_temperature",
+     "type": {
+      "opt": "float"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "temp_offset",
+     "type": "float",
+     "required": false,
+     "default": 14.0
+    },
+    {
+     "name": "cycle_mode",
+     "type": "int",
+     "required": false,
+     "default": 2
+    },
+    {
+     "name": "time_span",
+     "type": {
+      "opt": "int"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "remote_mode",
+     "type": "int",
+     "required": false,
+     "default": 1
+    },
+    {
+     "name": "air_accuracy",
+     "type": "int",
+     "required": false,
+     "default": 1
+    },
+    {
+     "name": "air_conditioning_mode",
+     "type": "int",
+     "required": false,
+     "default": 1
+    },
+    {
+     "name": "wind_level",
+     "type": {
+      "opt": "int"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "air_set",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "booking_id",
+     "type": {
+      "opt": "int"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "booking_time",
+     "type": {
+      "opt": "int"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "ac_switch",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "wind_mode",
+     "type": {
+      "opt": "int"
+     },
+     "required": false,
+     "default": null
+    }
+   ]
+  },
+  {
+   "name": "SeatClimateParams",
+   "role": "input",
+   "pybyd": "control",
+   "fields": [
+    {
+     "name": "chair_type",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "remote_mode",
+     "type": "int",
+     "required": false,
+     "default": 1
+    },
+    {
+     "name": "main_heat",
+     "type": "int",
+     "required": false,
+     "default": 3
+    },
+    {
+     "name": "main_ventilation",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "copilot_heat",
+     "type": "int",
+     "required": false,
+     "default": 3
+    },
+    {
+     "name": "copilot_ventilation",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "lr_seat_heat_state",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "lr_seat_ventilation_state",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "lr_third_heat_state",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "lr_third_ventilation_state",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "rr_seat_heat_state",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "rr_seat_ventilation_state",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "rr_third_heat_state",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "rr_third_ventilation_state",
+     "type": "int",
+     "required": false,
+     "default": 0
+    },
+    {
+     "name": "steering_wheel_heat_state",
+     "type": "int",
+     "required": false,
+     "default": 3
+    }
+   ]
+  },
+  {
+   "name": "BatteryHeatParams",
+   "role": "input",
+   "pybyd": "control",
+   "fields": [
+    {
+     "name": "on",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "heat_type",
+     "type": "int",
+     "required": false,
+     "default": 2
+    }
+   ]
+  },
+  {
+   "name": "EnergyConsumptionGraph",
+   "role": "output",
+   "pybyd": "energy",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "energy_consumption",
+     "type": {
+      "list": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "energy_consumption_unit",
+     "type": "str",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "CumulativeEnergyConsumption",
+   "role": "output",
+   "pybyd": "energy",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "total_mileage",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "mileage_unit",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "avg_ev_consumption",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "ev_unit",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "avg_oil_consumption",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "oil_unit",
+     "type": "str",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "NearestEnergyConsumption",
+   "role": "output",
+   "pybyd": "energy",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "avg_ev_consumption",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "ev_consumption",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "ev_unit",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "ev_value_unit",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "avg_oil_consumption",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "oil_consumption",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "oil_unit",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "oil_value_unit",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "avg_eq_oil_consumption",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "drive_distribution",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "elect_distribution",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "air_distribution",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "other_distribution",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "EnergyConsumption",
+   "role": "output",
+   "pybyd": "energy",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "self_graph",
+     "type": {
+      "opt": {
+       "ref": "EnergyConsumptionGraph"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "cumulative_energy_consumption",
+     "type": {
+      "opt": {
+       "ref": "CumulativeEnergyConsumption"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "nearest_energy_consumption",
+     "type": {
+      "opt": {
+       "ref": "NearestEnergyConsumption"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "auto_model_graph",
+     "type": {
+      "opt": {
+       "ref": "EnergyConsumptionGraph"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "timestamp",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "GpsInfo",
+   "role": "output",
+   "pybyd": "gps",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "latitude",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "longitude",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "speed",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "direction",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "gps_timestamp",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    },
+    {
+     "name": "request_serial",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "HvacStatus",
+   "role": "output",
+   "pybyd": "hvac",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "ac_switch",
+     "type": {
+      "opt": {
+       "ref": "AcSwitch"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "status",
+     "type": {
+      "opt": {
+       "ref": "HvacOverallStatus"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "air_conditioning_mode",
+     "type": {
+      "opt": {
+       "ref": "AirConditioningMode"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "wind_mode",
+     "type": {
+      "opt": {
+       "ref": "HvacWindMode"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "wind_position",
+     "type": {
+      "opt": {
+       "ref": "HvacWindPosition"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "cycle_choice",
+     "type": {
+      "opt": {
+       "ref": "AirCirculationMode"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "main_setting_temp",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "main_setting_temp_new",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "copilot_setting_temp",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "copilot_setting_temp_new",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "temp_in_car",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "temp_out_car",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "whether_support_adjust_temp",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "vde_temp_range_min",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "vde_temp_range_max",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "front_defrost_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "electric_defrost_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "wiper_heat_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "main_seat_heat_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "main_seat_ventilation_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "copilot_seat_heat_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "copilot_seat_ventilation_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "steering_wheel_heat_state",
+     "type": {
+      "opt": {
+       "ref": "StearingWheelHeat"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "lr_seat_heat_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "lr_seat_ventilation_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "rr_seat_heat_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "rr_seat_ventilation_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "rapid_increase_temp_state",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "rapid_decrease_temp_state",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "refrigerator_state",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "refrigerator_door_state",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "pm",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "pm25_state_out_car",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "LatestConfigFunction",
+   "role": "output",
+   "pybyd": "latest_config",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "code",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "function_name",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "function_no",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "sort_num",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "cf_fixed_second_level_list",
+     "type": {
+      "list": {
+       "ref": "LatestConfigFunction"
+      }
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "VehicleLatestConfig",
+   "role": "output",
+   "pybyd": "latest_config",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "widget_config_id",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "config_version",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "app_config_version",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "style_id",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "terminal_type",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "cf_fixed_list",
+     "type": {
+      "list": {
+       "ref": "LatestConfigFunction"
+      }
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "VehicleCapabilities",
+   "role": "output",
+   "pybyd": "latest_config",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "source",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "lock",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "unlock",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "climate",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "car_on",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "battery_heat",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "steering_wheel_heat",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "driver_seat_heat",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "driver_seat_ventilation",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "passenger_seat_heat",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "passenger_seat_ventilation",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "rear_left_seat_heat",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "rear_right_seat_heat",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "rear_left_seat_ventilation",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "rear_right_seat_ventilation",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "find_car",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "flash_lights",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "close_windows",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "open_windows",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "location",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "open_trunk",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "close_trunk",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "start_charge",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "stop_charge",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "one_click_shutdown",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "child_presence_detection",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "digital_key",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "nfc_key",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "nfc_key_3c",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "uwb_key",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "mobile_ota",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "scheduled_departure",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "energy_analysis",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "vehicle_health",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "health_tpms",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "health_steering",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "health_srs",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "health_powertrain",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "health_battery",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "health_esp",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "health_charging",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "health_braking",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "health_abs",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "function_nos",
+     "type": {
+      "list": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "codes",
+     "type": {
+      "list": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "unknown_function_nos",
+     "type": {
+      "list": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "VehicleMsgItemInfo",
+   "role": "output",
+   "pybyd": "message_center",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "message_id",
+     "type": {
+      "union": [
+       "int",
+       "str"
+      ]
+     },
+     "required": true
+    },
+    {
+     "name": "title",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "title_id",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "content",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "push_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    },
+    {
+     "name": "message_group",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "jump_url",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "VehicleMsgListResponse",
+   "role": "output",
+   "pybyd": "message_center",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "messages",
+     "type": {
+      "list": {
+       "ref": "VehicleMsgItemInfo"
+      }
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "PushSwitch",
+   "role": "output",
+   "pybyd": "push_notification",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "type",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "state",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "PushNotificationState",
+   "role": "output",
+   "pybyd": "push_notification",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "switches",
+     "type": {
+      "list": {
+       "ref": "PushSwitch"
+      }
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "VehicleRealtimeData",
+   "role": "output",
+   "pybyd": "realtime",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "online_state",
+     "type": {
+      "ref": "OnlineState"
+     },
+     "required": true
+    },
+    {
+     "name": "connect_state",
+     "type": {
+      "ref": "ConnectState"
+     },
+     "required": true
+    },
+    {
+     "name": "vehicle_state",
+     "type": {
+      "ref": "VehicleState"
+     },
+     "required": true
+    },
+    {
+     "name": "request_serial",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "elec_percent",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "power_battery",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "endurance_mileage",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "ev_endurance",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "endurance_mileage_v2",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "endurance_mileage_v2_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "total_mileage",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "total_mileage_v2",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "total_mileage_v2_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "speed",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "power_gear",
+     "type": {
+      "opt": {
+       "ref": "PowerGear"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "temp_in_car",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "main_setting_temp",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "main_setting_temp_new",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "air_run_state",
+     "type": {
+      "opt": {
+       "ref": "AirCirculationMode"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "main_seat_heat_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "main_seat_ventilation_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "copilot_seat_heat_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "copilot_seat_ventilation_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "steering_wheel_heat_state",
+     "type": {
+      "opt": {
+       "ref": "StearingWheelHeat"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "lr_seat_heat_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "lr_seat_ventilation_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "rr_seat_heat_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "rr_seat_ventilation_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "charging_state",
+     "type": {
+      "ref": "ChargingState"
+     },
+     "required": true
+    },
+    {
+     "name": "charge_state",
+     "type": {
+      "opt": {
+       "ref": "ChargingState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "wait_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "full_hour",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "full_minute",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "remaining_hours",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "remaining_minutes",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "booking_charge_state",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "booking_charging_hour",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "booking_charging_minute",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "left_front_door",
+     "type": {
+      "opt": {
+       "ref": "DoorOpenState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "right_front_door",
+     "type": {
+      "opt": {
+       "ref": "DoorOpenState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "left_rear_door",
+     "type": {
+      "opt": {
+       "ref": "DoorOpenState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "right_rear_door",
+     "type": {
+      "opt": {
+       "ref": "DoorOpenState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "trunk_lid",
+     "type": {
+      "opt": {
+       "ref": "DoorOpenState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "sliding_door",
+     "type": {
+      "opt": {
+       "ref": "DoorOpenState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "forehold",
+     "type": {
+      "opt": {
+       "ref": "DoorOpenState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "left_front_door_lock",
+     "type": {
+      "opt": {
+       "ref": "LockState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "right_front_door_lock",
+     "type": {
+      "opt": {
+       "ref": "LockState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "left_rear_door_lock",
+     "type": {
+      "opt": {
+       "ref": "LockState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "right_rear_door_lock",
+     "type": {
+      "opt": {
+       "ref": "LockState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "sliding_door_lock",
+     "type": {
+      "opt": {
+       "ref": "LockState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "left_front_window",
+     "type": {
+      "opt": {
+       "ref": "WindowState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "right_front_window",
+     "type": {
+      "opt": {
+       "ref": "WindowState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "left_rear_window",
+     "type": {
+      "opt": {
+       "ref": "WindowState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "right_rear_window",
+     "type": {
+      "opt": {
+       "ref": "WindowState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "skylight",
+     "type": {
+      "opt": {
+       "ref": "WindowState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "left_front_window_pct",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "right_front_window_pct",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "left_rear_window_pct",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "right_rear_window_pct",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "left_front_tire_pressure",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "right_front_tire_pressure",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "left_rear_tire_pressure",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "right_rear_tire_pressure",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "left_front_tire_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "right_front_tire_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "left_rear_tire_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "right_rear_tire_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "tire_press_unit",
+     "type": {
+      "opt": {
+       "ref": "TirePressureUnit"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "tirepressure_system",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "rapid_tire_leak",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "total_power",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "gl",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "total_energy",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "nearest_energy_consumption",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "nearest_energy_consumption_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "recent_50km_energy",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "oil_endurance",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "oil_percent",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "total_oil",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "power_system",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "engine_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "epb",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "eps",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "esp",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "abs_warning",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "svs",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "srs",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "ect",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "ect_value",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "pwr",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "sentry_status",
+     "type": {
+      "ref": "SentryStatus"
+     },
+     "required": true
+    },
+    {
+     "name": "battery_heat_state",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "charge_heat_state",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "upgrade_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "lr_third_heat_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "lr_third_ventilation_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "rr_third_heat_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "rr_third_ventilation_state",
+     "type": {
+      "opt": {
+       "ref": "SeatHeatVentState"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "rate",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "charge_power",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "charge_power_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "less_one_min",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "energy_consumption",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "total_consumption",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "total_consumption_en",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "energy_consumption_ev",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "energy_consumption_ev_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "energy_consumption_fuel",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "energy_consumption_fuel_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "nearest_energy_consumption_ev",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "nearest_energy_consumption_ev_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "nearest_energy_consumption_fuel",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "nearest_energy_consumption_fuel_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "recent_50km_energy_ev",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "recent_50km_energy_ev_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "recent_50km_energy_fuel",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "recent_50km_energy_fuel_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "total_energy_ev",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "total_energy_ev_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "total_energy_fuel",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "total_energy_fuel_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "total_consumption_ev",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "total_consumption_ev_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "total_consumption_fuel",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "total_consumption_fuel_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "total_consumption_en_ev",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "total_consumption_en_ev_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "total_consumption_en_fuel",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "total_consumption_en_fuel_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "eq_consumption",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "eq_consumption_unit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "oil_pressure_system",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "braking_system",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "charging_system",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "steering_system",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "ok_light",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "repair_mode_switch",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vehicle_time_zone",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "power_battery_connection",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "ins",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "timestamp",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "SmartChargeDto",
+   "role": "output",
+   "pybyd": "smart_charging",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "start_time",
+     "type": {
+      "opt": "time"
+     },
+     "required": true
+    },
+    {
+     "name": "end_time",
+     "type": {
+      "opt": "time"
+     },
+     "required": true
+    },
+    {
+     "name": "charge_until_full",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "charge_way",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "status",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "update_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    },
+    {
+     "name": "create_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    },
+    {
+     "name": "exe_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "SmartJourneyDto",
+   "role": "output",
+   "pybyd": "smart_charging",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "use_vehicle_time",
+     "type": {
+      "opt": "time"
+     },
+     "required": true
+    },
+    {
+     "name": "discount_start",
+     "type": {
+      "opt": "time"
+     },
+     "required": true
+    },
+    {
+     "name": "discount_end",
+     "type": {
+      "opt": "time"
+     },
+     "required": true
+    },
+    {
+     "name": "charge_way",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "status",
+     "type": {
+      "opt": "bool"
+     },
+     "required": true
+    },
+    {
+     "name": "update_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    },
+    {
+     "name": "create_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "SmartChargingSchedule",
+   "role": "output",
+   "pybyd": "smart_charging",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "soc",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "type",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "time_zone",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "charge",
+     "type": {
+      "opt": {
+       "ref": "SmartChargeDto"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "journey",
+     "type": {
+      "opt": {
+       "ref": "SmartJourneyDto"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "update_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "AcCurrentLimit",
+   "role": "output",
+   "pybyd": "smart_charging",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "current_ev_current_limit",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "current_limit_list",
+     "type": {
+      "list": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "EmpowerRange",
+   "role": "output",
+   "pybyd": "vehicle",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "code",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "name",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "children",
+     "type": {
+      "list": {
+       "ref": "EmpowerRange"
+      }
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "Vehicle",
+   "role": "output",
+   "pybyd": "vehicle",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "model_name",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "brand_name",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "energy_type",
+     "type": {
+      "ref": "EnergyType"
+     },
+     "required": true
+    },
+    {
+     "name": "auto_alias",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "auto_plate",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "pic_main_url",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "pic_set_url",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "out_model_type",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "total_mileage",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "model_id",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "car_type",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "default_car",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "empower_type",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "permission_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "tbox_version",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "vehicle_state",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "auto_bought_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    },
+    {
+     "name": "yun_active_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    },
+    {
+     "name": "empower_id",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "range_detail_list",
+     "type": {
+      "list": {
+       "ref": "EmpowerRange"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "vehicle_fun_learn_info",
+     "type": {
+      "map": "int",
+      "key": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "DeviceProfile",
+   "role": "input",
+   "pybyd": "config",
+   "fields": [
+    {
+     "name": "ostype",
+     "type": "str",
+     "required": false,
+     "default": "and"
+    },
+    {
+     "name": "imei",
+     "type": "str",
+     "required": false,
+     "default": "BANGCLE01234"
+    },
+    {
+     "name": "mac",
+     "type": "str",
+     "required": false,
+     "default": "00:00:00:00:00:00"
+    },
+    {
+     "name": "model",
+     "type": "str",
+     "required": false,
+     "default": "POCO F1"
+    },
+    {
+     "name": "sdk",
+     "type": "str",
+     "required": false,
+     "default": "35"
+    },
+    {
+     "name": "mod",
+     "type": "str",
+     "required": false,
+     "default": "Xiaomi"
+    },
+    {
+     "name": "imei_md5",
+     "type": "str",
+     "required": false,
+     "default": "00000000000000000000000000000000"
+    },
+    {
+     "name": "mobile_brand",
+     "type": "str",
+     "required": false,
+     "default": "XIAOMI"
+    },
+    {
+     "name": "mobile_model",
+     "type": "str",
+     "required": false,
+     "default": "POCO F1"
+    },
+    {
+     "name": "device_type",
+     "type": "str",
+     "required": false,
+     "default": "0"
+    },
+    {
+     "name": "network_type",
+     "type": "str",
+     "required": false,
+     "default": "wifi"
+    },
+    {
+     "name": "os_type",
+     "type": "str",
+     "required": false,
+     "default": "15"
+    },
+    {
+     "name": "os_version",
+     "type": "str",
+     "required": false,
+     "default": "35"
+    }
+   ]
+  },
+  {
+   "name": "BydConfig",
+   "role": "input",
+   "pybyd": "config",
+   "fields": [
+    {
+     "name": "username",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "password",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "base_url",
+     "type": "str",
+     "required": false,
+     "default": "https://dilinkappoversea-eu.byd.auto"
+    },
+    {
+     "name": "country_code",
+     "type": "str",
+     "required": false,
+     "default": "NL"
+    },
+    {
+     "name": "language",
+     "type": "str",
+     "required": false,
+     "default": "en"
+    },
+    {
+     "name": "time_zone",
+     "type": "str",
+     "required": false,
+     "default": "Europe/Amsterdam"
+    },
+    {
+     "name": "app_version",
+     "type": "str",
+     "required": false,
+     "default": "3.5.1"
+    },
+    {
+     "name": "app_inner_version",
+     "type": "str",
+     "required": false,
+     "default": "351"
+    },
+    {
+     "name": "soft_type",
+     "type": "str",
+     "required": false,
+     "default": "0"
+    },
+    {
+     "name": "tbox_version",
+     "type": "str",
+     "required": false,
+     "default": "3"
+    },
+    {
+     "name": "is_auto",
+     "type": "str",
+     "required": false,
+     "default": "1"
+    },
+    {
+     "name": "identifier_type",
+     "type": "str",
+     "required": false,
+     "default": "0"
+    },
+    {
+     "name": "control_pin",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "session_ttl",
+     "type": "float",
+     "required": false,
+     "default": 43200
+    },
+    {
+     "name": "mqtt_enabled",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "mqtt_keepalive",
+     "type": "int",
+     "required": false,
+     "default": 120
+    },
+    {
+     "name": "mqtt_timeout",
+     "type": "float",
+     "required": false,
+     "default": 10.0
+    },
+    {
+     "name": "device",
+     "type": {
+      "ref": "DeviceProfile"
+     },
+     "required": false
+    }
+   ]
+  },
+  {
+   "name": "SessionInfo",
+   "role": "output",
+   "pybyd": "",
+   "fields": [
+    {
+     "name": "user_id",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "sign_token",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "encry_token",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "created_at",
+     "type": "float",
+     "required": true
+    },
+    {
+     "name": "ttl",
+     "type": "float",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "SessionTokens",
+   "role": "output",
+   "pybyd": "",
+   "fields": [
+    {
+     "name": "user_id",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "sign_token",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "encry_token",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "ttl_remaining",
+     "type": {
+      "opt": "float"
+     },
+     "required": true
+    },
+    {
+     "name": "guest_vins",
+     "type": {
+      "map": "bool",
+      "key": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "RequestRecord",
+   "role": "output",
+   "pybyd": "",
+   "fields": [
+    {
+     "name": "endpoint",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "outcome",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "code",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "error",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "duration",
+     "type": "float",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "ChargingHomepage",
+   "role": "output",
+   "pybyd": "",
+   "fields": [
+    {
+     "name": "status",
+     "type": {
+      "ref": "ChargingStatus"
+     },
+     "required": true
+    },
+    {
+     "name": "schedule",
+     "type": {
+      "ref": "SmartChargingSchedule"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "VehicleSnapshot",
+   "role": "output",
+   "pybyd": "",
+   "fields": [
+    {
+     "name": "vehicle",
+     "type": {
+      "ref": "Vehicle"
+     },
+     "required": true
+    },
+    {
+     "name": "realtime",
+     "type": {
+      "opt": {
+       "ref": "VehicleRealtimeData"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "hvac",
+     "type": {
+      "opt": {
+       "ref": "HvacStatus"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "gps",
+     "type": {
+      "opt": {
+       "ref": "GpsInfo"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "charging",
+     "type": {
+      "opt": {
+       "ref": "ChargingStatus"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "energy",
+     "type": {
+      "opt": {
+       "ref": "EnergyConsumption"
+      }
+     },
+     "required": true
+    },
+    {
+     "name": "charging_schedule",
+     "type": {
+      "opt": {
+       "ref": "SmartChargingSchedule"
+      }
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "FeatureAvailability",
+   "role": "output",
+   "pybyd": "",
+   "fields": [
+    {
+     "name": "available",
+     "type": "bool",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "HvacFeatures",
+   "role": "output",
+   "pybyd": "",
+   "fields": [
+    {
+     "name": "available",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "temp_offset",
+     "type": "float",
+     "required": true
+    },
+    {
+     "name": "temp_range",
+     "type": {
+      "list": "float"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "SeatAvailability",
+   "role": "output",
+   "pybyd": "",
+   "fields": [
+    {
+     "name": "heat",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "ventilation",
+     "type": "bool",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "SeatFeatures",
+   "role": "output",
+   "pybyd": "",
+   "fields": [
+    {
+     "name": "driver",
+     "type": {
+      "ref": "SeatAvailability"
+     },
+     "required": true
+    },
+    {
+     "name": "copilot",
+     "type": {
+      "ref": "SeatAvailability"
+     },
+     "required": true
+    },
+    {
+     "name": "rear_left",
+     "type": {
+      "ref": "SeatAvailability"
+     },
+     "required": true
+    },
+    {
+     "name": "rear_right",
+     "type": {
+      "ref": "SeatAvailability"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "FinderFeatures",
+   "role": "output",
+   "pybyd": "",
+   "fields": [
+    {
+     "name": "find_available",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "flash_available",
+     "type": "bool",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "WindowsFeatures",
+   "role": "output",
+   "pybyd": "",
+   "fields": [
+    {
+     "name": "close_available",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "open_available",
+     "type": "bool",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "TrunkFeatures",
+   "role": "output",
+   "pybyd": "",
+   "fields": [
+    {
+     "name": "open_available",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "close_available",
+     "type": "bool",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "CarFeatures",
+   "role": "output",
+   "pybyd": "",
+   "fields": [
+    {
+     "name": "lock",
+     "type": {
+      "ref": "FeatureAvailability"
+     },
+     "required": true
+    },
+    {
+     "name": "hvac",
+     "type": {
+      "ref": "HvacFeatures"
+     },
+     "required": true
+    },
+    {
+     "name": "seat",
+     "type": {
+      "ref": "SeatFeatures"
+     },
+     "required": true
+    },
+    {
+     "name": "steering",
+     "type": {
+      "ref": "FeatureAvailability"
+     },
+     "required": true
+    },
+    {
+     "name": "battery",
+     "type": {
+      "ref": "FeatureAvailability"
+     },
+     "required": true
+    },
+    {
+     "name": "finder",
+     "type": {
+      "ref": "FinderFeatures"
+     },
+     "required": true
+    },
+    {
+     "name": "windows",
+     "type": {
+      "ref": "WindowsFeatures"
+     },
+     "required": true
+    },
+    {
+     "name": "trunk",
+     "type": {
+      "ref": "TrunkFeatures"
+     },
+     "required": true
+    }
+   ]
+  }
+ ],
+ "enums": [
+  {
+   "name": "RemoteCommand",
+   "base": "str",
+   "members": {
+    "LOCK": "LOCKDOOR",
+    "UNLOCK": "OPENDOOR",
+    "START_CLIMATE": "OPENAIR",
+    "STOP_CLIMATE": "CLOSEAIR",
+    "SCHEDULE_CLIMATE": "BOOKINGAIR",
+    "FIND_CAR": "FINDCAR",
+    "FLASH_LIGHTS": "FLASHLIGHTNOWHISTLE",
+    "CLOSE_WINDOWS": "CLOSEWINDOW",
+    "OPEN_WINDOWS": "OPENWINDOW",
+    "SEAT_CLIMATE": "VENTILATIONHEATING",
+    "BATTERY_HEAT": "BATTERYHEAT",
+    "OPEN_TRUNK": "OPENTRUNK",
+    "CLOSE_TRUNK": "CLOSETRUNK",
+    "START_CHARGE": "SMARTCHARGESTART",
+    "STOP_CHARGE": "SMARTCHARGESTOP"
+   }
+  },
+  {
+   "name": "ControlState",
+   "base": "int",
+   "members": {
+    "PENDING": 0,
+    "SUCCESS": 1,
+    "FAILURE": 2
+   }
+  },
+  {
+   "name": "CommandLifecycleStatus",
+   "base": "str",
+   "members": {
+    "REGISTERED": "registered",
+    "MATCHED": "matched",
+    "EXPIRED": "expired",
+    "UNCORRELATED": "uncorrelated"
+   }
+  },
+  {
+   "name": "AcSwitch",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "OFF": 1,
+    "ON": 2
+   }
+  },
+  {
+   "name": "HvacOverallStatus",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "ON": 1,
+    "OFF": 2
+   }
+  },
+  {
+   "name": "AirConditioningMode",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "OFF": 0,
+    "AUTO": 1,
+    "MANUAL": 2
+   }
+  },
+  {
+   "name": "HvacWindMode",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "OFF": 0,
+    "FACE": 1,
+    "FACE_FOOT": 2,
+    "FOOT": 3,
+    "FOOT_DEFROST": 4,
+    "DEFROST": 5
+   }
+  },
+  {
+   "name": "HvacWindPosition",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "OFF": 0,
+    "POSITION_1": 1,
+    "POSITION_2": 2,
+    "POSITION_3": 3,
+    "POSITION_4": 4,
+    "POSITION_5": 5,
+    "POSITION_6": 6,
+    "POSITION_7": 7
+   }
+  },
+  {
+   "name": "NotificationCategory",
+   "base": "int",
+   "members": {
+    "VEHICLE": 1,
+    "SYSTEM": 2
+   }
+  },
+  {
+   "name": "OnlineState",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "ONLINE": 1,
+    "OFFLINE": 2
+   }
+  },
+  {
+   "name": "ConnectState",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "DISCONNECTED": 0,
+    "CONNECTED": 1
+   }
+  },
+  {
+   "name": "VehicleState",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "OFF": 0,
+    "ON": 2
+   }
+  },
+  {
+   "name": "ChargingState",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "NOT_CHARGING": 0,
+    "CHARGING": 1,
+    "CONNECTED": 15
+   }
+  },
+  {
+   "name": "SentryStatus",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "ON": 2,
+    "OFF": 4
+   }
+  },
+  {
+   "name": "TirePressureUnit",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "BAR": 1,
+    "PSI": 2,
+    "KPA": 3
+   }
+  },
+  {
+   "name": "DoorOpenState",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "CLOSED": 0,
+    "OPEN": 1
+   }
+  },
+  {
+   "name": "LockState",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "UNAVAILABLE": 0,
+    "UNLOCKED": 1,
+    "LOCKED": 2
+   }
+  },
+  {
+   "name": "WindowState",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "CLOSED": 1,
+    "OPEN": 2
+   }
+  },
+  {
+   "name": "PowerGear",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "OFF": 1,
+    "ON": 3
+   }
+  },
+  {
+   "name": "StearingWheelHeat",
+   "base": "int",
+   "members": {
+    "ON": -1,
+    "NO_DATA": 0,
+    "OFF": 1
+   }
+  },
+  {
+   "name": "SeatHeatVentState",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "NO_DATA": 0,
+    "OFF": 1,
+    "LOW": 2,
+    "HIGH": 3
+   }
+  },
+  {
+   "name": "AirCirculationMode",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "UNAVAILABLE": 0,
+    "EXTERNAL": 1,
+    "INTERNAL": 2
+   }
+  },
+  {
+   "name": "EnergyType",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "EV": 0,
+    "ICE": 1,
+    "HYBRID": 2
+   }
+  },
+  {
+   "name": "SeatPosition",
+   "base": "str",
+   "members": {
+    "DRIVER": "driver",
+    "COPILOT": "copilot",
+    "REAR_LEFT": "rear_left",
+    "REAR_RIGHT": "rear_right"
+   }
+  },
+  {
+   "name": "SeatLevel",
+   "base": "int",
+   "members": {
+    "OFF": 0,
+    "LOW": 1,
+    "HIGH": 2
+   }
+  },
+  {
+   "name": "SeatMode",
+   "base": "str",
+   "members": {
+    "HEAT": "heat",
+    "VENTILATION": "ventilation"
+   }
+  }
+ ],
+ "client": [
+  {
+   "name": "login",
+   "wire": "login",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": null
+  },
+  {
+   "name": "ensure_session",
+   "wire": "ensure_session",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "SessionInfo"
+   }
+  },
+  {
+   "name": "invalidate_session",
+   "wire": "invalidate_session",
+   "sync": true,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": null
+  },
+  {
+   "name": "export_session",
+   "wire": "export_session",
+   "sync": true,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "opt": {
+     "ref": "SessionTokens"
+    }
+   }
+  },
+  {
+   "name": "import_session",
+   "wire": "import_session",
+   "sync": false,
+   "params": [
+    {
+     "name": "session",
+     "type": {
+      "ref": "SessionTokens"
+     },
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": null
+  },
+  {
+   "name": "commands_enabled",
+   "wire": "commands_enabled",
+   "sync": true,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": true,
+   "returns": "bool"
+  },
+  {
+   "name": "mqtt_is_running",
+   "wire": "mqtt_is_running",
+   "sync": true,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": true,
+   "returns": "bool"
+  },
+  {
+   "name": "start_mqtt",
+   "wire": "start_mqtt",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": null
+  },
+  {
+   "name": "get_command_ack_diagnostics",
+   "wire": "get_command_ack_diagnostics",
+   "sync": true,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "CommandAckDiagnostics"
+   }
+  },
+  {
+   "name": "get_vehicles",
+   "wire": "get_vehicles",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "list": {
+     "ref": "Vehicle"
+    }
+   }
+  },
+  {
+   "name": "seed_vehicle_metadata",
+   "wire": "seed_vehicle_metadata",
+   "sync": true,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "energy_type",
+     "type": {
+      "ref": "EnergyType"
+     },
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "model_name",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "SeedOptions",
+   "prop": false,
+   "returns": null
+  },
+  {
+   "name": "vehicle_metadata",
+   "wire": "vehicle_metadata",
+   "sync": true,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "opt": {
+     "ref": "Vehicle"
+    }
+   }
+  },
+  {
+   "name": "get_latest_configs",
+   "wire": "get_latest_configs",
+   "sync": false,
+   "params": [
+    {
+     "name": "vins",
+     "type": {
+      "list": "str"
+     },
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "map": {
+     "ref": "VehicleLatestConfig"
+    },
+    "key": "str"
+   }
+  },
+  {
+   "name": "get_latest_config",
+   "wire": "get_latest_config",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "VehicleLatestConfig"
+   }
+  },
+  {
+   "name": "get_vehicle_capabilities",
+   "wire": "get_vehicle_capabilities",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "force_refresh",
+     "type": "bool",
+     "required": false,
+     "default": false
+    }
+   ],
+   "options_name": "CapabilitiesOptions",
+   "prop": false,
+   "returns": {
+    "ref": "VehicleCapabilities"
+   }
+  },
+  {
+   "name": "get_vehicle_realtime",
+   "wire": "get_vehicle_realtime",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "poll_attempts",
+     "type": "int",
+     "required": false,
+     "default": 10
+    },
+    {
+     "name": "poll_interval",
+     "type": "float",
+     "required": false,
+     "default": 1.5
+    },
+    {
+     "name": "mqtt_timeout",
+     "type": {
+      "opt": "float"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "signal_retries",
+     "type": "int",
+     "required": false,
+     "default": 2
+    }
+   ],
+   "options_name": "PollOptions",
+   "prop": false,
+   "returns": {
+    "ref": "VehicleRealtimeData"
+   }
+  },
+  {
+   "name": "get_gps_info",
+   "wire": "get_gps_info",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "poll_attempts",
+     "type": "int",
+     "required": false,
+     "default": 10
+    },
+    {
+     "name": "poll_interval",
+     "type": "float",
+     "required": false,
+     "default": 1.5
+    },
+    {
+     "name": "mqtt_timeout",
+     "type": {
+      "opt": "float"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "signal_retries",
+     "type": "int",
+     "required": false,
+     "default": 2
+    }
+   ],
+   "options_name": "PollOptions",
+   "prop": false,
+   "returns": {
+    "ref": "GpsInfo"
+   }
+  },
+  {
+   "name": "get_hvac_status",
+   "wire": "get_hvac_status",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "HvacStatus"
+   }
+  },
+  {
+   "name": "get_charging_status",
+   "wire": "get_charging_status",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "ChargingStatus"
+   }
+  },
+  {
+   "name": "get_charging_schedule",
+   "wire": "get_charging_schedule",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "SmartChargingSchedule"
+   }
+  },
+  {
+   "name": "get_charging_homepage",
+   "wire": "get_charging_homepage",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "ChargingHomepage"
+   }
+  },
+  {
+   "name": "get_ac_current_limit",
+   "wire": "get_ac_current_limit",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "energy_type",
+     "type": {
+      "opt": {
+       "ref": "EnergyType"
+      }
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "AcCurrentLimitOptions",
+   "prop": false,
+   "returns": {
+    "ref": "AcCurrentLimit"
+   }
+  },
+  {
+   "name": "get_energy_consumption",
+   "wire": "get_energy_consumption",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "EnergyConsumption"
+   }
+  },
+  {
+   "name": "get_push_state",
+   "wire": "get_push_state",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "PushNotificationState"
+   }
+  },
+  {
+   "name": "set_push_state",
+   "wire": "set_push_state",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "enable",
+     "type": "bool",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "push_type",
+     "type": "int",
+     "required": false,
+     "default": 701
+    }
+   ],
+   "options_name": "PushStateOptions",
+   "prop": false,
+   "returns": {
+    "ref": "CommandAck"
+   }
+  },
+  {
+   "name": "get_notifications",
+   "wire": "get_notifications",
+   "sync": false,
+   "params": [],
+   "optional": [
+    {
+     "name": "category",
+     "type": {
+      "ref": "NotificationCategory"
+     },
+     "required": false,
+     "default": 1
+    }
+   ],
+   "options_name": "NotificationOptions",
+   "prop": false,
+   "returns": {
+    "list": {
+     "ref": "VehicleMsgItemInfo"
+    }
+   }
+  },
+  {
+   "name": "get_all_notifications",
+   "wire": "get_all_notifications",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "map": {
+     "list": {
+      "ref": "VehicleMsgItemInfo"
+     }
+    },
+    "key": "int"
+   }
+  },
+  {
+   "name": "rename_vehicle",
+   "wire": "rename_vehicle",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "name",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "CommandAck"
+   }
+  },
+  {
+   "name": "get_booking_list",
+   "wire": "get_booking_list",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "BookingList"
+   }
+  },
+  {
+   "name": "verify_command_access",
+   "wire": "verify_command_access",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "VerifyControlPasswordResponse"
+   }
+  },
+  {
+   "name": "lock",
+   "wire": "lock",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "RemoteControlResult"
+   }
+  },
+  {
+   "name": "unlock",
+   "wire": "unlock",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "RemoteControlResult"
+   }
+  },
+  {
+   "name": "stop_climate",
+   "wire": "stop_climate",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "RemoteControlResult"
+   }
+  },
+  {
+   "name": "flash_lights",
+   "wire": "flash_lights",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "RemoteControlResult"
+   }
+  },
+  {
+   "name": "close_windows",
+   "wire": "close_windows",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "RemoteControlResult"
+   }
+  },
+  {
+   "name": "open_windows",
+   "wire": "open_windows",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "RemoteControlResult"
+   }
+  },
+  {
+   "name": "find_car",
+   "wire": "find_car",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "RemoteControlResult"
+   }
+  },
+  {
+   "name": "open_trunk",
+   "wire": "open_trunk",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "RemoteControlResult"
+   }
+  },
+  {
+   "name": "close_trunk",
+   "wire": "close_trunk",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "RemoteControlResult"
+   }
+  },
+  {
+   "name": "start_climate",
+   "wire": "start_climate",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "params",
+     "type": {
+      "ref": "ClimateStartParams"
+     },
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "RemoteControlResult"
+   }
+  },
+  {
+   "name": "schedule_climate",
+   "wire": "schedule_climate",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "params",
+     "type": {
+      "ref": "ClimateScheduleParams"
+     },
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "RemoteControlResult"
+   }
+  },
+  {
+   "name": "set_seat_climate",
+   "wire": "set_seat_climate",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "params",
+     "type": {
+      "ref": "SeatClimateParams"
+     },
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "RemoteControlResult"
+   }
+  },
+  {
+   "name": "set_battery_heat",
+   "wire": "set_battery_heat",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "params",
+     "type": {
+      "ref": "BatteryHeatParams"
+     },
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "CommandOptions",
+   "prop": false,
+   "returns": {
+    "ref": "RemoteControlResult"
+   }
+  },
+  {
+   "name": "save_charging_schedule",
+   "wire": "save_charging_schedule",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "start_charge_time",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "end_charge_time",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "charge_way",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "enabled",
+     "type": "bool",
+     "required": false,
+     "default": true
+    },
+    {
+     "name": "mqtt_timeout",
+     "type": {
+      "opt": "float"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "poll_attempts",
+     "type": "int",
+     "required": false,
+     "default": 6
+    },
+    {
+     "name": "poll_interval",
+     "type": "float",
+     "required": false,
+     "default": 2.0
+    }
+   ],
+   "options_name": "SaveScheduleOptions",
+   "prop": false,
+   "returns": {
+    "ref": "ChargeChangeResult"
+   }
+  },
+  {
+   "name": "toggle_smart_charging",
+   "wire": "toggle_smart_charging",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "enable",
+     "type": "bool",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "CommandAck"
+   }
+  },
+  {
+   "name": "start_charging",
+   "wire": "start_charging",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "mqtt_timeout",
+     "type": {
+      "opt": "float"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "poll_attempts",
+     "type": "int",
+     "required": false,
+     "default": 6
+    },
+    {
+     "name": "poll_interval",
+     "type": "float",
+     "required": false,
+     "default": 2.0
+    }
+   ],
+   "options_name": "ChargePollOptions",
+   "prop": false,
+   "returns": {
+    "ref": "ChargeChangeResult"
+   }
+  },
+  {
+   "name": "stop_charging",
+   "wire": "stop_charging",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "mqtt_timeout",
+     "type": {
+      "opt": "float"
+     },
+     "required": false,
+     "default": null
+    },
+    {
+     "name": "poll_attempts",
+     "type": "int",
+     "required": false,
+     "default": 6
+    },
+    {
+     "name": "poll_interval",
+     "type": "float",
+     "required": false,
+     "default": 2.0
+    }
+   ],
+   "options_name": "ChargePollOptions",
+   "prop": false,
+   "returns": {
+    "ref": "ChargeChangeResult"
+   }
+  }
+ ],
+ "car": [
+  {
+   "name": "state",
+   "wire": "car.state",
+   "sync": true,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": true,
+   "returns": {
+    "ref": "VehicleSnapshot"
+   }
+  },
+  {
+   "name": "capabilities",
+   "wire": "car.capabilities",
+   "sync": true,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": true,
+   "returns": {
+    "ref": "VehicleCapabilities"
+   }
+  },
+  {
+   "name": "features",
+   "wire": "car.features",
+   "sync": true,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": true,
+   "returns": {
+    "ref": "CarFeatures"
+   }
+  },
+  {
+   "name": "update_realtime",
+   "wire": "car.update_realtime",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "VehicleRealtimeData"
+   }
+  },
+  {
+   "name": "update_hvac",
+   "wire": "car.update_hvac",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "HvacStatus"
+   }
+  },
+  {
+   "name": "update_gps",
+   "wire": "car.update_gps",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "GpsInfo"
+   }
+  },
+  {
+   "name": "update_charging",
+   "wire": "car.update_charging",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "ChargingStatus"
+   }
+  },
+  {
+   "name": "update_energy",
+   "wire": "car.update_energy",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "EnergyConsumption"
+   }
+  },
+  {
+   "name": "start_charging",
+   "wire": "car.start_charging",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "ChargeChangeResult"
+   }
+  },
+  {
+   "name": "stop_charging",
+   "wire": "car.stop_charging",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "ChargeChangeResult"
+   }
+  },
+  {
+   "name": "get_ac_current_limit",
+   "wire": "car.get_ac_current_limit",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "AcCurrentLimit"
+   }
+  },
+  {
+   "name": "save_charging_schedule",
+   "wire": "car.save_charging_schedule",
+   "sync": false,
+   "params": [
+    {
+     "name": "start_charge_time",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "end_charge_time",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "charge_way",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "enabled",
+     "type": "bool",
+     "required": false,
+     "default": true
+    }
+   ],
+   "options_name": "CarScheduleOptions",
+   "prop": false,
+   "returns": {
+    "ref": "ChargeChangeResult"
+   }
+  },
+  {
+   "name": "handle_mqtt_realtime",
+   "wire": "car.handle_mqtt_realtime",
+   "sync": true,
+   "params": [
+    {
+     "name": "data",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": null
+  },
+  {
+   "name": "handle_mqtt_charging",
+   "wire": "car.handle_mqtt_charging",
+   "sync": true,
+   "params": [
+    {
+     "name": "data",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": null
+  },
+  {
+   "name": "handle_mqtt_energy",
+   "wire": "car.handle_mqtt_energy",
+   "sync": true,
+   "params": [
+    {
+     "name": "data",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": null
+  },
+  {
+   "name": "close",
+   "wire": "car.close",
+   "sync": true,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": null
+  }
+ ],
+ "features": [
+  {
+   "name": "lock",
+   "class": "LockFeature",
+   "props": [
+    {
+     "name": "available",
+     "type": "bool",
+     "required": true
+    }
+   ],
+   "methods": [
+    {
+     "name": "lock",
+     "wire": "car.lock.lock",
+     "sync": false,
+     "params": [],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    },
+    {
+     "name": "unlock",
+     "wire": "car.lock.unlock",
+     "sync": false,
+     "params": [],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    }
+   ]
+  },
+  {
+   "name": "hvac",
+   "class": "HvacFeature",
+   "props": [
+    {
+     "name": "available",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "temp_offset",
+     "type": "float",
+     "required": true
+    },
+    {
+     "name": "temp_range",
+     "type": {
+      "list": "float"
+     },
+     "required": true
+    }
+   ],
+   "methods": [
+    {
+     "name": "start",
+     "wire": "car.hvac.start",
+     "sync": false,
+     "params": [],
+     "optional": [
+      {
+       "name": "temperature",
+       "type": "float",
+       "required": false,
+       "default": 21.0
+      },
+      {
+       "name": "duration",
+       "type": "int",
+       "required": false,
+       "default": 20
+      },
+      {
+       "name": "cycle_mode",
+       "type": {
+        "opt": "int"
+       },
+       "required": false,
+       "default": null
+      },
+      {
+       "name": "fan_level",
+       "type": {
+        "opt": "int"
+       },
+       "required": false,
+       "default": null
+      }
+     ],
+     "options_name": "ClimateOptions",
+     "prop": false,
+     "returns": null
+    },
+    {
+     "name": "stop",
+     "wire": "car.hvac.stop",
+     "sync": false,
+     "params": [],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    },
+    {
+     "name": "schedule",
+     "wire": "car.hvac.schedule",
+     "sync": false,
+     "params": [
+      {
+       "name": "params",
+       "type": {
+        "ref": "ClimateScheduleParams"
+       },
+       "required": true
+      }
+     ],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    }
+   ]
+  },
+  {
+   "name": "seat",
+   "class": "SeatFeature",
+   "props": [],
+   "methods": [
+    {
+     "name": "heat",
+     "wire": "car.seat.heat",
+     "sync": false,
+     "params": [
+      {
+       "name": "position",
+       "type": {
+        "ref": "SeatPosition"
+       },
+       "required": true
+      },
+      {
+       "name": "level",
+       "type": {
+        "ref": "SeatLevel"
+       },
+       "required": true
+      }
+     ],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    },
+    {
+     "name": "ventilation",
+     "wire": "car.seat.ventilation",
+     "sync": false,
+     "params": [
+      {
+       "name": "position",
+       "type": {
+        "ref": "SeatPosition"
+       },
+       "required": true
+      },
+      {
+       "name": "level",
+       "type": {
+        "ref": "SeatLevel"
+       },
+       "required": true
+      }
+     ],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    }
+   ]
+  },
+  {
+   "name": "steering",
+   "class": "SteeringFeature",
+   "props": [
+    {
+     "name": "available",
+     "type": "bool",
+     "required": true
+    }
+   ],
+   "methods": [
+    {
+     "name": "heat",
+     "wire": "car.steering.heat",
+     "sync": false,
+     "params": [
+      {
+       "name": "on",
+       "type": "bool",
+       "required": true
+      }
+     ],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    }
+   ]
+  },
+  {
+   "name": "battery",
+   "class": "BatteryFeature",
+   "props": [
+    {
+     "name": "available",
+     "type": "bool",
+     "required": true
+    }
+   ],
+   "methods": [
+    {
+     "name": "heat",
+     "wire": "car.battery.heat",
+     "sync": false,
+     "params": [
+      {
+       "name": "on",
+       "type": "bool",
+       "required": true
+      }
+     ],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    }
+   ]
+  },
+  {
+   "name": "finder",
+   "class": "FinderFeature",
+   "props": [
+    {
+     "name": "find_available",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "flash_available",
+     "type": "bool",
+     "required": true
+    }
+   ],
+   "methods": [
+    {
+     "name": "find",
+     "wire": "car.finder.find",
+     "sync": false,
+     "params": [],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    },
+    {
+     "name": "flash_lights",
+     "wire": "car.finder.flash_lights",
+     "sync": false,
+     "params": [],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    }
+   ]
+  },
+  {
+   "name": "windows",
+   "class": "WindowsFeature",
+   "props": [
+    {
+     "name": "close_available",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "open_available",
+     "type": "bool",
+     "required": true
+    }
+   ],
+   "methods": [
+    {
+     "name": "close",
+     "wire": "car.windows.close",
+     "sync": false,
+     "params": [],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    },
+    {
+     "name": "open",
+     "wire": "car.windows.open",
+     "sync": false,
+     "params": [],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    }
+   ]
+  },
+  {
+   "name": "trunk",
+   "class": "TrunkFeature",
+   "props": [
+    {
+     "name": "open_available",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "close_available",
+     "type": "bool",
+     "required": true
+    }
+   ],
+   "methods": [
+    {
+     "name": "open",
+     "wire": "car.trunk.open",
+     "sync": false,
+     "params": [],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    },
+    {
+     "name": "close",
+     "wire": "car.trunk.close",
+     "sync": false,
+     "params": [],
+     "optional": [],
+     "options_name": "",
+     "prop": false,
+     "returns": null
+    }
+   ]
+  }
+ ],
+ "errors": [
+  {
+   "name": "OpenBydError",
+   "parent": "",
+   "python": [
+    "ScriptExhausted"
+   ],
+   "fields": [
+    {
+     "name": "kind",
+     "type": "str",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "BydError",
+   "parent": "OpenBydError",
+   "python": [
+    "BydError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "BydCryptoError",
+   "parent": "BydError",
+   "python": [
+    "BydCryptoError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "BangcleError",
+   "parent": "BydCryptoError",
+   "python": [
+    "BangcleError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "BangcleTableLoadError",
+   "parent": "BangcleError",
+   "python": [
+    "BangcleTableLoadError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "BydTransportError",
+   "parent": "BydError",
+   "python": [
+    "BydTransportError"
+   ],
+   "fields": [
+    {
+     "name": "status_code",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "endpoint",
+     "type": "str",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "BydApiError",
+   "parent": "BydError",
+   "python": [
+    "BydApiError"
+   ],
+   "fields": [
+    {
+     "name": "code",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "endpoint",
+     "type": "str",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "BydAuthenticationError",
+   "parent": "BydApiError",
+   "python": [
+    "BydAuthenticationError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "BydSessionExpiredError",
+   "parent": "BydAuthenticationError",
+   "python": [
+    "BydSessionExpiredError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "BydRemoteControlError",
+   "parent": "BydApiError",
+   "python": [
+    "BydRemoteControlError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "BydControlPasswordError",
+   "parent": "BydApiError",
+   "python": [
+    "BydControlPasswordError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "BydEndpointNotSupportedError",
+   "parent": "BydApiError",
+   "python": [
+    "BydEndpointNotSupportedError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "BydDataUnavailableError",
+   "parent": "BydApiError",
+   "python": [
+    "BydDataUnavailableError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "BydRateLimitError",
+   "parent": "BydApiError",
+   "python": [
+    "BydRateLimitError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "BydServiceBusyError",
+   "parent": "BydApiError",
+   "python": [
+    "BydServiceBusyError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "DataError",
+   "parent": "OpenBydError",
+   "python": [
+    "ValueError",
+    "TypeError",
+    "AttributeError",
+    "AssertionError",
+    "JSONDecodeError",
+    "UnicodeDecodeError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "ValidationError",
+   "parent": "DataError",
+   "python": [
+    "ValidationError"
+   ],
+   "fields": [
+    {
+     "name": "error_type",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "loc",
+     "type": {
+      "list": "str"
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "CancelledError",
+   "parent": "OpenBydError",
+   "python": [
+    "CancelledError"
+   ],
+   "fields": []
+  }
+ ],
+ "events": [
+  {
+   "name": "on_vehicle_info",
+   "wire": "vehicle_info",
+   "fields": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "data",
+     "type": {
+      "ref": "VehicleRealtimeData"
+     },
+     "required": true
+    }
+   ],
+   "answer": null
+  },
+  {
+   "name": "on_mqtt_event",
+   "wire": "mqtt_event",
+   "fields": [
+    {
+     "name": "event",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "data",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    }
+   ],
+   "answer": null
+  },
+  {
+   "name": "on_command_ack",
+   "wire": "command_ack",
+   "fields": [
+    {
+     "name": "ack",
+     "type": {
+      "ref": "CommandAckEvent"
+     },
+     "required": true
+    }
+   ],
+   "answer": null
+  },
+  {
+   "name": "on_command_lifecycle",
+   "wire": "command_lifecycle",
+   "fields": [
+    {
+     "name": "event",
+     "type": {
+      "ref": "CommandLifecycleEvent"
+     },
+     "required": true
+    }
+   ],
+   "answer": null
+  },
+  {
+   "name": "on_mqtt_connect",
+   "wire": "mqtt_connect",
+   "fields": [],
+   "answer": null
+  },
+  {
+   "name": "request_observer",
+   "wire": "request",
+   "fields": [
+    {
+     "name": "record",
+     "type": {
+      "ref": "RequestRecord"
+     },
+     "required": true
+    }
+   ],
+   "answer": null
+  },
+  {
+   "name": "gate_policy",
+   "wire": "gate_policy",
+   "fields": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "verdict",
+     "type": {
+      "ref": "CommandGateVerdict"
+     },
+     "required": true
+    }
+   ],
+   "answer": "bool"
+  },
+  {
+   "name": "pin_resolver",
+   "wire": "pin_resolver",
+   "fields": [
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "control_pin",
+     "type": {
+      "opt": "str"
+     },
+     "required": true
+    }
+   ],
+   "answer": "str"
+  },
+  {
+   "name": "relogin",
+   "wire": "relogin",
+   "fields": [],
+   "answer": {
+    "ref": "SessionTokens"
+   }
+  },
+  {
+   "name": "on_state_changed",
+   "wire": "state_changed",
+   "fields": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "state",
+     "type": {
+      "ref": "VehicleSnapshot"
+     },
+     "required": true
+    }
+   ],
+   "answer": null
+  }
+ ],
+ "client_options": [
+  {
+   "name": "command_ack_ttl_seconds",
+   "type": "float",
+   "required": false,
+   "default": 300.0
+  },
+  {
+   "name": "command_retries",
+   "type": "int",
+   "required": false,
+   "default": 3
+  }
+ ],
+ "options": {
+  "SeedOptions": [
+   {
+    "name": "model_name",
+    "type": {
+     "opt": "str"
+    },
+    "required": false,
+    "default": null
+   }
+  ],
+  "CapabilitiesOptions": [
+   {
+    "name": "force_refresh",
+    "type": "bool",
+    "required": false,
+    "default": false
+   }
+  ],
+  "PollOptions": [
+   {
+    "name": "poll_attempts",
+    "type": "int",
+    "required": false,
+    "default": 10
+   },
+   {
+    "name": "poll_interval",
+    "type": "float",
+    "required": false,
+    "default": 1.5
+   },
+   {
+    "name": "mqtt_timeout",
+    "type": {
+     "opt": "float"
+    },
+    "required": false,
+    "default": null
+   },
+   {
+    "name": "signal_retries",
+    "type": "int",
+    "required": false,
+    "default": 2
+   }
+  ],
+  "AcCurrentLimitOptions": [
+   {
+    "name": "energy_type",
+    "type": {
+     "opt": {
+      "ref": "EnergyType"
+     }
+    },
+    "required": false,
+    "default": null
+   }
+  ],
+  "PushStateOptions": [
+   {
+    "name": "push_type",
+    "type": "int",
+    "required": false,
+    "default": 701
+   }
+  ],
+  "NotificationOptions": [
+   {
+    "name": "category",
+    "type": {
+     "ref": "NotificationCategory"
+    },
+    "required": false,
+    "default": 1
+   }
+  ],
+  "CommandOptions": [
+   {
+    "name": "command_pwd",
+    "type": {
+     "opt": "str"
+    },
+    "required": false,
+    "default": null
+   }
+  ],
+  "SaveScheduleOptions": [
+   {
+    "name": "enabled",
+    "type": "bool",
+    "required": false,
+    "default": true
+   },
+   {
+    "name": "mqtt_timeout",
+    "type": {
+     "opt": "float"
+    },
+    "required": false,
+    "default": null
+   },
+   {
+    "name": "poll_attempts",
+    "type": "int",
+    "required": false,
+    "default": 6
+   },
+   {
+    "name": "poll_interval",
+    "type": "float",
+    "required": false,
+    "default": 2.0
+   }
+  ],
+  "ChargePollOptions": [
+   {
+    "name": "mqtt_timeout",
+    "type": {
+     "opt": "float"
+    },
+    "required": false,
+    "default": null
+   },
+   {
+    "name": "poll_attempts",
+    "type": "int",
+    "required": false,
+    "default": 6
+   },
+   {
+    "name": "poll_interval",
+    "type": "float",
+    "required": false,
+    "default": 2.0
+   }
+  ],
+  "CarScheduleOptions": [
+   {
+    "name": "enabled",
+    "type": "bool",
+    "required": false,
+    "default": true
+   }
+  ],
+  "ClimateOptions": [
+   {
+    "name": "temperature",
+    "type": "float",
+    "required": false,
+    "default": 21.0
+   },
+   {
+    "name": "duration",
+    "type": "int",
+    "required": false,
+    "default": 20
+   },
+   {
+    "name": "cycle_mode",
+    "type": {
+     "opt": "int"
+    },
+    "required": false,
+    "default": null
+   },
+   {
+    "name": "fan_level",
+    "type": {
+     "opt": "int"
+    },
+    "required": false,
+    "default": null
+   }
+  ]
+ }
+}

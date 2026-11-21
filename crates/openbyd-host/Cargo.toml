@@ -1,0 +1,27 @@
+[package]
+name = "openbyd-host"
+description = "The language-neutral surface of openbyd: the client by method name, with JSON in and out"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# The fake BYD server and the MQTT test broker by call name (`testing::call`),
+# and clients that trust the test broker's certificate. For the bindings' tests.
+testing = ["openbyd-client/testing"]
+
+[dependencies]
+openbyd-crypto.workspace = true
+openbyd-protocol.workspace = true
+openbyd-client.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "time", "sync", "net"] }
+
+[dev-dependencies]
+openbyd-client = { workspace = true, features = ["testing"] }
+
+[lints]
+workspace = true

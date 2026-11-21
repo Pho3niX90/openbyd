@@ -1,0 +1,33 @@
+[package]
+name = "openbyd-capi"
+description = "openbyd as a C library: the client by method name, with JSON in and out"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+# `openbyd_c.dll`, `libopenbyd_c.so`, `libopenbyd_c.dylib`. Not `openbyd`: the
+# command-line tool's executable has that name, and on Windows both would
+# write `openbyd.pdb`.
+name = "openbyd_c"
+crate-type = ["cdylib", "rlib"]
+doc = false
+
+[features]
+# `openbyd_testing_call`: the fake BYD server and the MQTT test broker.
+# The packages' tests build with it; released libraries leave it out.
+testing = ["openbyd-host/testing"]
+
+[dependencies]
+openbyd-host.workspace = true
+serde_json.workspace = true
+
+# A C interface cannot be written without `unsafe`; the rest of the
+# workspace forbids it, so this crate does not take the workspace's lints.
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }

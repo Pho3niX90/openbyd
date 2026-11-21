@@ -10,3 +10,12 @@ __pycache__/
 .coverage
 .coverage.*
 lcov.info
+
+# The bindings' build output
+/bindings/node/node_modules/
+/bindings/node/dist/
+/bindings/node/build/
+/bindings/node/native/*.node
+/bindings/jvm/target/
+/bindings/dotnet/**/bin/
+/bindings/dotnet/**/obj/

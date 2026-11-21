@@ -25,6 +25,9 @@ The same commit must be installed in the Python environment you test with.
 | `crates/openbyd-cli` | The `openbyd` command-line tool. |
 | `crates/openbyd-py` | Python bindings, imported as `openbyd._native`. |
 | `python/openbyd` | The Python package. |
+| `crates/openbyd-host` | The client by method name, with JSON in and out: the one layer the other languages' bindings share. |
+| `crates/openbyd-node`, `crates/openbyd-capi` | `openbyd-host` as a Node add-on, and as a C library (`include/openbyd.h`) for the JVM and .NET. |
+| `bindings/` | The TypeScript, Java and Kotlin, and C# packages (`node/`, `jvm/`, `dotnet/`), and what generates their typed layers: `spec.py`, `generate.py`, `gen/`. See [`bindings/README.md`](bindings/README.md). |
 | `python/tests` | Python tests, including the live comparison with pyBYD. |
 | `parity/` | The parity framework, the oracles and the vector generator. `api_support.py` runs pyBYD's flows against a script. |
 | `crates/*/tests/vectors` | Recorded pyBYD answers: `openbyd-protocol`'s for pure calls, `openbyd-client`'s for flows. |
@@ -134,8 +137,12 @@ pytest                                        # Python tests, including random c
 OPENBYD_FUZZ=5000 OPENBYD_PARITY_SEED=x pytest python/tests/test_parity.py   # a longer, different random run
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all --check
-cargo llvm-cov --workspace --exclude openbyd-py --summary-only   # line coverage
+cargo llvm-cov --workspace --exclude openbyd-py --exclude openbyd-node --summary-only   # line coverage
+python bindings/generate.py                   # write the bindings' typed layers (needs the pinned pyBYD)
+python bindings/generate.py --check           # fail if any generated file is out of date
 ```
+
+Each binding's own build and tests are in [`bindings/README.md`](bindings/README.md).
 
 Do not use `maturin develop`: it writes the compiled module into `python/openbyd/`. Use `parity/dev_install.py`.
 
@@ -148,13 +155,24 @@ Do not use `maturin develop`: it writes the compiled module into `python/openbyd
 
 ## Code
 
-- No `unsafe`. The workspace forbids it outside the Python bindings.
+- No `unsafe`. The workspace forbids it outside the crates that cross into another language (`openbyd-py`, `openbyd-node`, `openbyd-capi`).
 - Public items have a doc comment that says what the thing is for. Do not restate the code.
 - Mirror pyBYD's names (`get_vehicle_realtime`, `VehicleRealtimeData`, field names in snake_case) so a reader can move between the two code bases.
 - Keep `openbyd-protocol` free of I/O, async, the clock and randomness. In `openbyd-client`, flows reach them only through `Env`.
 - A model serialises to exactly what pyBYD's `model_dump(mode="json")` gives for the same input. That JSON is the compatibility contract for every binding.
 - Prefer a small helper to a macro, and a plain match to a framework.
 - Commit messages say what changed and why, in plain prose. No tool or AI attribution lines.
+
+## The other languages' bindings
+
+TypeScript, Java and Kotlin, and C# share one layer, `openbyd-host`, and each has a typed layer generated from `bindings/spec.py` and from pyBYD's own models. [`bindings/README.md`](bindings/README.md) describes it. The rules:
+
+- **Nothing language-specific goes into `openbyd-host`, and no client logic goes into a binding.** A binding loads the native library, names methods, converts JSON to its types and runs callbacks on its own threads. If two bindings need the same behaviour, it belongs in `openbyd-host`.
+- **A new or changed method is three steps:** the arm in `crates/openbyd-host/src/client.rs` (and its name in `ASYNC_METHODS` or `SYNC_METHODS`), its description in `bindings/spec.py`, then `python bindings/generate.py`. `cargo test -p openbyd-host --all-features` fails when the two disagree.
+- **Never edit a generated file** (`bindings/node/src/generated`, `bindings/jvm/src/generated`, `bindings/dotnet/OpenByd/Generated`). Change the spec or the emitter in `bindings/gen/` and regenerate. CI runs `generate.py --check`.
+- **The shapes of pyBYD's models are never written by hand.** They are read from the pyBYD installed, so the published types move with `parity/UPSTREAM_COMMIT`.
+- **Every package keeps its three kinds of test:** the client end to end against the fake server and the test broker (`openbyd_host::testing`), the recorded vectors through its native library, and every recorded pyBYD model dump read into its types.
+- **A package's version is the workspace's.** `generate.py` fails when `package.json`, `pom.xml` or `OpenByd.csproj` says otherwise.
 
 ## Several people in one checkout
 
@@ -175,5 +193,6 @@ When pyBYD moves:
 1. Put the new commit in `parity/UPSTREAM_COMMIT` and install it.
 2. Run `python parity/generate.py`. Changed vector files show what upstream changed in existing behaviour.
 3. Run `pytest python/tests/test_surface.py`. It fails for every public pyBYD model, endpoint or client method that has no parity entry yet.
-4. Port until `cargo test` and `pytest` pass. Read the upstream commits (`git log <old>..<new>` in the reference checkout) to see intent, and port their tests too.
-5. Anything that changes how a command is sent to a car gets a human review before release.
+4. Run `python bindings/generate.py`. The other languages' types follow the new models; a new client method also needs its lines in `openbyd-host` and `bindings/spec.py`.
+5. Port until `cargo test`, `pytest` and the bindings' tests pass. Read the upstream commits (`git log <old>..<new>` in the reference checkout) to see intent, and port their tests too.
+6. Anything that changes how a command is sent to a car gets a human review before release.

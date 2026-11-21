@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>OpenByd</RootNamespace>
+    <AssemblyName>OpenByd</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- The C library is called through function pointers (Native.cs). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Nothing here needs reflection; the analyzers keep it so. -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>OpenByd</PackageId>
+    <!-- The workspace's version (the root Cargo.toml); the tests compare it with the core's. -->
+    <Version>0.1.2</Version>
+    <Authors>openbyd contributors</Authors>
+    <Description>Unofficial client for the BYD overseas app API, with a Rust core</Description>
+    <PackageTags>byd;ev;vehicle;telemetry</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Pho3niX90/openbyd</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Pho3niX90/openbyd</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="OpenByd.Tests" />
+    <None Include="../README.md" Pack="true" PackagePath="/" Visible="false" />
+    <!-- A release puts each platform's C library in runtimes/<rid>/native/ before packing. -->
+    <None Update="runtimes/**" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <!--
+    For development: the C library built by `cargo build -p openbyd-capi` is copied next to
+    whatever is built on this project (the tests). Never packed.
+  -->
+  <PropertyGroup>
+    <OpenBydNativeDir Condition="'$(OpenBydNativeDir)' == ''">$(MSBuildThisFileDirectory)../../../target/debug</OpenBydNativeDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <OpenBydNativeLibrary Include="$(OpenBydNativeDir)/openbyd_c.dll" Condition="Exists('$(OpenBydNativeDir)/openbyd_c.dll')" />
+    <OpenBydNativeLibrary Include="$(OpenBydNativeDir)/libopenbyd_c.so" Condition="Exists('$(OpenBydNativeDir)/libopenbyd_c.so')" />
+    <OpenBydNativeLibrary Include="$(OpenBydNativeDir)/libopenbyd_c.dylib" Condition="Exists('$(OpenBydNativeDir)/libopenbyd_c.dylib')" />
+    <None Include="@(OpenBydNativeLibrary)" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Pack="false" Visible="false" />
+  </ItemGroup>
+
+</Project>

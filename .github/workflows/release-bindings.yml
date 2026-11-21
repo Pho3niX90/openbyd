@@ -13,10 +13,14 @@ name: Release bindings
 #
 # Publishing needs these repository secrets:
 #   NPM_TOKEN                          an npm token that may publish openbyd and openbyd-*
-#   NUGET_API_KEY                      a nuget.org key that may push OpenByd
 #   CENTRAL_USERNAME, CENTRAL_PASSWORD a user token of the Maven Central Portal
 #   MAVEN_GPG_PRIVATE_KEY, MAVEN_GPG_PASSPHRASE
 #                                      the key the Maven files are signed with
+#
+# NuGet needs no secret. It uses trusted publishing: the nuget.org account
+# pho3nix90 has a policy naming this repository and this workflow file
+# (release-bindings.yml), and the run exchanges its GitHub identity for a key
+# that lasts an hour.
 
 on:
   push:
@@ -404,6 +408,9 @@ jobs:
     needs: [pack, smoke, smoke-containers]
     if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.nuget)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # the identity nuget.org's trusted publishing policy checks
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -412,7 +419,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+      - name: Exchange this run's identity for a short-lived key
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: pho3nix90 # the nuget.org account that owns the policy
       - name: Push
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
         run: dotnet nuget push packages/nuget/*.nupkg --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate

@@ -118,7 +118,7 @@ Sessions can be saved and resumed without a password login: `client.exportSessio
 
 ## The native add-on
 
-The client is compiled code. Each platform's add-on is a package of its own, `openbyd-<platform>` (`win32-x64-msvc`, `linux-x64-gnu`, `linux-arm64-musl`, `darwin-arm64`, ...), which `openbyd` lists as an optional dependency: npm installs the one that fits the machine. An install with `--omit=optional` or `--no-optional` leaves it out, and the package then fails to load, saying which one is missing.
+The client is compiled code. Each platform's add-on is a package of its own, `@openbyd/<platform>` (`@openbyd/win32-x64-msvc`, `@openbyd/linux-x64-gnu`, `@openbyd/linux-arm64-musl`, `@openbyd/darwin-arm64`, ...), which `openbyd` lists as an optional dependency: npm installs the one that fits the machine. An install with `--omit=optional` or `--no-optional` leaves it out, and the package then fails to load, saying which one is missing.
 
 On another platform, or to run your own build, put the add-on at `native/openbyd.<platform>.node` inside the package ([Build and test](#build-and-test)); that file is looked for first.
 

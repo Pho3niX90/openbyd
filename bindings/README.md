@@ -65,7 +65,7 @@ Each emitter (`gen/typescript.py`, `gen/java.py`, `gen/csharp.py`) writes into d
 
 ## Releasing
 
-`.github/workflows/release-bindings.yml` builds the Node add-on and the C library for every platform (Windows x64, Linux x64 and arm64 for glibc and musl, macOS arm64 and x64), packs the three packages with them, installs each packed package into a project of its own on every platform (`bindings/smoke`), and only then publishes: to npm (the package `openbyd` and one `openbyd-<platform>` per add-on), Maven Central and NuGet.
+`.github/workflows/release-bindings.yml` builds the Node add-on and the C library for every platform (Windows x64, Linux x64 and arm64 for glibc and musl, macOS arm64 and x64), packs the three packages with them, installs each packed package into a project of its own on every platform (`bindings/smoke`), and only then publishes: to npm (the package `openbyd` and one `@openbyd/<platform>` per add-on), Maven Central and NuGet.
 
 A tag `v<version>` publishes all three, alongside the Python package. Run by hand, the workflow publishes to the registries ticked, or to none: then it is a rehearsal, and the packages are an artifact of the run. A pull request that changes the workflow or what it runs rehearses it too.
 

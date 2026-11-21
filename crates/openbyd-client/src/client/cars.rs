@@ -2,8 +2,8 @@
 //! [`CarBackend`], and the cars' share of the MQTT pushes.
 //!
 //! [`BydClient::get_car`] builds one [`BydCar`] per VIN and keeps it, as
-//! pyBYD's `_cars` does; MQTT `vehicleInfo`, `smartCharge` and
-//! `energyConsumption` pushes for that VIN are merged into it.
+//! pyBYD's `_cars` does; MQTT `vehicleInfo`, `vehicleStatusPush`,
+//! `smartCharge` and `energyConsumption` pushes for that VIN are merged into it.
 //!
 //! A car the client keeps reaches the client through a [`ClientHandle`],
 //! which holds it weakly: the client owns its cars, the cars do not own the
@@ -149,6 +149,19 @@ impl<E: ClientEnv> BydClient<E> {
     pub(super) fn route_realtime(&self, vin: &str, data: &VehicleRealtimeData) {
         if let Some(car) = self.car(vin) {
             car.handle_mqtt_realtime(data.clone());
+        }
+    }
+
+    /// Hands the partial models of a `vehicleStatusPush` to the car kept for `vin`.
+    pub(super) fn route_status_push(
+        &self,
+        vin: &str,
+        data: &VehicleRealtimeData,
+        hvac: Option<&HvacStatus>,
+        charging: Option<&ChargingStatus>,
+    ) {
+        if let Some(car) = self.car(vin) {
+            car.handle_mqtt_status_push(data.clone(), hvac.cloned(), charging.cloned());
         }
     }
 
@@ -429,8 +442,10 @@ mod tests {
     };
     use serde_json::{Map, json};
 
+    use openbyd_protocol::mqtt::MqttEvent;
+
     use super::*;
-    use crate::client::ClientOptions;
+    use crate::client::{CarRouter, ClientOptions};
     use crate::scripted::{ScriptedEnv, block_on};
 
     /// Every backend method once; returns each call's error kind.
@@ -520,6 +535,116 @@ mod tests {
         );
     }
 
+    /// A router written before status pushes existed: it hears the other pushes only.
+    #[derive(Default)]
+    struct OldRouter(std::sync::atomic::AtomicUsize);
+
+    impl CarRouter for OldRouter {
+        fn handle_mqtt_realtime(&self, _vin: &str, _data: &VehicleRealtimeData) {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
+
+        fn handle_mqtt_charging(&self, _vin: &str, _data: &ChargingStatus) {}
+
+        fn handle_mqtt_energy(&self, _vin: &str, _data: &EnergyConsumption) {}
+    }
+
+    fn event(name: &str, respond_data: serde_json::Value) -> MqttEvent {
+        let payload = json!({
+            "event": name, "vin": "TESTVIN0000000001", "data": {"respondData": respond_data},
+        });
+        let serde_json::Value::Object(payload) = payload else {
+            unreachable!()
+        };
+        MqttEvent {
+            event: name.to_owned(),
+            vin: Some("TESTVIN0000000001".to_owned()),
+            topic: "t".to_owned(),
+            payload,
+        }
+    }
+
+    #[test]
+    fn a_status_push_patches_the_kept_car() {
+        let router = Arc::new(OldRouter::default());
+        let mut config = BydConfig::new("user@example.com", "p");
+        config.mqtt_enabled = false;
+        let options = ClientOptions {
+            car_router: Some(Arc::clone(&router) as Arc<dyn CarRouter>),
+            ..ClientOptions::default()
+        };
+        let client = BydClient::new(config, Arc::new(ScriptedEnv::new(0, "s", vec![])), options);
+        client.async_start();
+        let vehicle = crate::api::vehicle::parse_model::<Vehicle>(
+            &json!({"vin": "TESTVIN0000000001", "energyType": "0"}),
+        )
+        .unwrap();
+        let car = block_on(client.get_car(
+            "TESTVIN0000000001",
+            GetCarOptions {
+                vehicle: Some(vehicle),
+                ..GetCarOptions::default()
+            },
+        ))
+        .unwrap()
+        .unwrap();
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let settle = || async {
+                for _ in 0..20 {
+                    tokio::task::yield_now().await;
+                }
+            };
+            // A status push before the car knows anything changes nothing.
+            client.on_mqtt_event(&event(
+                "vehicleStatusPush",
+                json!({"can4A505Dto": {"elecPercent": 55}}),
+            ));
+            settle().await;
+            assert!(car.state().realtime.is_none());
+
+            client.on_mqtt_event(&event(
+                "vehicleInfo",
+                json!({"elecPercent": 70, "leftFrontDoor": 0, "totalMileage": 1234}),
+            ));
+            settle().await;
+            assert_eq!(router.0.load(std::sync::atomic::Ordering::SeqCst), 1);
+
+            client.on_mqtt_event(&event(
+                "vehicleStatusPush",
+                json!({
+                    "doorStatusDto": {"leftFrontDoor": 1},
+                    "can4A505Dto": {"elecPercent": 91},
+                    "airStatusDto": {"cycleModel": 2},
+                    "time": 1_700_000_000,
+                }),
+            ));
+            // Neither a push without a known section nor one that does not validate reaches the car.
+            client.on_mqtt_event(&event("vehicleStatusPush", json!({"time": 5})));
+            client.on_mqtt_event(&event(
+                "vehicleStatusPush",
+                json!({"can4A505Dto": {"elecPercent": 12}, "chargeStatusDto": {"soc": "x"}}),
+            ));
+            client.on_mqtt_event(&event(
+                "remoteControlAck",
+                json!({"res": 1, "ackStatus": 1}),
+            ));
+            settle().await;
+        });
+
+        let state = car.state();
+        let realtime = state.realtime.as_ref().unwrap().base();
+        assert_eq!(realtime.elec_percent, Some(91.0));
+        assert_eq!(realtime.total_mileage, Some(1234.0));
+        assert_eq!(realtime.raw["leftFrontDoor"], json!(1));
+        assert!(state.hvac.is_none(), "no HVAC section is known to patch");
+        // The old router was not told about the status pushes.
+        assert_eq!(router.0.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
     #[test]
     fn get_car_keeps_one_car_per_vin_until_close() {
         let client = closed_client();
@@ -546,6 +671,8 @@ mod tests {
             crate::api::vehicle::parse_model(&json!({"elecPercent": 5})).unwrap();
         client.route_realtime("TESTVIN0000000001", &data);
         client.route_realtime("OTHER", &data);
+        client.route_status_push("TESTVIN0000000001", &data, None, None);
+        client.route_status_push("OTHER", &data, None, None);
         client.async_close();
         assert!(client.car("TESTVIN0000000001").is_none());
         let outcome =

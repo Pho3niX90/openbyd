@@ -1,5 +1,5 @@
-{"group": "constants", "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef", "cases": [
-{"call":"constants.values","args":{},"ok":{"USER_AGENT":"okhttp/4.12.0","SESSION_EXPIRED_CODES":["1002","1005","1010"],"DEFAULT_TEMP_OFFSET_C":14.0,"VALID_CLIMATE_DURATIONS":[10,15,20,25,30]}},
+{"group": "constants", "upstream_commit": "c1e88052f4f724343507bd8bda0ef990129071ba", "cases": [
+{"call":"constants.values","args":{},"ok":{"USER_AGENT":"okhttp/4.12.0","SESSION_EXPIRED_CODES":["1002","1011","3001","3003"],"DEFAULT_TEMP_OFFSET_C":14.0,"VALID_CLIMATE_DURATIONS":[10,15,20,25,30]}},
 {"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":null},"ok":14.0},
 {"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":31},"ok":14.0},
 {"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":33},"ok":14.0},
@@ -367,5 +367,26 @@
 {"call":"constants.minutes_to_time_span","args":{"minutes":null},"error":"ValueError"},
 {"call":"constants.minutes_to_time_span","args":{"minutes":[10]},"error":"TypeError"},
 {"call":"constants.minutes_to_time_span","args":{"minutes":{}},"error":"TypeError"},
-{"call":"constants.minutes_to_time_span","args":{"minutes":1e+20},"error":"ValueError"}
+{"call":"constants.minutes_to_time_span","args":{"minutes":1e+20},"error":"ValueError"},
+{"call":"constants.time_span_to_minutes","args":{"code":1},"ok":10},
+{"call":"constants.time_span_to_minutes","args":{"code":2},"ok":15},
+{"call":"constants.time_span_to_minutes","args":{"code":3},"ok":20},
+{"call":"constants.time_span_to_minutes","args":{"code":4},"ok":25},
+{"call":"constants.time_span_to_minutes","args":{"code":5},"ok":30},
+{"call":"constants.time_span_to_minutes","args":{"code":0},"ok":null},
+{"call":"constants.time_span_to_minutes","args":{"code":6},"ok":null},
+{"call":"constants.time_span_to_minutes","args":{"code":-1},"ok":null},
+{"call":"constants.time_span_to_minutes","args":{"code":1.0},"ok":10},
+{"call":"constants.time_span_to_minutes","args":{"code":5.0},"ok":30},
+{"call":"constants.time_span_to_minutes","args":{"code":2.5},"ok":null},
+{"call":"constants.time_span_to_minutes","args":{"code":true},"ok":10},
+{"call":"constants.time_span_to_minutes","args":{"code":false},"ok":null},
+{"call":"constants.time_span_to_minutes","args":{"code":"1"},"ok":null},
+{"call":"constants.time_span_to_minutes","args":{"code":""},"ok":null},
+{"call":"constants.time_span_to_minutes","args":{"code":null},"ok":null},
+{"call":"constants.time_span_to_minutes","args":{"code":[1]},"ok":null},
+{"call":"constants.time_span_to_minutes","args":{"code":{}},"ok":null},
+{"call":"constants.time_span_to_minutes","args":{"code":9223372036854775808},"ok":null},
+{"call":"constants.time_span_to_minutes","args":{"code":18446744073709551615},"ok":null},
+{"call":"constants.time_span_to_minutes","args":{"code":1e+300},"ok":null}
 ]}

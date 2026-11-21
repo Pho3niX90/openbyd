@@ -45,7 +45,8 @@ setup() {
   rustc -V
   if ! [ -x "$WORK/venv/bin/python" ]; then python -m venv "$WORK/venv"; fi
   commit=$(cat "$SRC/parity/UPSTREAM_COMMIT")
-  pip install -q maturin pytest psutil "pybyd @ git+https://github.com/jkaberg/pyBYD@$commit"
+  repo=$(cat "$SRC/parity/UPSTREAM_REPO")
+  pip install -q maturin pytest psutil "pybyd @ git+$repo@$commit"
 }
 
 sources() {

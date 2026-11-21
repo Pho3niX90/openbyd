@@ -70,7 +70,7 @@ def recorded():
         raw_reply({"code": "0"}),
         raw_reply([]),
         transport_error(502),
-        *(error_reply(code) for code in ["1001", "1002", "1005", "1010", "1008", "6002", "6051", "8003", "9999"]),
+        *(error_reply(code) for code in ["1001", "1002", "1011", "3001", "3003", "1005", "1010", "1008", "6002", "6051", "8003", "9999"]),
     ]
     for endpoint in ENDPOINTS:
         for serial in SERIALS:

@@ -45,7 +45,9 @@ def properties(name: str, raw: Any, context: Any = None) -> dict[str, Any]:
     """The value of every ``@property`` of pyBYD's class ``name`` for ``raw``, by name.
 
     Values are in JSON form, as in :func:`parse` (enums as their values,
-    datetimes as ISO text). Raises ``KeyError`` for a name not in :data:`NAMES`.
+    datetimes as ISO text). A property that raises in pyBYD for this ``raw``
+    (``StandbyPlan``'s ``seats`` and ``schedule`` can) is ``{"error": "<exception
+    class>"}``. Raises ``KeyError`` for a name not in :data:`NAMES`.
     """
     return _native.model_properties(name, raw, context)
 

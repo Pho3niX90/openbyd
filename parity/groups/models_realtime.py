@@ -231,7 +231,25 @@ PROPERTY_CASES = [
     {"batteryHeatState": -3}, {"onlineState": 1}, {"fullHour": 2**53, "fullMinute": 2**53},
     {"fullHour": 0, "fullMinute": "5"}, {"fullHour": "1"},
 ]
+# Upstream #94 and #96: onlineState 0 is offline and any other positive int online
+# (the string and float spellings of an unmapped value stay unknown); powerGear 2
+# is "starting"; the lower tailgate half counts as a door; repairModeSwitch may be
+# an int; airRunState is a plain int.
+ONLINE = [0, 1, 2, 3, 7, -1, -2, "0", "1", "2", " 2 ", "x", 0.0, 1.0, 2.0, 2.5, True, False, None, [], 2**63,
+          2**64 - 1, -(2**63), 1e300]
+UPSTREAM_CASES = [
+    *({"onlineState": value} for value in ONLINE),
+    *({"powerGear": value} for value in [1, 2, 3, 0, 4, "2", 2.0, True]),
+    *({"trunkLidLower": value} for value in [0, 1, 2, "1", -1, "--", None, 1.5]),
+    {"trunkLidLower": 1, "backCover": 0}, {"trunkLidLower": 0, "trunkLid": 1}, {"trunk_lid_lower": 1},
+    *({"repairModeSwitch": value} for value in [0, 1, "0", "1", "", "--", "on", 1.0, 1.5, True, None, [], {}, 2**53,
+                                                 -5]),
+    *({"airRunState": value} for value in [0, 1, 2, 3, -1, "1", "1__0", "x", 1.0, 1.5, True, None, "--", "", [],
+                                            2**53]),
+]
 READY = [
+    {"onlineState": 0}, {"onlineState": 0, "time": 5}, {"onlineState": 0.0, "time": 5}, {"onlineState": "0", "time": 5},
+    {"onlineState": False, "time": 5}, {"onlineState": 3, "time": 5}, {"onlineState": -0.0, "time": 5},
     None, {}, {"onlineState": 2}, {"onlineState": 2.0, "time": 5}, {"onlineState": "2", "time": 5},
     {"onlineState": True, "time": 5}, {"leftFrontTirepressure": 2.5}, {"rightRearTirepressure": "2.5"},
     {"leftRearTirepressure": " 1_0 "}, {"leftFrontTirepressure": "abc"}, {"leftFrontTirepressure": [1]},
@@ -276,6 +294,8 @@ def recorded():
             yield CALL, {"raw": {key: value}, "context": None}
     for payload in ALIAS_CASES + PROPERTY_CASES:
         yield CALL, {"raw": payload, "context": energy(2)}
+    for payload in UPSTREAM_CASES:
+        yield CALL, {"raw": payload, "context": None}
     for value in STEERING:
         yield CALL, {"raw": {"steeringWheelHeatState": value}, "context": None}
         yield CALL, {"raw": {"stearingWheelHeatState": value}, "context": None}

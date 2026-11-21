@@ -1,14 +1,23 @@
 """pybyd/_mqtt.py: the pure helpers (broker address, credentials, payloads),
-the two models, and what ``BydMqttRuntime``'s ``on_message`` makes of a
+the two models, the event and section names, the flattening of a
+``vehicleStatusPush`` and what ``BydMqttRuntime``'s ``on_message`` makes of a
 message (``mqtt.runtime_messages``).
+
+``mqtt.flatten_vehicle_status_push`` takes ``payload`` and ``dtos``: a list
+of section keys, or ``null`` for pyBYD's default (the realtime sections).
+``random_status_push`` builds the pushes the ``state``, ``car`` and
+``client_mqtt`` groups feed their engines, cars and clients.
 
 ``fetch_mqtt_bootstrap`` is a flow, compared by trace in ``api_mqtt``.
 """
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
+import random
+from typing import Any
 from unittest import mock
 
 import paho.mqtt.client as paho
@@ -20,7 +29,8 @@ from pybyd.session import Session
 from parity.framework import Group, random_hex, random_text
 from parity.groups.config import SAMPLE_CONFIG, SAMPLE_SESSION, random_config_kwargs, random_session_kwargs
 from parity.groups.pyjson import random_json, random_object
-from parity.models_support import jsonable, register_model
+from parity.models_support import json_safe, jsonable, register_model
+from pydantic import TypeAdapter
 
 group = Group("mqtt")
 
@@ -128,6 +138,220 @@ def build_mqtt_password(session: dict, now: float, client_id: str, ts_seconds: i
 @group.oracle("mqtt.decode_mqtt_payload")
 def decode_mqtt_payload(payload_hex: str, decrypt_key_hex: str):
     return list(_mqtt.decode_mqtt_payload(bytes.fromhex(payload_hex), decrypt_key_hex))
+
+
+# ---------------------------------------------------------------------------
+# Event and section names; flattening a vehicleStatusPush
+# ---------------------------------------------------------------------------
+
+ENUMS = {"mqtt.MqttEventType": _mqtt.MqttEventType, "mqtt.VehicleStatusPushDto": _mqtt.VehicleStatusPushDto}
+
+
+def _register_enum(call: str, cls: Any) -> None:
+    adapter = TypeAdapter(cls)
+
+    @group.oracle(call)
+    def oracle(value: Any) -> dict[str, Any]:
+        member = adapter.validate_python(value)
+        return {"name": member.name, "value": member.value}
+
+
+for _call, _cls in ENUMS.items():
+    _register_enum(_call, _cls)
+
+
+def enum_values(cls: Any) -> list[Any]:
+    """Every member's value, near misses and other types."""
+    members = [member.value for member in cls]
+    near = [members[0].lower(), members[0].upper(), f" {members[0]}", f"{members[0]} ", members[0][:-1],
+            members[-1] + "s", cls(members[0]).name]
+    return members + near + [None, [], {}, "", " ", True, False, 0, 1, 1.5, "x", [members[0]], {"value": members[0]}]
+
+
+@group.oracle("mqtt.flatten_vehicle_status_push", errors=(ValueError, AttributeError))
+def flatten_vehicle_status_push(payload: Any, dtos: list[Any] | None = None) -> dict[str, Any]:
+    if dtos is None:
+        return _mqtt.flatten_vehicle_status_push(payload)
+    return _mqtt.flatten_vehicle_status_push(payload, tuple(_mqtt.VehicleStatusPushDto(dto) for dto in dtos))
+
+
+DTO_KEYS = [dto.value for dto in _mqtt.VehicleStatusPushDto]
+AIR, CHARGE = "airStatusDto", "chargeStatusDto"
+
+#: Fields a section may carry, with the values worth sending: readings,
+#: BYD's sentinels, numbers as text, wrong types. Next to a field's usual key
+#: are the other spellings the models take (the field name, a key alias).
+_STATE = [0, 1, 2, 3, -1, "1", "x", None, "--", "", 15, 1.0, True]
+_NUMBER = [0, 0.0, -0.0, 1, 21.5, "22.5", 73, -1, -129, "--", "", None, "x", "NaN", 1e6]
+_CONSUMPTION = ["--", "", "N/A", "6.7kW·h/100km+7.2L/100km", "(6.7度+7.2升)/百公里", "19.9kW·h/100km", "15.2", "6.1+8.4",
+                "7.5L/100km", None]
+SECTION_FIELDS: dict[str, dict[str, list[Any]]] = {
+    AIR: {
+        "cycleModel": _STATE, "cycleChoice": _STATE, "airRunState": _STATE, "status": _STATE, "acSwitch": _STATE,
+        "mainSettingTempNew": _NUMBER, "mainSettingTemp": [7, "7", 17, 0, 7.5, "--", None], "tempInCar": _NUMBER,
+        "tempOutCar": _NUMBER, "pm": _NUMBER, "windPosition": [0, 1, 4, 7, 9, -1], "windMode": _STATE,
+        "airConditioningMode": _STATE, "mainSeatHeatState": _STATE, "stearingWheelHeatState": _STATE,
+        "steeringWheelHeatState": _STATE, "statusNow": [{"status": 1, "tempInCar": 20}, {}, "x", None],
+        "air_run_state": _STATE,
+    },
+    CHARGE: {
+        "chargingState": _STATE, "chargeState": _STATE, "connectState": _STATE, "chargePower": _NUMBER,
+        "chargePowerUnit": ["kW", "", "--", None, 5], "soc": [70, "55", -1, 0, None, "x", 100.0],
+        "elecPercent": _NUMBER, "fullHour": [1, -1, 0, "2", None], "fullMinute": [25, -1, 0, "--"],
+        "waitStatus": _STATE, "updateTime": [1700000000, 1700000000123, "x", 0, None, -5],
+        "vin": ["TESTVIN0000000001", "", None, 5], "charging_state": _STATE, "charge_power": _NUMBER,
+    },
+    "doorStatusDto": {
+        "leftFrontDoor": _STATE, "rightFrontDoor": _STATE, "leftRearDoor": _STATE, "rightRearDoor": _STATE,
+        "trunkLid": _STATE, "backCover": _STATE, "slidingDoor": _STATE, "forehold": _STATE,
+        "leftFrontDoorLock": _STATE, "rightFrontDoorLock": _STATE, "leftRearDoorLock": _STATE,
+        "rightRearDoorLock": _STATE, "slidingDoorLock": _STATE, "left_front_door_lock": _STATE,
+    },
+    "windowStatusDto": {
+        "leftFrontWindow": _STATE, "rightFrontWindow": _STATE, "leftRearWindow": _STATE, "rightRearWindow": _STATE,
+        "skylight": _STATE, "leftFrontWindowPct": [0, 10, 100, "50", -1, None],
+    },
+    "tireStatusDto": {
+        "leftFrontTirepressure": [*_NUMBER, 2.4, 38.4, 250.0], "rightFrontTirepressure": [*_NUMBER, 2.5, 37.2],
+        "leftRearTirepressure": [*_NUMBER, 2.6], "rightRearTirepressure": [*_NUMBER, 2.7],
+        "leftFrontTirePressure": _NUMBER, "tirePressUnit": [1, 2, 3, 0, -1, "2", "--", None],
+        "leftFrontTireStatus": _STATE, "tirepressureSystem": _STATE, "rapidTireLeak": _STATE,
+    },
+    "drivingStatusDto": {
+        "speed": _NUMBER, "powerGear": _STATE, "totalMileage": [*_NUMBER, 18234, 18240.5],
+        "totalMileageV2": _NUMBER, "enduranceMileage": [*_NUMBER, 320, 400], "evEndurance": _NUMBER,
+        "oilEndurance": _NUMBER, "oilPercent": _NUMBER, "epb": _STATE, "abs": _STATE, "absWarning": _STATE,
+    },
+    "commonDto": {
+        "onlineState": _STATE, "connectState": _STATE, "vehicleState": _STATE, "sentryStatus": [2, 4, 0, -1, "2"],
+        "requestSerial": ["S1", "", None, 5], "vehicleTimeZone": ["Europe/Amsterdam", "", None],
+        "repairModeSwitch": [0, "1", "x", None, 1.5, True], "lessOneMin": [True, False, "false", 0, 2, None],
+        "time": [1700000000, 1700000000123, "1700000000", "x", 0, None, 1.5],
+        "timestamp": [1700000001, "2026-05-07T05:56:45.000+00:00", None, "x"],
+        "raw": [{"own": 1}, {}, "x", None, [1]],
+    },
+    "can4A505Dto": {"elecPercent": [*_NUMBER, 82, 85, 91], "powerBattery": _NUMBER, "elec_percent": _NUMBER},
+    "can21511Dto": {"batteryHeatState": _STATE, "chargeHeatState": _STATE, "ectValue": [-129, -1, 90, "x"],
+                    "rate": [-999, -50, 0, 7, "--"], "gl": _NUMBER, "totalPower": _NUMBER},
+    "can3D903Dto": {"totalEnergy": _CONSUMPTION, "recent50kmEnergy": _CONSUMPTION, "energyConsumption": _CONSUMPTION,
+                    "nearestEnergyConsumption": _CONSUMPTION,
+                    "nearestEnergyConsumptionUnit": ["kW·h/100km", "L/100km", "--", "", None],
+                    "totalConsumption": _CONSUMPTION, "totalConsumptionEn": _CONSUMPTION},
+}
+_ALL_FIELDS = {key: values for fields in SECTION_FIELDS.values() for key, values in fields.items()}
+_BAD_SECTIONS = [None, [], "x", 5, {}, [{"elecPercent": 1}], True, 1.5, ""]
+_META = [1700000000, 1700000000123, "1700000000", "x", 0, None, 1.5, [1], {"a": 1}, "", "--"]
+#: Pushes from the upstream tests (tests/test_mqtt_status_push.py).
+STATUS_PUSHES = [
+    {"doorStatusDto": {"leftFrontDoor": 1, "leftFrontDoorLock": 1}, "can4A505Dto": {"elecPercent": 82},
+     "unknownDto": {"foo": "bar"}, "time": 1795006707},
+    {"time": 1795006707},
+    {"airStatusDto": {"cycleModel": 2, "airRunState": 1, "mainSettingTempNew": 23.0},
+     "chargeStatusDto": {"chargingState": 15, "connectState": 0, "chargeState": 15},
+     "can4A505Dto": {"elecPercent": 85}},
+    {"doorStatusDto": {"leftFrontDoor": 1}, "can4A505Dto": {"elecPercent": 91}, "airStatusDto": {"cycleModel": 2}},
+    {"time": 1700000000, "doorStatusDto": {"leftFrontDoor": 1}},
+]
+
+
+def random_section(rng: random.Random, dto: str) -> Any:
+    """What a push carries under one section key: usually fields, sometimes not a dict at all."""
+    if rng.random() < 0.1:
+        return copy.deepcopy(rng.choice(_BAD_SECTIONS))
+    own = SECTION_FIELDS.get(dto) or _ALL_FIELDS
+    fields: dict[str, Any] = {}
+    for _ in range(rng.randint(0, 5)):
+        pool = own if rng.random() < 0.8 else _ALL_FIELDS
+        key = rng.choice(list(pool))
+        fields[key] = copy.deepcopy(rng.choice(pool[key]))
+    if rng.random() < 0.1:
+        fields[rng.choice(["foo", "unknownKey", "", "比亚迪"])] = rng.choice(["bar", 1, None, [1], {"a": 1}])
+    return fields
+
+
+def random_status_push(rng: random.Random) -> dict[str, Any]:
+    """A ``vehicleStatusPush`` payload: a few sections, known and unknown,
+    with and without the envelope's own ``time``."""
+    if rng.random() < 0.1:
+        return copy.deepcopy(rng.choice(STATUS_PUSHES))
+    payload: dict[str, Any] = {}
+    favourites = [AIR, CHARGE, "doorStatusDto", "can4A505Dto", "tireStatusDto", "drivingStatusDto", "commonDto"]
+    for _ in range(rng.choice([0, 1, 1, 2, 2, 3, 4, 6])):
+        dto = rng.choice(favourites) if rng.random() < 0.7 else rng.choice(DTO_KEYS)
+        payload[dto] = random_section(rng, dto)
+    if rng.random() < 0.15:
+        payload[rng.choice(["unknownDto", "airStatusDTO", "smartChargeDto", "dto", ""])] = random_section(rng, "")
+    for meta in ("time", "timestamp"):
+        if rng.random() < 0.3:
+            payload[meta] = copy.deepcopy(rng.choice(_META))
+    if rng.random() < 0.1:
+        payload[rng.choice(["res", "requestSerial", "elecPercent", "code"])] = rng.choice([1, "S1", 50, "6051"])
+    return payload
+
+
+def random_dtos(rng: random.Random) -> list[Any] | None:
+    roll = rng.random()
+    if roll < 0.4:
+        return None
+    if roll < 0.6:
+        return [rng.choice([AIR, CHARGE])]
+    if roll < 0.9:
+        return rng.sample(DTO_KEYS, k=rng.randint(0, 6))
+    return [rng.choice(DTO_KEYS), rng.choice(["airStatus", "AIR_STATUS", "", 5, None, AIR.upper()])]
+
+
+def flatten_cases():
+    call = "mqtt.flatten_vehicle_status_push"
+    for payload in STATUS_PUSHES:
+        yield call, {"payload": payload, "dtos": None}
+        yield call, {"payload": payload, "dtos": [AIR]}
+        yield call, {"payload": payload, "dtos": [CHARGE]}
+    both = {"time": 5, "timestamp": 6, AIR: {"cycleModel": 2, "time": 7}, CHARGE: {"cycleModel": 1, "timestamp": None},
+            "doorStatusDto": "x", "smartChargeDto": {"soc": 80}, "smartJourneyDto": {"status": 1}}
+    # Sections are read in the order asked for; the later one wins a shared key, in the first one's place.
+    for dtos in (None, [AIR, CHARGE], [CHARGE, AIR], [AIR, AIR], ["smartChargeDto"], ["smartJourneyDto", "smartChargeDto"],
+                 [], ["doorStatusDto"], DTO_KEYS, list(reversed(DTO_KEYS))):
+        yield call, {"payload": both, "dtos": dtos}
+    # A section that is not a dict, an empty one, one of only nulls: nothing is taken, so no time either.
+    for section in [*_BAD_SECTIONS, {"a": None}, {"a": None, "b": 0}, {"": ""}, {"time": None}]:
+        yield call, {"payload": {AIR: section, "time": 1, "timestamp": 2}, "dtos": None}
+    # The envelope's time: null, missing, a section's own, both.
+    for payload in ({AIR: {"a": 1}}, {AIR: {"a": 1}, "time": None, "timestamp": None}, {AIR: {"a": 1}, "timestamp": "x"},
+                    {AIR: {"timestamp": 0}, "time": [1], "timestamp": 9}, {AIR: {"a": 1}, "time": 0, "timestamp": False},
+                    {}, {"airStatusDTO": {"a": 1}, "time": 1}):
+        yield call, {"payload": payload, "dtos": None}
+    # Not a payload, not a section key.
+    for payload in (None, [], "text", 5, [{AIR: {"a": 1}}]):
+        yield call, {"payload": payload, "dtos": None}
+        yield call, {"payload": payload, "dtos": []}
+        yield call, {"payload": payload, "dtos": ["nope"]}
+    for dtos in (["nope"], [AIR, "AIR_STATUS"], [5], [None], [AIR.upper()], [""]):
+        yield call, {"payload": both, "dtos": dtos}
+
+
+@group.recorded
+def recorded_status_push():
+    for call, cls in ENUMS.items():
+        for value in enum_values(cls):
+            yield call, {"value": value}
+    yield from flatten_cases()
+    rng = random.Random("mqtt-status-push")
+    for _ in range(40):
+        yield "mqtt.flatten_vehicle_status_push", {"payload": random_status_push(rng), "dtos": random_dtos(rng)}
+
+
+@group.fuzz
+def fuzz_status_push(rng):
+    values = {call: enum_values(cls) for call, cls in ENUMS.items()}
+    while True:
+        call = rng.choice(list(ENUMS))
+        value = rng.choice(values[call]) if rng.random() < 0.8 else random_json(rng)
+        yield call, {"value": value}
+        for _ in range(4):
+            payload = random_status_push(rng) if rng.random() < 0.95 else random_json(rng)
+            case = {"payload": payload, "dtos": random_dtos(rng)}
+            if json_safe(case):
+                yield "mqtt.flatten_vehicle_status_push", case
 
 
 BROKERS = [

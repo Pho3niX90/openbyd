@@ -6,6 +6,8 @@ import os
 import random
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -68,6 +70,106 @@ def test_accelerator_swaps_the_cipher_and_back(python_codec) -> None:
     assert not pybyd_accel.is_installed()
     assert bangcle.encrypt_cbc is _bangcle_block.encrypt_cbc
     assert bangcle.BangcleCodec().encode_envelope(plaintext) == expected
+
+
+def _count_native(monkeypatch) -> dict[str, int]:
+    """Count the calls that reach the Rust cipher."""
+    calls = {"encrypt": 0, "decrypt": 0}
+    encrypt, decrypt = openbyd._native.encrypt_cbc, openbyd._native.decrypt_cbc
+
+    def counted_encrypt(data: bytes, iv: bytes) -> bytes:
+        calls["encrypt"] += 1
+        return encrypt(data, iv)
+
+    def counted_decrypt(data: bytes, iv: bytes) -> bytes:
+        calls["decrypt"] += 1
+        return decrypt(data, iv)
+
+    monkeypatch.setattr(openbyd._native, "encrypt_cbc", counted_encrypt)
+    monkeypatch.setattr(openbyd._native, "decrypt_cbc", counted_decrypt)
+    return calls
+
+
+def test_accelerator_reaches_every_codec(python_codec, monkeypatch) -> None:
+    """pyBYD 0.0.86 prefers its own folded cipher; the accelerator must still be the one that runs."""
+    plaintext = b'{"vin":"TESTVIN0000000001"}' * 40
+    expected = python_codec.encode_envelope(plaintext)  # loads (and folds) the tables before install()
+    calls = _count_native(monkeypatch)
+
+    assert pybyd_accel.install() is True
+    calls.update(encrypt=0, decrypt=0)  # the self-test used it
+    late = bangcle.BangcleCodec()
+    for codec in (late, python_codec):
+        assert codec.encode_envelope(plaintext) == expected
+        assert codec.decode_envelope(expected) == plaintext
+    assert calls == {"encrypt": 2, "decrypt": 2}
+
+    # After uninstall() both are back on pyBYD's own cipher, and on its fastest one.
+    pybyd_accel.uninstall()
+    for codec in (late, python_codec):
+        assert codec.encode_envelope(plaintext) == expected
+        assert codec.decode_envelope(expected) == plaintext
+    assert calls == {"encrypt": 2, "decrypt": 2}
+    fresh = bangcle.BangcleCodec()
+    fresh.encode_envelope(b"")
+    if hasattr(fresh, "_folded"):
+        assert fresh._folded is not None
+        assert late._folded is not None and python_codec._folded is not None
+
+
+def test_accelerator_works_with_a_pybyd_without_folded_tables(python_codec, monkeypatch) -> None:
+    """pyBYD before 0.0.86 has only the reference cipher."""
+    plaintext = bytes(range(200))
+    expected = python_codec.encode_envelope(plaintext)
+    if hasattr(bangcle, "encrypt_cbc_folded"):
+        monkeypatch.delattr(bangcle, "encrypt_cbc_folded")
+        monkeypatch.delattr(bangcle, "decrypt_cbc_folded")
+        monkeypatch.setattr(bangcle, "fold_tables", lambda tables: None)
+    calls = _count_native(monkeypatch)
+
+    assert pybyd_accel.install() is True
+    calls.update(encrypt=0, decrypt=0)
+    codec = bangcle.BangcleCodec()
+    assert codec.encode_envelope(plaintext) == expected
+    assert codec.decode_envelope(expected) == plaintext
+    assert calls == {"encrypt": 1, "decrypt": 1}
+    assert not hasattr(bangcle, "encrypt_cbc_folded")
+    pybyd_accel.uninstall()
+    assert not hasattr(bangcle, "encrypt_cbc_folded")
+
+
+def test_accelerator_installs_once_from_several_threads(python_codec, monkeypatch) -> None:
+    """Threads that install at the same moment must not take each other's replacements for pyBYD's own."""
+    names = [name for name in ("encrypt_cbc", "decrypt_cbc", "encrypt_cbc_folded", "decrypt_cbc_folded") if hasattr(bangcle, name)]
+    originals = {name: getattr(bangcle, name) for name in names}
+    load_tables = bangcle.BangcleCodec._load_tables
+    read_tables = bangcle._load_tables_from_bin
+
+    def slow_read(data: bytes):
+        time.sleep(0.05)  # long enough for every thread to be inside install() together
+        return read_tables(data)
+
+    monkeypatch.setattr(bangcle, "_load_tables_from_bin", slow_read)
+    start = threading.Barrier(4)
+    results: list[bool] = []
+
+    def run() -> None:
+        start.wait()
+        results.append(pybyd_accel.install())
+
+    threads = [threading.Thread(target=run) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert results == [True] * 4
+    assert bangcle.encrypt_cbc is not originals["encrypt_cbc"]
+
+    pybyd_accel.uninstall()
+    assert not pybyd_accel.is_installed()
+    for name, original in originals.items():
+        assert getattr(bangcle, name) is original
+    assert bangcle.BangcleCodec._load_tables is load_tables
 
 
 def test_accelerated_clients_share_one_copy_of_the_tables(python_codec) -> None:

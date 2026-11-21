@@ -6,7 +6,7 @@ use serde::Serialize;
 use serde_json::{Map, Value, json};
 
 use crate::aes::{aes_decrypt_utf8, is_python_space};
-use crate::coerce::{self, ValidationError};
+use crate::coerce::{self, StrEnum, ValidationError};
 use crate::config::{BydConfig, config_argument};
 use crate::error::{Error, ErrorKind};
 use crate::hashing::md5_hex;
@@ -293,6 +293,240 @@ pub fn decode_mqtt_payload(
     }
 }
 
+/// Declares one of pyBYD's MQTT `StrEnum`s: the members with their wire
+/// values and Python names, in definition order.
+macro_rules! mqtt_str_enum {
+    (
+        $(#[$meta:meta])*
+        $name:ident {
+            $( $(#[$variant_meta:meta])* $variant:ident = $value:literal => $python:literal, )+
+        }
+    ) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        pub enum $name {
+            $( $(#[$variant_meta])* $variant, )+
+        }
+
+        impl $name {
+            /// The Python member name, such as `"VEHICLE_INFO"`.
+            pub fn name(self) -> &'static str {
+                match self {
+                    $(Self::$variant => $python,)+
+                }
+            }
+
+            /// The value as the broker sends it.
+            pub fn as_str(self) -> &'static str {
+                match self {
+                    $(Self::$variant => $value,)+
+                }
+            }
+
+            /// The member with this value, if any (Python's `EnumClass(value)`).
+            pub fn from_value(value: &str) -> Option<Self> {
+                <Self as StrEnum>::MEMBERS
+                    .iter()
+                    .copied()
+                    .find(|member| member.as_str() == value)
+            }
+        }
+
+        impl StrEnum for $name {
+            const MEMBERS: &'static [Self] = &[$(Self::$variant),+];
+            fn value(self) -> &'static str {
+                self.as_str()
+            }
+        }
+
+        impl Serialize for $name {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                serializer.serialize_str(self.as_str())
+            }
+        }
+    };
+}
+
+mqtt_str_enum! {
+    /// The `event` names of the messages the BYD broker sends (pyBYD's `MqttEventType`).
+    MqttEventType {
+        /// A protobuf-encoded function message.
+        FunctionProtobuf = "FunctionProtoBuf" => "FUNCTION_PROTOBUF",
+        /// The result of a remote command, or the answer to a data poll.
+        RemoteControl = "remoteControl" => "REMOTE_CONTROL",
+        /// The car received a remote command; the result follows as `remoteControl`.
+        RemoteControlAck = "remoteControlAck" => "REMOTE_CONTROL_ACK",
+        /// A change in who may use the vehicle.
+        VehicleEmpower = "vehicleEmpower" => "VEHICLE_EMPOWER",
+        /// Bluetooth key information.
+        BluetoothInfo = "bluetoothInfo" => "BLUETOOTH_INFO",
+        /// A picture from the car's cameras.
+        RemoteCameraImage = "remoteCameraImage" => "REMOTE_CAMERA_IMAGE",
+        /// A location fix.
+        GpsInfo = "gpsInfo" => "GPS_INFO",
+        /// A change of account or vehicle information.
+        InfoChange = "infoChange" => "INFO_CHANGE",
+        /// A complete realtime payload.
+        VehicleInfo = "vehicleInfo" => "VEHICLE_INFO",
+        /// A change of a charging pile's status.
+        PileStatusChange = "pile_status_change" => "PILE_STATUS_CHANGE",
+        /// A partial update: only the sections that changed, each in its own DTO.
+        VehicleStatusPush = "vehicleStatusPush" => "VEHICLE_STATUS_PUSH",
+    }
+}
+
+mqtt_str_enum! {
+    /// The keys of the sections nested in a `vehicleStatusPush` payload
+    /// (pyBYD's `VehicleStatusPushDto`).
+    VehicleStatusPushDto {
+        /// Climate control.
+        AirStatus = "airStatusDto" => "AIR_STATUS",
+        /// CAN frame group 21511.
+        Can21511 = "can21511Dto" => "CAN_21511",
+        /// CAN frame group 22D02.
+        Can22D02 = "can22D02Dto" => "CAN_22D02",
+        /// CAN frame group 26B.
+        Can26B = "can26BDto" => "CAN_26B",
+        /// CAN frame group 2C0.
+        Can2C0 = "can2C0Dto" => "CAN_2C0",
+        /// CAN frame group 33806.
+        Can33806 = "can33806Dto" => "CAN_33806",
+        /// CAN frame group 347.
+        Can347 = "can347Dto" => "CAN_347",
+        /// CAN frame group 3D903.
+        Can3D903 = "can3D903Dto" => "CAN_3D903",
+        /// CAN frame group 3D907.
+        Can3D907 = "can3D907Dto" => "CAN_3D907",
+        /// CAN frame group 429.
+        Can429 = "can429Dto" => "CAN_429",
+        /// CAN frame group 48C.
+        Can48C = "can48CDto" => "CAN_48C",
+        /// CAN frame group 4A502.
+        Can4A502 = "can4A502Dto" => "CAN_4A502",
+        /// CAN frame group 4A505 (carries the state of charge).
+        Can4A505 = "can4A505Dto" => "CAN_4A505",
+        /// CAN frame group 4A507.
+        Can4A507 = "can4A507Dto" => "CAN_4A507",
+        /// CAN frame group 4EB06.
+        Can4EB06 = "can4EB06Dto" => "CAN_4EB06",
+        /// Live charging state.
+        ChargeStatus = "chargeStatusDto" => "CHARGE_STATUS",
+        /// Fields shared by every section.
+        Common = "commonDto" => "COMMON",
+        /// Doors and locks.
+        DoorStatus = "doorStatusDto" => "DOOR_STATUS",
+        /// Speed, gear and other driving state.
+        DrivingStatus = "drivingStatusDto" => "DRIVING_STATUS",
+        /// The smart-charging schedule.
+        SmartCharge = "smartChargeDto" => "SMART_CHARGE",
+        /// The departure schedule.
+        SmartJourney = "smartJourneyDto" => "SMART_JOURNEY",
+        /// Tyre pressures.
+        TireStatus = "tireStatusDto" => "TIRE_STATUS",
+        /// Windows.
+        WindowStatus = "windowStatusDto" => "WINDOW_STATUS",
+    }
+}
+
+/// The sections of a `vehicleStatusPush` whose fields belong to
+/// [`VehicleRealtimeData`](crate::models::realtime::VehicleRealtimeData):
+/// every [`VehicleStatusPushDto`] but the two schedules, in definition order.
+pub const REALTIME_STATUS_PUSH_DTOS: [VehicleStatusPushDto; 21] = [
+    VehicleStatusPushDto::AirStatus,
+    VehicleStatusPushDto::Can21511,
+    VehicleStatusPushDto::Can22D02,
+    VehicleStatusPushDto::Can26B,
+    VehicleStatusPushDto::Can2C0,
+    VehicleStatusPushDto::Can33806,
+    VehicleStatusPushDto::Can347,
+    VehicleStatusPushDto::Can3D903,
+    VehicleStatusPushDto::Can3D907,
+    VehicleStatusPushDto::Can429,
+    VehicleStatusPushDto::Can48C,
+    VehicleStatusPushDto::Can4A502,
+    VehicleStatusPushDto::Can4A505,
+    VehicleStatusPushDto::Can4A507,
+    VehicleStatusPushDto::Can4EB06,
+    VehicleStatusPushDto::ChargeStatus,
+    VehicleStatusPushDto::Common,
+    VehicleStatusPushDto::DoorStatus,
+    VehicleStatusPushDto::DrivingStatus,
+    VehicleStatusPushDto::TireStatus,
+    VehicleStatusPushDto::WindowStatus,
+];
+
+/// Flattens the sections `dtos` of a `vehicleStatusPush` payload into one
+/// partial dict, so a model can be built from just the sections that feed it
+/// ([`REALTIME_STATUS_PUSH_DTOS`] for realtime data).
+///
+/// The sections are read in the order of `dtos`; a section that is not an
+/// object is skipped, a `null` field is skipped, and a key in two sections
+/// keeps its first place with the later value. When anything was taken, the
+/// payload's own `time` and `timestamp` are added unless a section set them
+/// (or they are `null`). The result is empty when none of the sections are
+/// there.
+pub fn flatten_vehicle_status_push(
+    payload: &Map<String, Value>,
+    dtos: &[VehicleStatusPushDto],
+) -> Map<String, Value> {
+    let mut merged = Map::new();
+    for dto in dtos {
+        if let Some(Value::Object(fields)) = payload.get(dto.as_str()) {
+            for (key, value) in fields {
+                if !value.is_null() {
+                    merged.insert(key.clone(), value.clone());
+                }
+            }
+        }
+    }
+    if !merged.is_empty() {
+        for meta_key in ["time", "timestamp"] {
+            if let Some(value) = payload.get(meta_key)
+                && !value.is_null()
+                && !merged.contains_key(meta_key)
+            {
+                merged.insert(meta_key.to_owned(), value.clone());
+            }
+        }
+    }
+    merged
+}
+
+/// `mqtt.flatten_vehicle_status_push`: `payload` and, optionally, `dtos`
+/// (section keys; `null` for the realtime sections).
+///
+/// A section key that is not a member fails with `ValueError` (the oracle
+/// builds the members with `VehicleStatusPushDto(value)`). A payload that is
+/// not an object fails with `AttributeError` (pyBYD calls its `.get`), but
+/// only when there is a section to look for: with no sections pyBYD never
+/// touches the payload and answers `{}`.
+fn flatten_call(args: &Args<'_>) -> Outcome {
+    let dtos: Vec<VehicleStatusPushDto> = match args.value("dtos") {
+        Value::Null => REALTIME_STATUS_PUSH_DTOS.to_vec(),
+        Value::Array(names) => names
+            .iter()
+            .map(|name| {
+                name.as_str()
+                    .and_then(VehicleStatusPushDto::from_value)
+                    .ok_or_else(|| {
+                        ParityError::new("ValueError", "not a valid VehicleStatusPushDto")
+                    })
+            })
+            .collect::<Result<_, _>>()?,
+        _ => return Err(ParityError::bad_arguments("dtos must be a list or null")),
+    };
+    let Value::Object(payload) = args.value("payload") else {
+        if dtos.is_empty() {
+            return Ok(Value::Object(Map::new()));
+        }
+        return Err(ParityError::new(
+            "AttributeError",
+            "the payload has no attribute 'get'",
+        ));
+    };
+    Ok(Value::Object(flatten_vehicle_status_push(payload, &dtos)))
+}
+
 /// What became of one MQTT message (the branches of pyBYD's `on_message`).
 #[derive(Debug, Clone, PartialEq)]
 pub enum MessageOutcome {
@@ -438,6 +672,15 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
     }
     let args = Args(args);
     Some(match name {
+        "mqtt.MqttEventType" => coerce::str_enum::<MqttEventType>(args.value("value"))
+            .map(|member| json!({"name": member.name(), "value": member.as_str()}))
+            .map_err(ParityError::from),
+        "mqtt.VehicleStatusPushDto" => {
+            coerce::str_enum::<VehicleStatusPushDto>(args.value("value"))
+                .map(|member| json!({"name": member.name(), "value": member.as_str()}))
+                .map_err(ParityError::from)
+        }
+        "mqtt.flatten_vehicle_status_push" => flatten_call(&args),
         "mqtt.runtime_messages" => runtime_messages_call(&args),
         "mqtt.parse_broker" => (|| {
             let (host, port) = parse_broker(args.str("raw_broker")?)?;
@@ -619,6 +862,128 @@ mod tests {
             decoder.handle(b"t", foreign.as_bytes()),
             MessageOutcome::Event(_)
         ));
+    }
+
+    #[test]
+    fn event_and_section_names() {
+        assert_eq!(
+            MqttEventType::VehicleStatusPush.as_str(),
+            "vehicleStatusPush"
+        );
+        assert_eq!(MqttEventType::RemoteControlAck.name(), "REMOTE_CONTROL_ACK");
+        assert_eq!(
+            MqttEventType::from_value("pile_status_change"),
+            Some(MqttEventType::PileStatusChange)
+        );
+        assert_eq!(MqttEventType::from_value("vehicleinfo"), None);
+        assert_eq!(MqttEventType::MEMBERS.len(), 11);
+        assert_eq!(
+            serde_json::to_value(MqttEventType::VehicleInfo).unwrap(),
+            json!("vehicleInfo")
+        );
+        assert_eq!(VehicleStatusPushDto::MEMBERS.len(), 23);
+        assert_eq!(StrEnum::value(VehicleStatusPushDto::Common), "commonDto");
+        // Every section but the two schedules, in definition order.
+        let realtime: Vec<_> = VehicleStatusPushDto::MEMBERS
+            .iter()
+            .copied()
+            .filter(|dto| {
+                !matches!(
+                    dto,
+                    VehicleStatusPushDto::SmartCharge | VehicleStatusPushDto::SmartJourney
+                )
+            })
+            .collect();
+        assert_eq!(realtime, REALTIME_STATUS_PUSH_DTOS);
+    }
+
+    fn object(value: Value) -> Map<String, Value> {
+        match value {
+            Value::Object(map) => map,
+            other => panic!("not an object: {other}"),
+        }
+    }
+
+    /// The upstream tests `test_flatten_vehicle_status_push_*`.
+    #[test]
+    fn status_pushes_flatten_to_the_known_sections() {
+        let payload = object(json!({
+            "doorStatusDto": {"leftFrontDoor": 1, "leftFrontDoorLock": 1},
+            "can4A505Dto": {"elecPercent": 82},
+            "unknownDto": {"foo": "bar"},
+            "time": 1_795_006_707,
+        }));
+        let flat = flatten_vehicle_status_push(&payload, &REALTIME_STATUS_PUSH_DTOS);
+        // Sections are read in the order of the enum, not of the payload.
+        assert_eq!(
+            Value::Object(flat).to_string(),
+            r#"{"elecPercent":82,"leftFrontDoor":1,"leftFrontDoorLock":1,"time":1795006707}"#
+        );
+        let only_time = object(json!({"time": 1_795_006_707}));
+        assert!(flatten_vehicle_status_push(&only_time, &REALTIME_STATUS_PUSH_DTOS).is_empty());
+    }
+
+    #[test]
+    fn flattening_skips_nulls_and_keeps_a_sections_own_time() {
+        let payload = object(json!({
+            "airStatusDto": {"cycleModel": 2, "time": 5, "tempInCar": null},
+            "chargeStatusDto": {"cycleModel": 1, "chargeState": 15},
+            "doorStatusDto": "not a dict",
+            "smartChargeDto": {"soc": 80},
+            "time": 9,
+            "timestamp": null,
+        }));
+        let flat = flatten_vehicle_status_push(&payload, &REALTIME_STATUS_PUSH_DTOS);
+        assert_eq!(
+            Value::Object(flat).to_string(),
+            r#"{"cycleModel":1,"time":5,"chargeState":15}"#
+        );
+        let air = flatten_vehicle_status_push(&payload, &[VehicleStatusPushDto::AirStatus]);
+        assert_eq!(
+            Value::Object(air).to_string(),
+            r#"{"cycleModel":2,"time":5}"#
+        );
+        let schedule = flatten_vehicle_status_push(&payload, &[VehicleStatusPushDto::SmartCharge]);
+        assert_eq!(
+            Value::Object(schedule).to_string(),
+            r#"{"soc":80,"time":9}"#
+        );
+        assert!(flatten_vehicle_status_push(&payload, &[]).is_empty());
+    }
+
+    #[test]
+    fn flatten_call_arguments() {
+        let call = |args: Value| parity_call("mqtt.flatten_vehicle_status_push", &args).unwrap();
+        assert_eq!(
+            call(json!({"payload": {"commonDto": {"a": 1}}})).unwrap(),
+            json!({"a": 1})
+        );
+        assert_eq!(
+            call(json!({"payload": {"commonDto": {"a": 1}}, "dtos": ["airStatusDto"]})).unwrap(),
+            json!({})
+        );
+        assert_eq!(
+            call(json!({"payload": [], "dtos": ["nope"]}))
+                .unwrap_err()
+                .kind,
+            "ValueError"
+        );
+        assert_eq!(
+            call(json!({"payload": {}, "dtos": [1]})).unwrap_err().kind,
+            "ValueError"
+        );
+        assert_eq!(
+            call(json!({"payload": [], "dtos": null})).unwrap_err().kind,
+            "AttributeError"
+        );
+        assert_eq!(
+            call(json!({"payload": "x", "dtos": []})).unwrap(),
+            json!({})
+        );
+        assert_eq!(
+            call(json!({"payload": {}, "dtos": "x"})).unwrap_err().kind,
+            "BadArguments"
+        );
     }
 
     #[test]

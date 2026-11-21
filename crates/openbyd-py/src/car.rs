@@ -13,6 +13,7 @@ use openbyd_protocol::models::base::BydModel;
 use openbyd_protocol::models::charging::ChargingStatus;
 use openbyd_protocol::models::control::ClimateScheduleParams;
 use openbyd_protocol::models::energy::EnergyConsumption;
+use openbyd_protocol::models::hvac::HvacStatus;
 use openbyd_protocol::models::realtime::VehicleRealtimeData;
 use openbyd_protocol::models::vehicle::EnergyType;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -33,6 +34,16 @@ pub struct PyCar {
 impl PyCar {
     pub fn new(car: ClientCar<ProductionEnv>) -> Self {
         Self { car }
+    }
+
+    /// The validation context of a realtime push: the car's energy type, EV
+    /// when it is not known (as the client validates one).
+    fn realtime_context(&self) -> Value {
+        let energy_type = match self.car.state().vehicle.energy_type {
+            EnergyType::Unknown => EnergyType::Ev,
+            known => known,
+        };
+        json!({"energy_type": {"EnergyType": energy_type as i64}})
     }
 }
 
@@ -284,11 +295,7 @@ impl PyCar {
         let invalid = |error| errors::validation_to_py_err(py, &error);
         match kind {
             "realtime" => {
-                let energy_type = match self.car.state().vehicle.energy_type {
-                    EnergyType::Unknown => EnergyType::Ev,
-                    known => known,
-                };
-                let context = json!({"energy_type": {"EnergyType": energy_type as i64}});
+                let context = self.realtime_context();
                 let data = VehicleRealtimeData::parse_owned(raw, &context).map_err(invalid)?;
                 self.car.handle_mqtt_realtime(data);
             }
@@ -302,6 +309,36 @@ impl PyCar {
             }
             other => return Err(PyValueError::new_err(format!("no push kind {other:?}"))),
         }
+        Ok(())
+    }
+
+    /// Merges a `vehicleStatusPush`: the partial realtime payload and, when
+    /// given, the partial HVAC and charging payloads, each validated as the
+    /// client validates them. Nothing is merged when one does not validate.
+    #[pyo3(signature = (data, hvac = None, charging = None))]
+    fn handle_mqtt_status_push(
+        &self,
+        py: Python<'_>,
+        data: &Bound<'_, PyAny>,
+        hvac: Option<&Bound<'_, PyAny>>,
+        charging: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let data = Value::Object(object("data", data)?);
+        let hvac = hvac.map(|raw| object("hvac", raw)).transpose()?;
+        let charging = charging.map(|raw| object("charging", raw)).transpose()?;
+        let _entered = bridge::handle()?.enter();
+        let invalid = |error| errors::validation_to_py_err(py, &error);
+        let data =
+            VehicleRealtimeData::parse_owned(data, &self.realtime_context()).map_err(invalid)?;
+        let hvac = hvac
+            .map(|raw| HvacStatus::parse_owned(Value::Object(raw), &Value::Null))
+            .transpose()
+            .map_err(invalid)?;
+        let charging = charging
+            .map(|raw| ChargingStatus::parse_owned(Value::Object(raw), &Value::Null))
+            .transpose()
+            .map_err(invalid)?;
+        self.car.handle_mqtt_status_push(data, hvac, charging);
         Ok(())
     }
 

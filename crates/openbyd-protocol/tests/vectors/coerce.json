@@ -1,4 +1,4 @@
-{"group": "coerce", "upstream_commit": "2c3d80648e8eeec50cd4f68f603abd3a01010fef", "cases": [
+{"group": "coerce", "upstream_commit": "c1e88052f4f724343507bd8bda0ef990129071ba", "cases": [
 {"call":"coerce.int","args":{"value":0},"ok":0},
 {"call":"coerce.float","args":{"value":0},"ok":0.0},
 {"call":"coerce.str","args":{"value":0},"error":"ValidationError"},

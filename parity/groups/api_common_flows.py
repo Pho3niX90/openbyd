@@ -106,7 +106,7 @@ def recorded():
     yield "api.common.post_token_json", scenario(replies=[ok], args=token_args(vin=None, user_type="2", inner={}))
     for not_supported in NOT_SUPPORTED:
         for extra in EXTRA_MAPS:
-            for code in ["1001", "1005", "5005", "6051", "8003", "6024", "1008", "6002"]:
+            for code in ["1001", "1002", "1011", "3001", "3003", "1005", "5005", "6051", "8003", "6024", "1008", "6002"]:
                 yield "api.common.post_token_json", scenario(
                     replies=[error_reply(code)],
                     args=token_args(not_supported_codes=not_supported, extra_code_map=extra, vin=None),

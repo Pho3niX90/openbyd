@@ -39,10 +39,11 @@ jobs:
           cache-dependency-path: |
             pyproject.toml
             parity/UPSTREAM_COMMIT
+            parity/UPSTREAM_REPO
       - name: Install openbyd and the pinned pyBYD
         run: |
           python -m pip install --upgrade pip
-          pip install . pytest "pybyd @ git+https://github.com/jkaberg/pyBYD@$(cat parity/UPSTREAM_COMMIT)"
+          pip install . pytest "pybyd @ git+$(cat parity/UPSTREAM_REPO)@$(cat parity/UPSTREAM_COMMIT)"
       - name: Pick the seed
         run: echo "OPENBYD_PARITY_SEED=$(date -u +%Y-%m-%d)" >> "$GITHUB_ENV"
       - name: Random comparison
@@ -63,7 +64,7 @@ jobs:
             echo
             echo "- Seed: \`$OPENBYD_PARITY_SEED\`"
             echo "- Cases per group: \`$OPENBYD_FUZZ\`"
-            echo "- Pinned pyBYD: \`$(cat parity/UPSTREAM_COMMIT)\`"
+            echo "- Pinned pyBYD: \`$(cat parity/UPSTREAM_COMMIT)\` from $(cat parity/UPSTREAM_REPO)"
             echo "- Run: $RUN_URL"
             echo
             echo "Reproduce: \`OPENBYD_FUZZ=$OPENBYD_FUZZ OPENBYD_PARITY_SEED=$OPENBYD_PARITY_SEED pytest python/tests/test_parity.py\`"

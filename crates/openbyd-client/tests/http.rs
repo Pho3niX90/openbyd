@@ -479,7 +479,7 @@ connection: close
 }
 
 #[tokio::test]
-async fn expired_sessions_answer_1005_until_a_new_login() {
+async fn expired_sessions_are_refused_until_a_new_login() {
     let s = setup().await;
     s.server.reply("/e", Reply::Data(json!({"n": 1})));
     s.server.expire_sessions(USER);
@@ -487,7 +487,7 @@ async fn expired_sessions_answer_1005_until_a_new_login() {
         .await
         .unwrap_err();
     assert_eq!(error.kind(), ErrorKind::BydSessionExpiredError);
-    assert_eq!(error.code(), "1005");
+    assert_eq!(error.code(), codes::SESSION_EXPIRED);
     let fresh = login(&s.env, &s.config).await.unwrap();
     assert_eq!(
         token_json(&s.env, &s.config, &fresh, "/e").await.unwrap(),

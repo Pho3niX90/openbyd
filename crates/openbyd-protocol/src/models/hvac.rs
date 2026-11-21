@@ -121,6 +121,8 @@ pub struct HvacStatus {
     /// Air circulation mode (external / internal).
     #[serde(serialize_with = "base::ser_opt_int_enum")]
     pub cycle_choice: Option<AirCirculationMode>,
+    /// Raw `airRunState`, left uninterpreted until confirmed live.
+    pub air_run_state: Option<i64>,
 
     // --- Temperature ---
     /// Driver-side set temperature on BYD scale (1-17).
@@ -208,8 +210,12 @@ pub struct HvacStatus {
     pub pm25_state_out_car: Option<f64>,
 }
 
-/// `_KEY_ALIASES`: only the shared `stearing` spelling.
-const KEY_ALIASES: &[(&str, &str)] = base::COMMON_KEY_ALIASES;
+/// `_KEY_ALIASES`: the shared `stearing` spelling, and `cycleModel`, which
+/// is what `vehicleStatusPush` calls `cycleChoice`.
+const KEY_ALIASES: &[(&str, &str)] = &[
+    ("stearingWheelHeatState", "steeringWheelHeatState"),
+    ("cycleModel", "cycleChoice"),
+];
 
 /// `_unwrap_status_now`: when the reply nests the state under a `statusNow`
 /// dict, that dict (key-aliased and sentinel-cleaned) replaces the whole
@@ -272,6 +278,7 @@ impl BydModel for HvacStatus {
             wind_mode: fields.opt("wind_mode", enum_field),
             wind_position: fields.opt("wind_position", enum_field),
             cycle_choice: fields.opt("cycle_choice", enum_field),
+            air_run_state: fields.opt("air_run_state", int),
             main_setting_temp: fields.opt("main_setting_temp", float),
             main_setting_temp_new: fields.opt("main_setting_temp_new", float),
             copilot_setting_temp: fields.opt("copilot_setting_temp", float),

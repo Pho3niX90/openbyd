@@ -13,10 +13,11 @@ use std::sync::Arc;
 
 use openbyd_client::client::{
     BydClient, ChargePollSettings, ClientOptions, GetCarOptions, PollSettings, ProductionEnv,
-    ReloginPolicy, RequestOutcome, RequestRecord, SessionTokens, resolve_command_pwd,
+    ReloginPolicy, RequestOutcome, RequestRecord, RunPollSettings, SessionTokens,
+    resolve_command_pwd,
 };
 use openbyd_client::http::HttpEnv;
-use openbyd_protocol::coerce::int_enum;
+use openbyd_protocol::coerce::{ValidationError, int_enum};
 use openbyd_protocol::config::BydConfig;
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::models::base::BydModel;
@@ -25,6 +26,9 @@ use openbyd_protocol::models::control::{
     BatteryHeatParams, ClimateScheduleParams, ClimateStartParams, SeatClimateParams,
 };
 use openbyd_protocol::models::message_center::NotificationCategory;
+use openbyd_protocol::models::standby::{
+    Repeat, StandbyPlan, StandbyPlanCommand, StandbySchedule, pydantic_datetime,
+};
 use openbyd_protocol::models::vehicle::{EnergyType, Vehicle};
 use openbyd_protocol::state::StateChangedCallback;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -82,6 +86,41 @@ pub fn object(what: &str, value: &Bound<'_, PyAny>) -> PyResult<Map<String, Valu
         Value::Object(map) => Ok(map),
         _ => Err(PyTypeError::new_err(format!("{what} must be a dict"))),
     }
+}
+
+/// A model argument given as its dict: the raw API dict or a
+/// `model_dump(mode="json")` (pyBYD's models read both).
+fn model<M: BydModel>(py: Python<'_>, what: &str, value: &Bound<'_, PyAny>) -> PyResult<M> {
+    M::parse_owned(Value::Object(object(what, value)?), &Value::Null)
+        .map_err(|error| errors::validation_to_py_err(py, &error))
+}
+
+/// The `schedule` argument: `None`, or `StandbySchedule`'s fields as a dict.
+///
+/// The Python package adds `_daily_after` to a daily schedule: the run one
+/// calendar day after `at` in the caller's time zone, which only Python
+/// can work out ([`StandbySchedule::with_daily_after`]).
+fn schedule_argument(
+    py: Python<'_>,
+    schedule: Option<Bound<'_, PyAny>>,
+) -> PyResult<Option<StandbySchedule>> {
+    let Some(schedule) = schedule.filter(|schedule| !schedule.is_none()) else {
+        return Ok(None);
+    };
+    let invalid = |error: ValidationError| errors::validation_to_py_err(py, &error);
+    let mut fields = object("schedule", &schedule)?;
+    let daily_after = fields.remove("_daily_after");
+    let schedule = StandbySchedule::from_kwargs(&fields).map_err(invalid)?;
+    if schedule.repeat() != Repeat::Daily {
+        return Ok(Some(schedule));
+    }
+    Ok(Some(match daily_after {
+        None | Some(Value::Null) => schedule,
+        Some(following) => match pydantic_datetime(&following).map_err(invalid)?.aware() {
+            Some(following) => schedule.with_daily_after(following),
+            None => schedule,
+        },
+    }))
 }
 
 fn callable(what: &str, value: Option<Bound<'_, PyAny>>) -> PyResult<Option<Py<PyAny>>> {
@@ -829,6 +868,86 @@ impl PyClient {
 
     fn get_booking_list<'py>(&self, py: Python<'py>, vin: String) -> PyResult<Bound<'py, PyAny>> {
         read!(self, py, |client| client.get_booking_list(&vin))
+    }
+
+    fn get_standby_plans<'py>(&self, py: Python<'py>, vin: String) -> PyResult<Bound<'py, PyAny>> {
+        read!(self, py, |client| client.get_standby_plans(&vin))
+    }
+
+    #[pyo3(signature = (vin, plan, *, schedule = None))]
+    fn save_standby_plan<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        plan: Bound<'py, PyAny>,
+        schedule: Option<Bound<'py, PyAny>>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let plan: StandbyPlan = model(py, "plan", &plan)?;
+        let schedule = schedule_argument(py, schedule)?;
+        read!(self, py, |client| client.save_standby_plan(
+            &vin,
+            &plan,
+            schedule.as_ref()
+        ))
+    }
+
+    #[pyo3(signature = (vin, name, commands, *, schedule = None))]
+    fn create_standby_plan<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        name: String,
+        commands: Vec<Bound<'py, PyAny>>,
+        schedule: Option<Bound<'py, PyAny>>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let commands = commands
+            .iter()
+            .map(|command| model::<StandbyPlanCommand>(py, "a command", command))
+            .collect::<PyResult<Vec<_>>>()?;
+        let schedule = schedule_argument(py, schedule)?;
+        read!(self, py, |client| client.create_standby_plan(
+            &vin,
+            &name,
+            &commands,
+            schedule.as_ref()
+        ))
+    }
+
+    fn set_default_standby_plan<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        plan_id: String,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        read!(self, py, |client| client
+            .set_default_standby_plan(&vin, &plan_id))
+    }
+
+    fn delete_standby_plan<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        plan_id: String,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        read!(self, py, |client| client
+            .delete_standby_plan(&vin, &plan_id))
+    }
+
+    #[pyo3(signature = (vin, plan_id, *, poll_attempts = 10, poll_interval = 1.5))]
+    fn run_standby_plan<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        plan_id: String,
+        poll_attempts: i64,
+        poll_interval: f64,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let settings = RunPollSettings {
+            poll_attempts,
+            poll_interval,
+        };
+        read!(self, py, |client| client
+            .run_standby_plan(&vin, &plan_id, settings))
     }
 
     #[pyo3(signature = (vin, *, command_pwd = None))]

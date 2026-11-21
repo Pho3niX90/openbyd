@@ -34,7 +34,7 @@ COMMAND_ERRORS = [
     {"class": "BydEndpointNotSupportedError", "code": "1001", "endpoint": "/control/remoteControl"},
     {"class": "BydRateLimitError", "code": "6024", "endpoint": "/control/remoteControl"},
     {"class": "BydServiceBusyError", "code": "1008", "endpoint": "/control/remoteControl"},
-    {"class": "BydSessionExpiredError", "code": "1005", "endpoint": "/control/remoteControl"},
+    {"class": "BydSessionExpiredError", "code": "1002", "endpoint": "/control/remoteControl"},
     {"class": "BydApiError", "code": "9999", "endpoint": "/control/remoteControl"},
     {"class": "BydTransportError", "status_code": 502, "endpoint": "/control/remoteControl"},
     {"class": "BydTransportError"},

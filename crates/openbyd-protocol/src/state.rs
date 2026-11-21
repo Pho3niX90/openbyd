@@ -5,18 +5,22 @@
 //! energy, charging schedule) after running it through the quality filters
 //! in [`validators`], and commands lay their expected outcome over the
 //! accepted data as projections until a payload confirms them, they expire
-//! or the command is rolled back.
+//! or the command is rolled back. A partial MQTT `vehicleStatusPush` is laid
+//! over the sections already held ([`VehicleStateEngine::patch_status_push`],
+//! [`patch`]).
 //!
 //! Nothing here reads the clock: the methods take the monotonic time.
 
 mod calls;
 pub mod engine;
+pub mod patch;
 pub mod validators;
 
 pub use engine::{
     DEFAULT_PROJECTION_TTL, FieldProjection, Projected, ProjectionSpec, SectionModel,
     StateChangedCallback, VehicleSnapshot, VehicleStateEngine,
 };
+pub use patch::PatchSection;
 pub use validators::{
     RealtimeOverride, RealtimeUpdates, apply_gps_filters, apply_hvac_filters,
     apply_realtime_filters, guard_gps_coordinates, has_valid_coordinates,

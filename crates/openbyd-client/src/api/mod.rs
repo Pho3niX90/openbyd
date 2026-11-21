@@ -17,6 +17,7 @@ pub mod message_center;
 pub mod push_notifications;
 pub mod realtime;
 pub mod smart_charging;
+pub mod standby;
 pub mod vehicle;
 pub mod vehicle_settings;
 
@@ -75,6 +76,7 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
             push_notifications::parity_call,
             realtime::parity_call,
             smart_charging::parity_call,
+            standby::parity_call,
             vehicle::parity_call,
             vehicle_settings::parity_call,
         ],

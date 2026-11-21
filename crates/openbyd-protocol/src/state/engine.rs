@@ -22,6 +22,7 @@ use std::sync::Arc;
 
 use serde_json::{Map, Value, json};
 
+use super::patch::PatchSection;
 use super::validators::{apply_gps_filters, apply_hvac_filters, apply_realtime_filters};
 use crate::coerce;
 use crate::models::base::BydModel;
@@ -55,7 +56,8 @@ pub trait SectionModel: BydModel + Clone {
     const SECTION: &'static str;
     /// Fields annotated `float | None`.
     const FLOAT_FIELDS: &'static [&'static str];
-    /// Fields annotated `int | None` (not enums).
+    /// Fields annotated `int | None` or `int | str | None` (not enums): a
+    /// `bool` written into one without validation is dumped as 0 or 1.
     const INT_FIELDS: &'static [&'static str];
     /// Fields holding a datetime or a nested model.
     const OPAQUE_FIELDS: &'static [&'static str];
@@ -101,6 +103,8 @@ impl SectionModel for VehicleRealtimeData {
     ];
     const INT_FIELDS: &'static [&'static str] = &[
         "main_setting_temp",
+        "air_run_state",
+        "repair_mode_switch",
         "wait_status",
         "full_hour",
         "full_minute",
@@ -159,6 +163,7 @@ impl SectionModel for HvacStatus {
         "pm25_state_out_car",
     ];
     const INT_FIELDS: &'static [&'static str] = &[
+        "air_run_state",
         "whether_support_adjust_temp",
         "front_defrost_status",
         "electric_defrost_status",
@@ -525,7 +530,8 @@ pub type StateChangedCallback = Box<dyn FnMut(&str, &VehicleSnapshot) + Send>;
 ///
 /// It manages:
 ///
-/// - **partial merges**: each `update_*` replaces one section;
+/// - **partial merges**: each `update_*` replaces one section, and
+///   `patch_status_push` lays a partial push over the sections held;
 /// - **value-quality filters**: GPS Null Island, realtime zero-drop and
 ///   friends, the HVAC placeholder (see [`super::validators`]);
 /// - **command projections**: the state a command expects, laid over the
@@ -654,6 +660,66 @@ impl VehicleStateEngine {
         self.reconcile_projections(validated.as_ref(), now);
         self.base_realtime = Some(validated);
         self.rebuild_snapshot(now);
+    }
+
+    /// Lays the fields a partial realtime model carries over the realtime
+    /// data already held ([`Self::patch_status_push`] with only realtime).
+    pub fn patch_realtime(&mut self, partial: VehicleRealtimeData, now: f64) {
+        self.patch_status_push(Some(partial), None, None, now);
+    }
+
+    /// Merges the partial models of one MQTT `vehicleStatusPush` into the
+    /// sections already held, with one snapshot rebuild for all of them.
+    ///
+    /// A section that has not had a full payload yet is skipped, so a push
+    /// never shows a half-empty section. Values a partial does not carry
+    /// (`None`, an enum's `UNKNOWN` or `NO_DATA`) leave the known reading in
+    /// place, and `raw` is merged, not replaced: see
+    /// [`PatchSection::build_section_patch`]. The patched realtime and HVAC
+    /// sections then go through the same filters as a full payload, with the
+    /// section before the patch as the previous value, and every patched
+    /// section through the guard window.
+    ///
+    /// When no section changes (none is held yet, or the partials carry
+    /// nothing) the snapshot is not rebuilt and the callback is not called.
+    pub fn patch_status_push(
+        &mut self,
+        realtime: Option<VehicleRealtimeData>,
+        hvac: Option<HvacStatus>,
+        charging: Option<ChargingStatus>,
+        now: f64,
+    ) {
+        let mut changed = false;
+
+        if let (Some(partial), Some(base)) = (realtime, self.base_realtime.clone())
+            && let Some(patched) = VehicleRealtimeData::build_section_patch(&base, partial)
+        {
+            let validated = Arc::new(apply_realtime_filters(Some(&base), patched));
+            self.reconcile_projections(validated.as_ref(), now);
+            self.base_realtime = Some(validated);
+            changed = true;
+        }
+
+        if let (Some(partial), Some(base)) = (hvac, self.base_hvac.clone())
+            && let Some(patched) = HvacStatus::build_section_patch(&base, partial)
+        {
+            let validated = Arc::new(apply_hvac_filters(Some(&base), patched));
+            self.reconcile_projections(validated.as_ref(), now);
+            self.base_hvac = Some(validated);
+            changed = true;
+        }
+
+        if let (Some(partial), Some(base)) = (charging, self.base_charging.clone())
+            && let Some(patched) = ChargingStatus::build_section_patch(&base, partial)
+        {
+            self.reconcile_projections(&patched, now);
+            self.base_charging = Some(Arc::new(patched));
+            changed = true;
+        }
+
+        if changed {
+            self.rebuild_snapshot(now);
+        }
     }
 
     /// Merges HVAC data through the HVAC placeholder filter and the guard window.

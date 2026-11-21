@@ -2,7 +2,7 @@
 
 An unofficial client for the BYD overseas app API, written in Rust, with Python bindings.
 
-openbyd is a port of [pyBYD](https://github.com/jkaberg/pyBYD). pyBYD stays the reference: every piece ported here is tested against it, and the pyBYD commit openbyd currently matches is recorded in `parity/UPSTREAM_COMMIT`.
+openbyd is a port of [pyBYD](https://github.com/jkaberg/pyBYD). pyBYD stays the reference: every piece ported here is tested against it, and the pyBYD commit openbyd currently matches is recorded in `parity/UPSTREAM_COMMIT` (fetched from the repository in `parity/UPSTREAM_REPO`, which is a fork while openbyd carries ports of pull requests pyBYD has not merged yet).
 
 This project is not affiliated with, endorsed by or supported by BYD.
 
@@ -56,7 +56,7 @@ for vehicle in client.get_vehicles().await? {
 
 ## Speed up pyBYD today
 
-pyBYD encrypts every request and decrypts every reply with a table-driven cipher written in Python. A 2 KB request and reply cost it about 130 ms of CPU, during which the event loop is blocked. openbyd does the same work in under half a millisecond and releases the GIL while it runs.
+pyBYD encrypts every request and decrypts every reply with a table-driven cipher written in Python. Up to pyBYD 0.0.85 a 2 KB request and reply cost it about 130 ms of CPU, during which the event loop is blocked. Later versions fold the cipher's tables when they load, which brings that down to a millisecond or two. openbyd does the same work in under half a millisecond and releases the GIL while it runs.
 
 ```python
 from openbyd import pybyd_accel
@@ -104,7 +104,7 @@ pytest                         # Python bindings, same vectors
 With pyBYD installed, `pytest` also compares openbyd against it on random inputs, and checks that the recorded vectors are still what pyBYD produces:
 
 ```sh
-pip install "pybyd @ git+https://github.com/jkaberg/pyBYD@$(cat parity/UPSTREAM_COMMIT)"
+pip install "pybyd @ git+$(cat parity/UPSTREAM_REPO)@$(cat parity/UPSTREAM_COMMIT)"
 pytest
 ```
 

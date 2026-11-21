@@ -19,5 +19,8 @@ register_model(
         {"vin": "TESTVIN0000000001", "elecPercent": "55", "chargingState": 0, "connectState": 0, "fullHour": -1,
          "fullMinute": -1, "chargePower": "--", "time": 1700000000123},
         {"chargePower": "5.1", "chargePowerUnit": "kW"},
+        # Upstream #96: -1 is the "not reported" sentinel, not a connected cable.
+        {"connectState": -1},
+        {"connectState": 2},
     ],
 )

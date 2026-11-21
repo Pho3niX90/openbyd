@@ -70,7 +70,7 @@ class BydAuthenticationError(BydApiError):
 
 
 class BydSessionExpiredError(BydAuthenticationError):
-    """Session token rejected by the server (for example code ``1005``)."""
+    """Session token rejected by the server (for example code ``1002``)."""
 
 
 class BydRemoteControlError(BydApiError):

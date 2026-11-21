@@ -279,7 +279,7 @@ mod tests {
     use crate::coerce::{self, ValidationError};
     use crate::models::{
         booking, charging, command_gating, control, energy, gps, hvac, latest_config,
-        message_center, push_notification, realtime, smart_charging, vehicle,
+        message_center, push_notification, realtime, smart_charging, standby, vehicle,
     };
 
     // -----------------------------------------------------------------
@@ -374,6 +374,10 @@ mod tests {
             smart_charging::SmartJourneyDto,
             smart_charging::SmartChargingSchedule,
             smart_charging::AcCurrentLimit,
+            standby::StandbyPlanCommand,
+            standby::StandbyPlan,
+            standby::StandbyPlanList,
+            standby::StandbyPlanRunResult,
             vehicle::EmpowerRange,
             vehicle::Vehicle,
         );

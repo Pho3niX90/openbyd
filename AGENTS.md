@@ -6,14 +6,17 @@ Read this file before changing anything. It applies to people and to coding agen
 
 ## The reference
 
-`parity/UPSTREAM_COMMIT` names the pyBYD commit openbyd matches. Port from that commit, not from a newer or older one. Check it out next to this repo and read the Python source directly:
+`parity/UPSTREAM_COMMIT` names the pyBYD commit openbyd matches, and `parity/UPSTREAM_REPO` the repository it is fetched from. Port from that commit, not from a newer or older one. Check it out next to this repo and read the Python source directly:
 
 ```sh
 git clone https://github.com/jkaberg/pyBYD ../pybyd-ref
+git -C ../pybyd-ref fetch "$(cat parity/UPSTREAM_REPO)" "$(cat parity/UPSTREAM_COMMIT)"
 git -C ../pybyd-ref checkout "$(cat parity/UPSTREAM_COMMIT)"
 ```
 
 The same commit must be installed in the Python environment you test with.
+
+Normally the repository is pyBYD's own and the commit is on its main branch. When openbyd ports pull requests pyBYD has not merged yet, the commit is a merge of pyBYD's main and those pull requests, pushed to a fork as the branch `openbyd-combined`, and `parity/UPSTREAM_REPO` names the fork. Push pyBYD's latest release tag to the fork as well: pyBYD takes its version from the nearest tag and sends it to BYD in `appName`, so without the tag every recorded request differs. Say which pull requests the merge holds in the commit that moves the pin. When pyBYD merges them, move the pin back to a commit on its main and put pyBYD's own URL back in `parity/UPSTREAM_REPO`; the upstream watch does both in the pull request it opens. If pyBYD's main moves while one of them is still open, the upstream watch fails and says so: merge main into `openbyd-combined` and move the pin to the new merge.
 
 ## Layout
 
@@ -30,6 +33,8 @@ The same commit must be installed in the Python environment you test with.
 | `crates/*/tests/vectors` | Recorded pyBYD answers: `openbyd-protocol`'s for pure calls, `openbyd-client`'s for flows. |
 
 Each file in `openbyd-protocol/src` and `openbyd-client/src/api` names the pyBYD file it ports in its first doc line.
+
+Where pyBYD does arithmetic on a datetime in a time zone (a daily plan's next run), openbyd uses the [`wallclock`](https://github.com/Pho3niX90/wallclock) crate, which follows Python's `datetime` and `zoneinfo` and is tested against CPython in its own repository.
 
 ## The parity rule
 
@@ -120,7 +125,7 @@ Debugging a trace mismatch: the test prints both traces. Compare `steps` first. 
 Set up once (Python 3.12, any virtual environment):
 
 ```sh
-pip install maturin pytest "pybyd @ git+https://github.com/jkaberg/pyBYD@$(cat parity/UPSTREAM_COMMIT)"
+pip install maturin pytest "pybyd @ git+$(cat parity/UPSTREAM_REPO)@$(cat parity/UPSTREAM_COMMIT)"
 ```
 
 Then:
@@ -172,7 +177,7 @@ When more than one person or agent works in the same checkout at once:
 
 When pyBYD moves:
 
-1. Put the new commit in `parity/UPSTREAM_COMMIT` and install it.
+1. Put the new commit in `parity/UPSTREAM_COMMIT` (and its repository in `parity/UPSTREAM_REPO`, if that changes) and install it.
 2. Run `python parity/generate.py`. Changed vector files show what upstream changed in existing behaviour.
 3. Run `pytest python/tests/test_surface.py`. It fails for every public pyBYD model, endpoint or client method that has no parity entry yet.
 4. Port until `cargo test` and `pytest` pass. Read the upstream commits (`git log <old>..<new>` in the reference checkout) to see intent, and port their tests too.

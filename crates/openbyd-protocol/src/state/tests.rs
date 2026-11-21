@@ -13,10 +13,15 @@ use super::validators::{
 };
 use super::*;
 use crate::models::base::BydModel;
+use crate::models::charging::ChargingStatus;
 use crate::models::gps::GpsInfo;
-use crate::models::hvac::HvacStatus;
-use crate::models::realtime::{LockState, TirePressureUnit, VehicleRealtimeData};
+use crate::models::hvac::{HvacOverallStatus, HvacStatus};
+use crate::models::realtime::{
+    AirCirculationMode, ChargingState, DoorOpenState, LockState, OnlineState, StearingWheelHeat,
+    TirePressureUnit, VehicleRealtimeData,
+};
 use crate::models::vehicle::Vehicle;
+use crate::mqtt::{REALTIME_STATUS_PUSH_DTOS, VehicleStatusPushDto, flatten_vehicle_status_push};
 use crate::parity;
 
 fn realtime(raw: Value) -> VehicleRealtimeData {
@@ -29,6 +34,21 @@ fn hvac(raw: Value) -> HvacStatus {
 
 fn gps(raw: Value) -> GpsInfo {
     GpsInfo::parse(&raw, &Value::Null).unwrap()
+}
+
+fn charging(raw: Value) -> ChargingStatus {
+    ChargingStatus::parse(&raw, &Value::Null).unwrap()
+}
+
+/// An engine counting its `on_state_changed` calls.
+fn counting_engine() -> (VehicleStateEngine, Arc<AtomicUsize>) {
+    let mut engine = engine();
+    let notified = Arc::new(AtomicUsize::new(0));
+    let counter = Arc::clone(&notified);
+    engine.set_on_state_changed(Some(Box::new(move |_, _| {
+        counter.fetch_add(1, Ordering::SeqCst);
+    })));
+    (engine, notified)
 }
 
 fn engine() -> VehicleStateEngine {
@@ -188,6 +208,16 @@ fn overrides_dump_like_pydantic() {
         dumped_override::<R>("left_front_door_lock", &json!(true)),
         json!(true)
     );
+    // Plain ints since pyBYD #94 and #96 (the second is `int | str`).
+    for field in ["air_run_state", "repair_mode_switch"] {
+        assert_eq!(dumped_override::<R>(field, &json!(true)), json!(1));
+        assert_eq!(dumped_override::<R>(field, &json!(false)), json!(0));
+        assert_eq!(dumped_override::<R>(field, &json!("x")), json!("x"));
+    }
+    assert_eq!(
+        dumped_override::<HvacStatus>("air_run_state", &json!(false)),
+        json!(0)
+    );
 }
 
 #[test]
@@ -336,4 +366,268 @@ fn parity_arguments_are_checked() {
             .kind,
         "BadArguments"
     );
+}
+
+/// Upstream `test_state_engine_patch_realtime_preserves_existing_fields_and_merges_raw`.
+#[test]
+fn patch_realtime_keeps_the_other_fields_and_merges_raw() {
+    let mut engine = engine();
+    engine.update_realtime(
+        realtime(json!({
+            "elecPercent": 75, "enduranceMileage": 400, "tempInCar": 22.5,
+            "leftFrontDoor": 0, "leftFrontDoorLock": 2,
+        })),
+        0.0,
+    );
+    // A command expects the door to unlock.
+    engine.register_projections(
+        &[ProjectionSpec::new(
+            "realtime",
+            "left_front_door_lock",
+            json!(1),
+        )],
+        0.0,
+    );
+    // The sentinels (-129, -1) must not erase what is known.
+    engine.patch_realtime(
+        realtime(json!({
+            "leftFrontDoor": 1, "leftFrontDoorLock": 1, "tempInCar": -129, "rightFrontDoorLock": -1,
+        })),
+        1.0,
+    );
+
+    let snapshot = engine.snapshot();
+    let section = snapshot.realtime.as_ref().unwrap();
+    let base = section.base();
+    assert_eq!(base.left_front_door, Some(DoorOpenState::Open));
+    assert_eq!(base.left_front_door_lock, Some(LockState::Unlocked));
+    assert_eq!(base.right_front_door_lock, None);
+    assert_eq!(base.elec_percent, Some(75.0));
+    assert_eq!(base.endurance_mileage, Some(400.0));
+    assert_eq!(base.temp_in_car, Some(22.5));
+    assert_eq!(base.raw["enduranceMileage"], json!(400));
+    assert_eq!(base.raw["leftFrontDoor"], json!(1));
+    assert_eq!(base.raw["tempInCar"], json!(-129), "raw is merged as sent");
+    // The push confirmed the projection.
+    assert!(!section.is_projected());
+    assert!(engine.held_projections().is_empty());
+}
+
+/// Upstream `test_state_engine_patch_skips_uninitialized_base_and_patches_hvac_charging`.
+#[test]
+fn a_status_push_skips_unknown_sections_and_rebuilds_once() {
+    let (mut engine, notified) = counting_engine();
+
+    // Before any full payload a partial is ignored.
+    engine.patch_realtime(realtime(json!({"elecPercent": 80})), 0.0);
+    assert!(engine.snapshot().realtime.is_none());
+    assert_eq!(notified.load(Ordering::SeqCst), 0);
+
+    engine.update_realtime(
+        realtime(json!({"elecPercent": 70, "chargeState": 1, "chargePower": 5.1})),
+        0.0,
+    );
+    engine.update_hvac(hvac(json!({"status": 2, "mainSettingTempNew": 21.0})), 0.0);
+    engine.update_charging(
+        charging(json!({"soc": 70, "chargingState": 1, "connectState": 1, "chargePower": 5.1})),
+        0.0,
+    );
+    notified.store(0, Ordering::SeqCst);
+
+    let Value::Object(push) = json!({
+        "airStatusDto": {"cycleModel": 2, "airRunState": 1, "mainSettingTempNew": 23.0},
+        "chargeStatusDto": {"chargingState": 15, "connectState": 0, "chargeState": 15},
+        "can4A505Dto": {"elecPercent": 85},
+    }) else {
+        unreachable!()
+    };
+    let flat = flatten_vehicle_status_push(&push, &REALTIME_STATUS_PUSH_DTOS);
+    let air = flatten_vehicle_status_push(&push, &[VehicleStatusPushDto::AirStatus]);
+    let charge = flatten_vehicle_status_push(&push, &[VehicleStatusPushDto::ChargeStatus]);
+    engine.patch_status_push(
+        Some(realtime(Value::Object(flat))),
+        Some(hvac(Value::Object(air))),
+        Some(charging(Value::Object(charge))),
+        1.0,
+    );
+
+    assert_eq!(
+        notified.load(Ordering::SeqCst),
+        1,
+        "one rebuild for all three"
+    );
+    let snapshot = engine.snapshot();
+    let rt = snapshot.realtime.as_ref().unwrap().base();
+    assert_eq!(rt.elec_percent, Some(85.0));
+    assert_eq!(rt.charge_state, Some(ChargingState::Connected));
+    assert_eq!(rt.charge_power, None, "charging stopped");
+    let hv = snapshot.hvac.as_ref().unwrap().base();
+    assert_eq!(hv.status, Some(HvacOverallStatus::Off));
+    assert!(!hv.raw.contains_key("elecPercent"));
+    assert_eq!(hv.cycle_choice, Some(AirCirculationMode::Internal));
+    assert_eq!(hv.air_run_state, Some(1));
+    assert_eq!(hv.main_setting_temp_new, Some(23.0));
+    let ch = snapshot.charging.as_ref().unwrap().base();
+    assert_eq!(ch.soc, Some(70));
+    assert!(!ch.raw.contains_key("cycleModel"));
+    assert_eq!(ch.connect_state, Some(0));
+    assert_eq!(ch.charge_power, None);
+}
+
+#[test]
+fn a_partial_that_carries_nothing_changes_nothing() {
+    let (mut engine, notified) = counting_engine();
+    engine.update_realtime(realtime(json!({"elecPercent": 70})), 0.0);
+    engine.update_hvac(hvac(json!({"status": 1, "pm": 3})), 0.0);
+    engine.register_projections(&[ProjectionSpec::new("hvac", "status", json!(2))], 0.0);
+    let before = engine.snapshot().clone();
+    notified.store(0, Ordering::SeqCst);
+
+    // Unknown keys, sentinels, values at their default, a section never seen
+    // (charging): no rebuild, and the expired projection is not cleaned out.
+    engine.patch_status_push(
+        Some(realtime(
+            json!({"foo": 1, "elecPercent": -1, "onlineState": -1, "tempInCar": -129}),
+        )),
+        Some(hvac(json!({"status": 0, "stearingWheelHeatState": 0}))),
+        Some(charging(json!({"soc": 50}))),
+        100.0,
+    );
+    assert_eq!(notified.load(Ordering::SeqCst), 0);
+    assert_eq!(engine.snapshot(), &before);
+    assert_eq!(engine.held_projections().len(), 1);
+    engine.patch_status_push(None, None, None, 100.0);
+    assert_eq!(notified.load(Ordering::SeqCst), 0);
+
+    // One carried field rebuilds, which cleans the expired projection out.
+    engine.patch_status_push(None, Some(hvac(json!({"pm": 4}))), None, 100.0);
+    assert_eq!(notified.load(Ordering::SeqCst), 1);
+    assert!(engine.held_projections().is_empty());
+    assert_eq!(
+        engine.snapshot().hvac.as_ref().unwrap().base().pm,
+        Some(4.0)
+    );
+}
+
+#[test]
+fn section_patches_from_rust() {
+    let base = realtime(json!({
+        "elecPercent": 70, "chargeState": 1, "chargePower": 5.1, "chargePowerUnit": "kW",
+        "onlineState": 1, "stearingWheelHeatState": 1, "leftFrontDoorLock": 2,
+    }));
+    let patch = |partial: Value| VehicleRealtimeData::build_section_patch(&base, realtime(partial));
+
+    // Nothing carried: unknown keys, sentinels, placeholders, `raw` alone.
+    for partial in [
+        json!({}),
+        json!({"foo": 1}),
+        json!({"onlineState": -1, "stearingWheelHeatState": 0, "elecPercent": "--"}),
+        json!({"raw": {"own": 1}}),
+    ] {
+        assert!(patch(partial).is_none());
+    }
+
+    // A value that is not a member reads ONLINE and is carried; ON (-1) is a
+    // reading of the steering wheel, not a placeholder; a lock at 0 is UNAVAILABLE.
+    let patched = patch(json!({
+        "onlineState": 5, "stearingWheelHeatState": -1, "leftFrontDoorLock": 0, "extra": true,
+    }))
+    .unwrap();
+    assert_eq!(patched.online_state, OnlineState::Online);
+    assert_eq!(
+        patched.steering_wheel_heat_state,
+        Some(StearingWheelHeat::On)
+    );
+    assert_eq!(patched.left_front_door_lock, Some(LockState::Unavailable));
+    assert_eq!(patched.elec_percent, Some(70.0));
+    assert_eq!(
+        patched.raw.keys().map(String::as_str).collect::<Vec<_>>(),
+        [
+            "elecPercent",
+            "chargeState",
+            "chargePower",
+            "chargePowerUnit",
+            "onlineState",
+            "stearingWheelHeatState",
+            "leftFrontDoorLock",
+            "extra",
+        ],
+        "known keys keep their place, new ones follow"
+    );
+    assert_eq!(patched.raw["onlineState"], json!(5));
+
+    // The charge power: cleared when charging stops, kept when the partial brings one.
+    let stopped = patch(json!({"chargeState": 15})).unwrap();
+    assert_eq!(
+        (stopped.charge_power, stopped.charge_power_unit),
+        (None, None)
+    );
+    let other_state = patch(json!({"chargingState": 0, "chargePowerUnit": "W"})).unwrap();
+    assert_eq!(
+        other_state.charge_power_unit, None,
+        "the unit goes with the power"
+    );
+    let still = patch(json!({"chargeState": 15, "chargePower": 1.5})).unwrap();
+    assert_eq!(still.charge_power, Some(1.5));
+    let charging_on = patch(json!({"chargeState": 1})).unwrap();
+    assert_eq!(charging_on.charge_power, Some(5.1));
+
+    // Charging: `vin` is never patched and does not count as carried.
+    let status = charging(json!({"vin": "TESTVIN0000000001", "soc": 70, "chargePower": 5.1}));
+    assert!(
+        ChargingStatus::build_section_patch(&status, charging(json!({"vin": "TESTVIN0000000002"})))
+            .is_none()
+    );
+    let patched = ChargingStatus::build_section_patch(
+        &status,
+        charging(json!({"vin": "TESTVIN0000000002", "chargingState": 0})),
+    )
+    .unwrap();
+    assert_eq!(patched.vin, "TESTVIN0000000001");
+    assert_eq!(patched.charge_power, None);
+
+    // HVAC has no charge power to clear.
+    let climate = hvac(json!({"status": 2, "pm": 3}));
+    let patched = HvacStatus::build_section_patch(&climate, hvac(json!({"status": 1}))).unwrap();
+    assert_eq!(patched.status, Some(HvacOverallStatus::On));
+    assert_eq!(patched.pm, Some(3.0));
+}
+
+#[test]
+fn patch_calls_check_their_arguments() {
+    let call = |args: Value| parity::call("state._build_section_patch", &args);
+    assert_eq!(
+        call(json!({"section": "gps", "base": {}, "partial": {}}))
+            .unwrap_err()
+            .kind,
+        "BadArguments"
+    );
+    assert_eq!(
+        call(json!({"base": {}, "partial": {}})).unwrap_err().kind,
+        "BadArguments"
+    );
+    assert_eq!(
+        call(json!({"section": "hvac", "base": {"pm": 1}, "partial": {}})).unwrap(),
+        Value::Null
+    );
+    let engine = |ops: Value| {
+        parity::call(
+            "state.VehicleStateEngine",
+            &json!({"vin": "TESTVIN0000000001", "vehicle": {"vin": "TESTVIN0000000001"},
+                    "start": 0.0, "ops": ops}),
+        )
+        .unwrap()
+    };
+    let answer = engine(json!([
+        {"op": "update_realtime", "raw": {"elecPercent": 70}},
+        {"op": "patch_realtime", "raw": {"elecPercent": 71}},
+        {"op": "patch_status_push", "realtime": {"elecPercent": 72}, "hvac": []},
+        {"op": "patch_status_push"},
+    ]));
+    assert_eq!(
+        answer["steps"][1]["changes"]["realtime"]["elec_percent"],
+        json!(71.0)
+    );
+    assert_eq!(answer["steps"][2]["error"], json!("ValidationError"));
+    assert_eq!(answer["steps"][3]["notified"], json!(0));
 }

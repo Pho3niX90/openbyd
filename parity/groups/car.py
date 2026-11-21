@@ -12,7 +12,10 @@ documented in ``crates/openbyd-client/src/car/parity.rs``. In short::
 
 A reply is ``{"result": raw, "context": ..., "pushes": [...]}`` or
 ``{"error": <scripted error>, "pushes": [...]}``; a push is ``{"kind":
-"realtime" | "charging" | "energy", "raw": ..., "context": ...}``.
+"realtime" | "charging" | "energy", "raw": ..., "context": ...}`` or
+``{"kind": "status_push", "raw": ..., "hvac": ..., "charging": ..., "context":
+...}`` (the partial models of a ``vehicleStatusPush``; ``status_push_of``
+builds one from a push payload the way the client does).
 
 pyBYD's side runs the real ``BydCar`` on an event loop, with
 ``time.monotonic`` patched to the sequence's clock and a fake client that
@@ -53,15 +56,19 @@ from parity.framework import ROOT, Group
 from parity.groups.capabilities import HAN_HVAC, REALTIME_SEATS, RUNNING, SEATS_ON, params_json, random_error
 from parity.groups.models_latest_config import LATEST_SAMPLES
 from parity.groups.models_realtime import ENERGY_CONTEXTS, energy, python_context
+from parity.groups.mqtt import STATUS_PUSHES, random_status_push
 from parity.groups.state import (
     ASLEEP_HTTP,
+    CHARGING_BASE,
     CHARGING_SAMPLES,
     ENERGY_CORPUS,
     GPS_VALID,
     GPS_VALID_B,
+    HVAC_BASE,
     HVAC_CORPUS,
     HVAC_PLACEHOLDER,
     MQTT_PUSH,
+    REALTIME_CHARGING,
     REALTIME_CORPUS,
     SCHEDULE_SAMPLES,
     _snapshot_dump,
@@ -70,8 +77,10 @@ from parity.groups.state import (
     random_energy,
     random_gps,
     random_hvac,
+    random_partial,
     random_payload,
     random_realtime,
+    status_push_op,
 )
 from parity.models_support import json_safe, jsonable
 
@@ -84,7 +93,7 @@ CALLS = [
     "car.BydCar", "car.vin", "car.state", "car.capabilities", "car.update_realtime", "car.update_hvac",
     "car.update_gps", "car.update_charging", "car.start_charging", "car.stop_charging", "car.update_energy",
     "car.get_ac_current_limit", "car.save_charging_schedule", "car.handle_mqtt_realtime",
-    "car.handle_mqtt_charging", "car.handle_mqtt_energy", "car.close",
+    "car.handle_mqtt_status_push", "car.handle_mqtt_charging", "car.handle_mqtt_energy", "car.close",
 ]
 
 # ---------------------------------------------------------------------------
@@ -100,6 +109,19 @@ def parse_push(kind: str, raw: Any, context: Any) -> Any:
     if cls is VehicleRealtimeData:
         return cls.model_validate(raw, context=python_context(context))
     return cls.model_validate(raw)
+
+
+def deliver(car: BydCar, push: dict[str, Any]) -> None:
+    """Validates ``push`` as the client does and hands it to the car's handler for its kind."""
+    kind = push.get("kind", "")
+    if kind == "status_push":
+        data = parse_push("realtime", push.get("raw"), push.get("context"))
+        hvac = None if push.get("hvac") is None else HvacStatus.model_validate(push["hvac"])
+        charging = None if push.get("charging") is None else ChargingStatus.model_validate(push["charging"])
+        car.handle_mqtt_status_push(data, hvac=hvac, charging=charging)
+        return
+    data = parse_push(kind, push.get("raw"), push.get("context"))
+    getattr(car, _PUSHES.get(kind, _PUSHES["energy"])[0])(data)
 
 
 class FakeClient:
@@ -119,10 +141,9 @@ class FakeClient:
         if pushes:
             for push in pushes:
                 try:
-                    data = parse_push(push.get("kind", ""), push.get("raw"), push.get("context"))
+                    deliver(self.car, push)
                 except Exception:  # noqa: BLE001 - the client drops a push it cannot parse
                     continue
-                getattr(self.car, _PUSHES.get(push.get("kind"), _PUSHES["energy"])[0])(data)
             await asyncio.sleep(0)
         if "error" in reply:
             raise scripted_error(reply["error"])
@@ -248,8 +269,7 @@ async def _call(car: BydCar, target: str, method: str, args: dict[str, Any]) -> 
         if method == "close":
             return car.close()
         if method.startswith("handle_mqtt_"):
-            data = parse_push(method[len("handle_mqtt_"):], args.get("raw"), args.get("context"))
-            return getattr(car, method)(data)
+            return deliver(car, {**args, "kind": method[len("handle_mqtt_"):]})
         if method == "save_charging_schedule":
             enabled = True if args.get("enabled") is None else args["enabled"]
             return _dump(await car.save_charging_schedule(
@@ -435,6 +455,27 @@ def push(kind: str, raw: Any, context: Any = None) -> dict[str, Any]:
     return call("car", f"handle_mqtt_{kind}", {"raw": raw, "context": context})
 
 
+def status_push_of(payload: dict[str, Any], context: Any = None) -> dict[str, Any] | None:
+    """The ``status_push`` the client makes of a ``vehicleStatusPush`` payload,
+    or ``None`` when it has no known section (the client then calls nothing)."""
+    partials = status_push_op(payload, context)
+    if partials["realtime"] is None:
+        return None
+    return {"kind": "status_push", "raw": partials["realtime"], "hvac": partials["hvac"],
+            "charging": partials["charging"], "context": context}
+
+
+def status_push(raw: Any, hvac: Any = None, charging: Any = None, context: Any = None) -> dict[str, Any]:
+    """A ``handle_mqtt_status_push`` call with these partial payloads."""
+    return call("car", "handle_mqtt_status_push", {"raw": raw, "hvac": hvac, "charging": charging, "context": context})
+
+
+def push_call(pushed: dict[str, Any]) -> dict[str, Any]:
+    """The ``handle_mqtt_*`` call that delivers ``pushed`` (a push of a reply)."""
+    args = {key: value for key, value in pushed.items() if key != "kind"}
+    return call("car", f"handle_mqtt_{pushed['kind']}", args)
+
+
 def advance(seconds: float) -> dict[str, Any]:
     return {"op": "advance", "seconds": seconds}
 
@@ -607,12 +648,55 @@ def _reads() -> Iterator[tuple[str, dict[str, Any]]]:
                                             push("realtime", REALTIME_CORPUS[4], EV), push("realtime", "x")])
 
 
+def _status_pushes() -> Iterator[tuple[str, dict[str, Any]]]:
+    """``handle_mqtt_status_push``: partial pushes laid over what the car knows."""
+    name = "handle_mqtt_status_push"
+    known = [update("realtime", ok(REALTIME_CHARGING, context=HYBRID)), update("hvac", ok(HVAC_BASE)),
+             update("charging", ok(CHARGING_BASE))]
+    # The upstream pushes on a car that knows every section, and on one that knows nothing yet.
+    for payload in STATUS_PUSHES:
+        pushed = status_push_of(payload, HYBRID)
+        ops = [READ] if pushed is None else [push_call(pushed)]
+        yield sequence(name, [*known, *ops, READ])
+        yield sequence(name, [*ops, READ])
+    # One section known: the others are skipped.
+    for kept in known:
+        yield sequence(name, [kept, push_call(status_push_of(STATUS_PUSHES[2], HYBRID))])
+    # Partials that carry nothing, and ones that do not validate: nothing is merged, not even the valid part.
+    yield sequence(name, [*known, status_push({}), status_push({"foo": 1}, {}, {}), status_push("x"), status_push(None),
+                          status_push({"elecPercent": 60}, []), status_push({"elecPercent": 60}, {"pm": 1}, {"soc": "x"}),
+                          status_push({}, None, None, 5), status_push({"elecPercent": 61}, {"pm": 2}, {"soc": 71})])
+    # A command's projection: confirmed by a status push, held against a contradicting one, expired by one.
+    unlocked = {"kind": "status_push", "raw": UNLOCKED, "hvac": None, "charging": None, "context": None}
+    locked = {**unlocked, "raw": LOCKED}
+    rt = known[0]
+    yield sequence(name, [rt, call("lock", "unlock", {}, ok()), push_call(locked), READ, push_call(unlocked), READ])
+    yield sequence(name, [rt, call("lock", "unlock", {}, ok(pushes=[unlocked])), READ])
+    yield sequence(name, [rt, call("lock", "unlock", {}, ok(pushes=[locked, push_of("realtime", "x"),
+                                                                    {"kind": "status_push", "raw": "x"},
+                                                                    {**unlocked, "hvac": []}])), READ])
+    yield sequence(name, [rt, call("lock", "lock", {}, err(TIMEOUT, pushes=[unlocked])), READ])
+    yield sequence(name, [rt, call("lock", "unlock", {}, ok()), advance(31.0), status_push({}), READ,
+                          status_push({"elecPercent": 50}), READ])
+    yield sequence(name, [known[1], rt, call("hvac", "stop", {}, ok()),
+                          status_push({"elecPercent": 50}, {"status": 1}), status_push({}, {"status": 2}), READ],
+                   capabilities=CAPS_ALL)
+    # Charging stops: the charge power goes in both sections; the schedule section is not touched.
+    yield sequence(name, [*known, status_push({"chargeState": 15}, None, {"chargingState": 15}, HYBRID),
+                          status_push({"chargeState": 1, "chargePower": 7.0}, None, {"chargingState": 1})])
+    # Pushes of every kind around a status push.
+    yield sequence(name, [push("realtime", MQTT_PUSH, HYBRID), status_push({"elecPercent": 0, "leftFrontDoorLock": 0}),
+                          push("charging", CHARGING_SAMPLES[0]), status_push({}, None, {"soc": 12}),
+                          push("realtime", ASLEEP_HTTP, HYBRID), status_push({"elecPercent": 33, "time": 1700000500})])
+
+
 @group.recorded
 def recorded() -> Iterator[tuple[str, dict[str, Any]]]:
     yield from _construction()
     yield from _features()
     yield from _projections()
     yield from _reads()
+    yield from _status_pushes()
     rng = random.Random("car-recorded")
     for _ in range(25):
         yield random_sequence(rng, max_steps=10)
@@ -630,7 +714,20 @@ def _random_reply(rng: random.Random, result: Any) -> dict[str, Any]:
     return reply
 
 
+def _random_status_push(rng: random.Random) -> dict[str, Any]:
+    context = rng.choice(ENERGY_CONTEXTS + [None])
+    if rng.random() < 0.6:
+        pushed = status_push_of(random_status_push(rng), context)
+        if pushed is not None:
+            return pushed
+    partials = [random_partial(rng, section) if rng.random() < 0.5 else None for section in ("hvac", "charging")]
+    return {"kind": "status_push", "raw": random_partial(rng, "realtime"), "hvac": partials[0], "charging": partials[1],
+            "context": context}
+
+
 def _random_push(rng: random.Random) -> dict[str, Any]:
+    if rng.random() < 0.3:
+        return _random_status_push(rng)
     roll = rng.random()
     if roll < 0.7:
         return push_of("realtime", random_realtime(rng), rng.choice(ENERGY_CONTEXTS + [None]))
@@ -659,8 +756,7 @@ def random_op(rng: random.Random) -> dict[str, Any]:
     if roll < 0.28:
         return update("energy", _random_reply(rng, random_energy(rng)))
     if roll < 0.40:
-        p = _random_push(rng)
-        return push(p["kind"], p["raw"], p["context"])
+        return push_call(_random_push(rng))
     if roll < 0.75:
         target, method, args = rng.choice(FEATURE_COMMANDS)
         args = copy.deepcopy(args)

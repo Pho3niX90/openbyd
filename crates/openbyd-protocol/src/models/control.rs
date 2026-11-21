@@ -188,6 +188,31 @@ impl IntEnum for ControlState {
     }
 }
 
+impl RemoteControlRes {
+    /// The Python member name.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Pending => "PENDING",
+            Self::Success => "SUCCESS",
+            Self::Failure => "FAILURE",
+            Self::SuccessAlt => "SUCCESS_ALT",
+        }
+    }
+}
+
+impl IntEnum for RemoteControlRes {
+    const MEMBERS: &'static [Self] = &[
+        Self::Pending,
+        Self::Success,
+        Self::Failure,
+        Self::SuccessAlt,
+    ];
+    const MISSING: Option<Self> = None;
+    fn value(self) -> i64 {
+        self as i64
+    }
+}
+
 /// Lifecycle state for deterministic command ACK correlation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum CommandLifecycleStatus {
@@ -376,6 +401,33 @@ pub struct RemoteControlResult {
     pub success: bool,
     /// Serial of the request this result belongs to.
     pub request_serial: Option<String>,
+    /// Battery-heat outcome code: `2` not needed, `6` conditions not met.
+    pub battery_heat_result: Option<i64>,
+    /// Text that goes with [`Self::battery_heat_result`].
+    pub battery_heat_result_message: Option<String>,
+    /// Battery temperature the cloud reported with the result.
+    pub battery_temperature: Option<i64>,
+    /// Expected heating time, in minutes.
+    pub expect_heat_minute: Option<i64>,
+    /// Heating time left, in minutes.
+    pub heat_surplus_minute: Option<i64>,
+    /// Battery heating status as sent.
+    pub heat_status: Option<i64>,
+    /// Whether the battery needs heating, as sent.
+    pub need_heat_index: Option<i64>,
+}
+
+/// Raw `res` values from BYD remote control polling and MQTT events.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RemoteControlRes {
+    /// Command received, still running.
+    Pending = 1,
+    /// Success.
+    Success = 2,
+    /// Failure.
+    Failure = 3,
+    /// Success, as some commands report it.
+    SuccessAlt = 4,
 }
 
 /// `RemoteControlResult._normalize_shapes`.
@@ -393,8 +445,13 @@ fn normalize_result_shapes(values: &Value) -> Result<Cow<'_, Value>, ValidationE
         && !merged.contains_key("control_state")
     {
         let state = match python_int(&merged["res"]) {
-            PyIntOf::Int(1) => ControlState::Pending,
-            PyIntOf::Int(2) => ControlState::Success,
+            PyIntOf::Int(res) if res == RemoteControlRes::Pending as i64 => ControlState::Pending,
+            PyIntOf::Int(res)
+                if res == RemoteControlRes::Success as i64
+                    || res == RemoteControlRes::SuccessAlt as i64 =>
+            {
+                ControlState::Success
+            }
             PyIntOf::Int(_) | PyIntOf::Big => ControlState::Failure,
             PyIntOf::ValueError => return Err(value_error()),
             PyIntOf::TypeError => return Err(type_error()),
@@ -403,6 +460,19 @@ fn normalize_result_shapes(values: &Value) -> Result<Cow<'_, Value>, ValidationE
         if !merged.contains_key("success") {
             merged.insert("success".to_owned(), json!(state == ControlState::Success));
         }
+    }
+    // Dedicated battery-heat polling can answer `res` 2 while carrying a
+    // business rejection in `batteryHeatResult` (2 = not needed, 6 =
+    // conditions not met): a failure, not a success. A value `int()` cannot
+    // read is ignored.
+    if let Some(heat_result) = merged.get("batteryHeatResult")
+        && matches!(python_int(heat_result), PyIntOf::Int(2 | 6))
+    {
+        merged.insert(
+            "controlState".to_owned(),
+            json!(ControlState::Failure as i64),
+        );
+        merged.insert("success".to_owned(), json!(false));
     }
     if merged.contains_key("controlState") && !merged.contains_key("success") {
         let state = match python_int(&merged["controlState"]) {
@@ -439,6 +509,13 @@ impl BydModel for RemoteControlResult {
                 aliased("request_serial", &["requestSerial"]),
                 coerce::string,
             ),
+            battery_heat_result: fields.opt("battery_heat_result", coerce::int),
+            battery_heat_result_message: fields.opt("battery_heat_result_message", coerce::string),
+            battery_temperature: fields.opt("battery_temperature", coerce::int),
+            expect_heat_minute: fields.opt("expect_heat_minute", coerce::int),
+            heat_surplus_minute: fields.opt("heat_surplus_minute", coerce::int),
+            heat_status: fields.opt("heat_status", coerce::int),
+            need_heat_index: fields.opt("need_heat_index", coerce::int),
         };
         fields.finish()?;
         Ok(model)
@@ -1778,6 +1855,11 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
         "models.control.ControlState" => coerce::int_enum::<ControlState>(args.value("value"))
             .map(|member| json!({"name": member.name(), "value": member as i64}))
             .map_err(ParityError::from),
+        "models.control.RemoteControlRes" => {
+            coerce::int_enum::<RemoteControlRes>(args.value("value"))
+                .map(|member| json!({"name": member.name(), "value": member as i64}))
+                .map_err(ParityError::from)
+        }
         "models.control.CommandLifecycleStatus" => {
             coerce::str_enum::<CommandLifecycleStatus>(args.value("value"))
                 .map(|member| json!({"name": member.name(), "value": member.as_str()}))

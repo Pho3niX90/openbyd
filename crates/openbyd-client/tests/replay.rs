@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use openbyd_client::client::{BydClient, ClientOptions, PollSettings, ProductionEnv};
 use openbyd_client::http::{HttpEnv, HttpPool};
 use openbyd_client::testing::broker::runtime_options;
+use openbyd_client::testing::codes;
 use openbyd_client::testing::replay::templates::position;
 use openbyd_client::testing::replay::{
     CarState, Energy, Epoch, ReplayOptions, ReplayServer, Scenario,
@@ -388,10 +389,10 @@ async fn a_1005_expires_the_sessions_once() {
     assert_eq!(logins(), 2, "no expiry a second early");
     replay.set_time(500.0).unwrap();
     assert_eq!(replay.stats().replay.sessions_expired, 1);
-    // The next request answers 1005; the client logs in again and reads the same state.
+    // The next request is refused as expired; the client logs in again and reads the same state.
     assert_eq!(owner.get_charging_status(EV).await.unwrap().soc, Some(80));
     assert_eq!(logins(), 3);
-    assert_eq!(replay.stats().server.by_code["1005"], 1);
+    assert_eq!(replay.stats().server.by_code[codes::SESSION_EXPIRED], 1);
     // Only once, and only that account.
     replay.set_time(550.0).unwrap();
     assert_eq!(owner.get_charging_status(EV).await.unwrap().soc, Some(80));

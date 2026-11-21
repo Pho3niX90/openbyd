@@ -298,7 +298,7 @@ impl Templates {
                 "oilPercent": -1, "oilEndurance": -1, "rate": -999, "gl": 0.0, "time": 0,
             })),
             builtin_asleep: object(json!({
-                "onlineState": 2, "connectState": -1, "vehicleState": 0, "elecPercent": 0,
+                "onlineState": 0, "connectState": -1, "vehicleState": 0, "elecPercent": 0,
                 "powerBattery": 0, "enduranceMileage": 0, "totalMileage": 0, "speed": 0,
                 "powerGear": 0, "chargeState": -1, "chargingState": -1, "time": 0,
             })),
@@ -361,7 +361,7 @@ impl Templates {
 
     /// The realtime reply (`vehicleRealTimeResult`, a `vehicleInfo` push):
     /// for an online car its state written into the awake template, for an
-    /// offline one the placeholder-zero reply BYD sends (`onlineState` 2).
+    /// offline one the placeholder-zero reply BYD sends (`onlineState` 0).
     pub fn realtime(
         &self,
         choice: CarTemplates,
@@ -378,7 +378,7 @@ impl Templates {
         } else {
             p = self.realtime_base(choice.asleep, &self.builtin_asleep);
             p.shift_remove("timestamp");
-            p.insert("onlineState".into(), json!(2));
+            p.insert("onlineState".into(), json!(0));
             p.insert("time".into(), json!(0));
         }
         match serial {
@@ -809,7 +809,7 @@ mod tests {
         let reply = empty.realtime(choice, &car("seal", Energy::Ev), &asleep, AT, None);
         assert_eq!(
             (reply["onlineState"].clone(), reply["time"].clone()),
-            (json!(2), json!(0))
+            (json!(0), json!(0))
         );
         assert!(reply.get("requestSerial").is_none());
     }

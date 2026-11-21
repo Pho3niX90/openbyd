@@ -28,6 +28,10 @@
 //! failed, and one step per callback: `{"on_vehicle_info": [vin, data]}`,
 //! `{"on_mqtt_event": [event, vin, respond_data]}`, `{"on_command_ack":
 //! ack}`, `{"on_command_lifecycle": event}`, `{"on_mqtt_connect": null}`.
+//! With the option `"car_pushes": true`, what the client hands to the car
+//! layer is a step too: `{"car": ["handle_mqtt_realtime", vin, data]}`
+//! (likewise `handle_mqtt_charging` and `handle_mqtt_energy`) and `{"car":
+//! ["handle_mqtt_status_push", vin, realtime, hvac | null, charging | null]}`.
 //! Everything still due on the MQTT timeline is delivered after the call.
 
 use std::collections::BTreeMap;
@@ -36,18 +40,22 @@ use std::sync::Arc;
 use openbyd_protocol::config::BydConfig;
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::models::base::BydModel;
+use openbyd_protocol::models::charging::ChargingStatus;
 use openbyd_protocol::models::control::{
     BatteryHeatParams, ClimateScheduleParams, ClimateStartParams, SeatClimateParams,
 };
+use openbyd_protocol::models::energy::EnergyConsumption;
+use openbyd_protocol::models::hvac::HvacStatus;
 use openbyd_protocol::models::latest_config::{VehicleCapabilities, VehicleLatestConfig};
 use openbyd_protocol::models::message_center::NotificationCategory;
+use openbyd_protocol::models::realtime::VehicleRealtimeData;
 use openbyd_protocol::models::vehicle::Vehicle;
 use openbyd_protocol::parity::{Args, Outcome, ParityError};
 use openbyd_protocol::session::Session;
 use openbyd_protocol::state::DEFAULT_PROJECTION_TTL;
 use serde_json::{Map, Value, json};
 
-use super::{BydClient, ChargePollSettings, ClientOptions, GetCarOptions, PollSettings};
+use super::{BydClient, CarRouter, ChargePollSettings, ClientOptions, GetCarOptions, PollSettings};
 use crate::api::control::model_error;
 use crate::api::smart_charging::EnergyTypeArg;
 use crate::api::vehicle::{dump_all, parse_model};
@@ -146,6 +154,42 @@ fn is_hex32(text: &str) -> bool {
     text.len() == 32 && text.chars().all(|c| c.is_ascii_hexdigit())
 }
 
+/// A [`CarRouter`] that records what it is handed as `{"car": [...]}` steps.
+struct RecordingRouter(Arc<ScriptedEnv>);
+
+impl CarRouter for RecordingRouter {
+    fn handle_mqtt_realtime(&self, vin: &str, data: &VehicleRealtimeData) {
+        self.0
+            .record(json!({"car": ["handle_mqtt_realtime", vin, data.dump()]}));
+    }
+
+    fn handle_mqtt_charging(&self, vin: &str, data: &ChargingStatus) {
+        self.0
+            .record(json!({"car": ["handle_mqtt_charging", vin, data.dump()]}));
+    }
+
+    fn handle_mqtt_energy(&self, vin: &str, data: &EnergyConsumption) {
+        self.0
+            .record(json!({"car": ["handle_mqtt_energy", vin, data.dump()]}));
+    }
+
+    fn handle_mqtt_status_push(
+        &self,
+        vin: &str,
+        data: &VehicleRealtimeData,
+        hvac: Option<&HvacStatus>,
+        charging: Option<&ChargingStatus>,
+    ) {
+        self.0.record(json!({"car": [
+            "handle_mqtt_status_push",
+            vin,
+            data.dump(),
+            hvac.map(BydModel::dump),
+            charging.map(BydModel::dump),
+        ]}));
+    }
+}
+
 /// The options of a parity call, with callbacks that record into `env`.
 fn options(args: &Args<'_>, env: &Arc<ScriptedEnv>) -> Result<ClientOptions, ParityError> {
     let mut options = ClientOptions::default();
@@ -184,6 +228,9 @@ fn options(args: &Args<'_>, env: &Arc<ScriptedEnv>) -> Result<ClientOptions, Par
         options.gate_policy = Some(Arc::new(move |_vin, verdict| {
             verdict.supported || bypass.contains(&verdict.reason)
         }));
+    }
+    if bool_or(&given, "car_pushes", false)? {
+        options.car_router = Some(Arc::new(RecordingRouter(Arc::clone(env))));
     }
     if bool_or(&given, "pin_passthrough", false)? {
         options.pin_resolver = Some(Arc::new(|given, config| match given {
@@ -493,6 +540,14 @@ async fn run_method(
         }
         "start_charging" => model!(client.start_charging(vin()?, charge_settings(args)?)),
         "stop_charging" => model!(client.stop_charging(vin()?, charge_settings(args)?)),
+        "get_standby_plans"
+        | "save_standby_plan"
+        | "create_standby_plan"
+        | "set_default_standby_plan"
+        | "delete_standby_plan"
+        | "run_standby_plan" => {
+            return super::standby::run_method(client, method, args).await;
+        }
         other => {
             return Err(ParityError::new(
                 "UnknownCall",

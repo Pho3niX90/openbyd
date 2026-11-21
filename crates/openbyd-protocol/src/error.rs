@@ -414,9 +414,11 @@ mod tests {
             raise_for_code("/e", code, "m", Some("V"), not_supported, map).kind()
         };
         assert_eq!(
-            kind("1005", Some(&["1005"])),
+            kind("1011", Some(&["1011"])),
             ErrorKind::BydSessionExpiredError
         );
+        // 1005 and 1010 are data errors, not an expired session.
+        assert_eq!(kind("1005", None), ErrorKind::BydApiError);
         assert_eq!(
             kind("1001", Some(&["1001"])),
             ErrorKind::BydEndpointNotSupportedError

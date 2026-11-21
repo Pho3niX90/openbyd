@@ -252,7 +252,7 @@ impl PyFakeServer {
         self.with(|server| server.set_cookie(header))
     }
 
-    /// Expires every session of `username`: its requests get code 1005 until it logs in again.
+    /// Expires every session of `username`: its requests get the session-expired code (1002) until it logs in again.
     fn expire_sessions(&self, username: &str) -> PyResult<()> {
         self.with(|server| server.expire_sessions(username))
     }

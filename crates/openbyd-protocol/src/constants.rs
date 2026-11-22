@@ -34,6 +34,9 @@ pub enum PollDelaysError {
     MemoryError,
     /// Python's `IndexError`: more attempts than steps on an empty ladder.
     IndexError,
+    /// Python's `OverflowError`: more attempts than an index holds (on a
+    /// 32-bit target, where Python's index is 32 bits too).
+    OverflowError,
 }
 
 /// The sleep before each poll attempt, one at a time: what
@@ -49,11 +52,15 @@ pub fn poll_delays(
     poll_interval: Option<f64>,
     default_ladder: &[f64],
 ) -> impl Iterator<Item = f64> + '_ {
-    let attempts = usize::try_from(poll_attempts).unwrap_or(0);
     let last = default_ladder.last().copied();
-    (0..attempts).map_while(move |index| match poll_interval {
+    // Counted in i64, so no target's usize shortens the run.
+    (0..poll_attempts.max(0)).map_while(move |index| match poll_interval {
         Some(interval) => Some(interval),
-        None => default_ladder.get(index).copied().or(last),
+        None => usize::try_from(index)
+            .ok()
+            .and_then(|index| default_ladder.get(index))
+            .copied()
+            .or(last),
     })
 }
 
@@ -65,10 +72,13 @@ pub fn resolve_poll_delays(
     poll_interval: Option<f64>,
     default_ladder: &[f64],
 ) -> Result<Vec<f64>, PollDelaysError> {
-    let attempts = usize::try_from(poll_attempts).unwrap_or(0);
-    if attempts > default_ladder.len() && poll_interval.is_none() && default_ladder.is_empty() {
+    if poll_attempts <= 0 {
+        return Ok(Vec::new());
+    }
+    if poll_interval.is_none() && default_ladder.is_empty() {
         return Err(PollDelaysError::IndexError);
     }
+    let attempts = usize::try_from(poll_attempts).map_err(|_| PollDelaysError::OverflowError)?;
     let mut delays = Vec::new();
     delays
         .try_reserve_exact(attempts)
@@ -377,7 +387,8 @@ fn poll_delays_call(args: &Args<'_>) -> Outcome {
         if n > i128::from(i64::MAX) {
             return Err(overflow());
         }
-        let n = usize::try_from(n).map_err(|_| memory())?;
+        // Beyond this target's index (32-bit): OverflowError, as Python's.
+        let n = usize::try_from(n).map_err(|_| overflow())?;
         let mut items = Vec::new();
         items.try_reserve_exact(n).map_err(|_| memory())?;
         items.resize(n, value.clone());
@@ -459,6 +470,21 @@ mod tests {
             resolve_poll_delays(1, None, &[]),
             Err(PollDelaysError::IndexError)
         );
+        // A count at or below 0 is an empty list before the ladder is read.
+        assert_eq!(resolve_poll_delays(0, None, &[]), Ok(Vec::new()));
+        assert_eq!(resolve_poll_delays(i64::MIN, None, &[]), Ok(Vec::new()));
+        // Where usize is 32 bits, Python's index is too: OverflowError.
+        #[cfg(target_pointer_width = "32")]
+        assert_eq!(
+            resolve_poll_delays(1 << 40, Some(1.0), &ladder),
+            Err(PollDelaysError::OverflowError)
+        );
+        // The lazy delays count in i64 whatever the target.
+        assert_eq!(
+            poll_delays(i64::MAX, None, &ladder).nth(1 << 24),
+            Some(10.0)
+        );
+        assert_eq!(poll_delays(i64::MIN, Some(1.0), &ladder).count(), 0);
         let call = |args: Value| poll_delays_call(&Args(&args));
         let kind = |args: Value| call(args).unwrap_err().kind;
         assert_eq!(

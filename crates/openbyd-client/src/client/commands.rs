@@ -15,6 +15,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use openbyd_protocol::models::command_gating::{
     CommandGateVerdict, GuestScope, evaluate_command_gate,
 };
+use openbyd_protocol::models::latest_config::VehicleCapabilities;
 use openbyd_protocol::models::control::{
     BatteryHeatParams, ChargeChangeResult, ClimateScheduleParams, ClimateStartParams, CommandAck,
     RemoteCommand, RemoteControlResult, SeatClimateParams, VerifyControlPasswordResponse,
@@ -90,6 +91,36 @@ fn blocked(what: &str, vin: &str, gate: &CommandGateVerdict, endpoint: &str) -> 
         "command_gate_blocked",
         endpoint,
     )
+}
+
+/// Whether a refused verdict is the guest grant's doing: the grant denies
+/// the command outright (`"guest_permission_denied"`), or its `functionNo`
+/// allow-list took away what an owner's verdict matches. The verdict itself
+/// stays pyBYD's (which reports the latter as `"function_no_missing"`); this
+/// only keeps a gate policy from sending it anyway.
+fn guest_refused(
+    command: RemoteCommand,
+    capabilities: &VehicleCapabilities,
+    params: Option<&Map<String, Value>>,
+    learn_info: Option<&Map<String, Value>>,
+    guest: GuestScope<'_>,
+    gate: &CommandGateVerdict,
+) -> Result<bool, Error> {
+    if gate.supported || !guest.is_active() {
+        return Ok(false);
+    }
+    if gate.reason == "guest_permission_denied" {
+        return Ok(true);
+    }
+    let owner = evaluate_command_gate(
+        command,
+        capabilities,
+        params,
+        learn_info,
+        GuestScope::OWNER,
+    )
+    .map_err(model_error)?;
+    Ok(owner.matched_function_nos.len() > gate.matched_function_nos.len())
 }
 
 /// The client's [`MqttResultWaiter`]: pyBYD's `_mqtt_result_waiter`.
@@ -181,7 +212,14 @@ impl<E: ClientEnv> BydClient<E> {
     }
 
     /// Whether the gate lets the command through, as the gate policy says.
-    fn gate_allows(&self, vin: &str, gate: &CommandGateVerdict) -> bool {
+    ///
+    /// A refusal that a shared guest's grant caused is final: no policy can
+    /// override it (see [`guest_refused`]), so a permissive policy such as
+    /// "allow missing data" never sends what the grant does not allow.
+    fn gate_allows(&self, vin: &str, gate: &CommandGateVerdict, guest_refused: bool) -> bool {
+        if guest_refused {
+            return false;
+        }
         match &self.inner.options.gate_policy {
             Some(policy) => policy(vin, gate),
             None => gate.supported,
@@ -229,15 +267,24 @@ impl<E: ClientEnv> BydClient<E> {
         });
         let learn_info = self.vehicle_fun_learn_info_for(vin).await;
         let (is_shared, granted) = self.guest_permissions_for(vin);
+        let guest = GuestScope::new(is_shared, granted.as_ref());
         let gate = evaluate_command_gate(
             command,
             &capabilities,
             params.as_ref(),
             learn_info.as_ref(),
-            GuestScope::new(is_shared, granted.as_ref()),
+            guest,
         )
         .map_err(model_error)?;
-        if !self.gate_allows(vin, &gate) {
+        let refused = guest_refused(
+            command,
+            &capabilities,
+            params.as_ref(),
+            learn_info.as_ref(),
+            guest,
+            &gate,
+        )?;
+        if !self.gate_allows(vin, &gate, refused) {
             let what = format!("Remote command {}", command.as_str());
             return Err(blocked(&what, vin, &gate, REMOTE_CONTROL_ENDPOINT));
         }
@@ -445,15 +492,24 @@ impl<E: ClientEnv> BydClient<E> {
         let capabilities = self.get_vehicle_capabilities(vin, false).await;
         let learn_info = self.vehicle_fun_learn_info_for(vin).await;
         let (is_shared, granted) = self.guest_permissions_for(vin);
+        let guest = GuestScope::new(is_shared, granted.as_ref());
         let gate = evaluate_command_gate(
             RemoteCommand::StartCharge,
             &capabilities,
             None,
             learn_info.as_ref(),
-            GuestScope::new(is_shared, granted.as_ref()),
+            guest,
         )
         .map_err(model_error)?;
-        if !self.gate_allows(vin, &gate) {
+        let refused = guest_refused(
+            RemoteCommand::StartCharge,
+            &capabilities,
+            None,
+            learn_info.as_ref(),
+            guest,
+            &gate,
+        )?;
+        if !self.gate_allows(vin, &gate, refused) {
             return Err(blocked(what, vin, &gate, endpoint));
         }
         Ok(())

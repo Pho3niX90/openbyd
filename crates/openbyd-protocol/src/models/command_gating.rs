@@ -323,6 +323,11 @@ impl<'a> GuestScope<'a> {
         }
     }
 
+    /// Whether the guest rules apply: a shared account with a known grant.
+    pub fn is_active(&self) -> bool {
+        self.active().is_some()
+    }
+
     /// The granted codes when the guest rules apply.
     fn active(&self) -> Option<&'a BTreeSet<String>> {
         self.guest_permissions
@@ -737,6 +742,9 @@ mod tests {
             command_guest_permission(RemoteCommand::StopCharge),
             Some("41")
         );
+        assert!(GuestScope::new(true, Some(&level2)).is_active());
+        assert!(!GuestScope::new(true, Some(&none)).is_active());
+        assert!(!GuestScope::new(false, Some(&level2)).is_active());
     }
 
     #[test]

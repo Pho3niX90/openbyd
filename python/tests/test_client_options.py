@@ -102,6 +102,38 @@ def lock_with(world, *, functions: dict | None = None, **options: Any) -> dict |
     return run(main())
 
 
+def test_no_gate_policy_sends_what_a_guest_grant_refuses(world) -> None:
+    # A guest granted basic control ("21") and only the lock functionNo:
+    # pyBYD refuses closing the windows (function_no_missing); a permissive
+    # policy must not send it anyway.
+    world.server.reply(VEHICLES, world.Reply.data([{
+        "vin": VIN, "energyType": "0", "empowerType": -1, "empowerId": 7,
+        "rangeDetailList": [{"code": "2", "childList": [{"code": "21"}, {"code": "1005"}]}],
+    }]))
+    world.server.reply(
+        LATEST_CONFIG, world.Reply.data({VIN: {"cfFixedList": [{"functionNo": "1026"}, {"functionNo": "1005"}]}})
+    )
+    world.server.reply(REMOTE, world.Reply.data(DONE))
+    asked: list[dict] = []
+
+    async def main(policy: Any) -> BaseException:
+        async with world.client(gate_policy=policy) as client:
+            await client.verify_command_access(VIN)
+            await client.get_vehicles()
+            try:
+                await client.close_windows(VIN)
+            except Exception as error:  # noqa: BLE001 - the test looks at it
+                return error
+            raise AssertionError("the command was sent")
+
+    for policy in ["allow_missing_data", lambda vin, verdict: asked.append(verdict) or True]:
+        refused = run(main(policy))
+        assert isinstance(refused, exceptions.BydEndpointNotSupportedError)
+        assert refused.code == "command_gate_blocked"
+    assert asked == []
+    assert world.requests(REMOTE) == []
+
+
 def test_gate_policy(world, caplog) -> None:
     missing = {"cfFixedList": []}
     refused = lock_with(world, functions=missing)

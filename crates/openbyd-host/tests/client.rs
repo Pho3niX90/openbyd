@@ -430,6 +430,38 @@ fn lock_with(
 }
 
 #[test]
+fn no_gate_policy_sends_what_a_guest_grant_refuses() {
+    // The grant allows basic control ("21") and only the lock functionNo:
+    // pyBYD refuses closing the windows (function_no_missing), and neither
+    // "allow_missing_data" nor the host is asked to let it through.
+    let world = World::new();
+    world.reply(
+        VEHICLES,
+        json!({"data": [{
+            "vin": VIN, "energyType": "0", "empowerType": -1, "empowerId": 7,
+            "rangeDetailList": [{"code": "2", "childList": [{"code": "21"}, {"code": "1005"}]}],
+        }]}),
+    );
+    world.reply(
+        LATEST_CONFIG,
+        json!({"data": {VIN: {"cfFixedList": [{"functionNo": "1026"}, {"functionNo": "1005"}]}}}),
+    );
+    world.reply(REMOTE, json!({"data": {"controlState": 1, "requestSerial": "S1"}}));
+    for policy in ["allow_missing_data", "host"] {
+        let (client, recorder) = world.client(json!({}), json!({"gate_policy": policy}));
+        let allow: Answerer = Box::new(|_, _| Some(json!({"value": true})));
+        recorder.answer.set(allow).ok();
+        ok(&client, "verify_command_access", vin());
+        ok(&client, "get_vehicles", json!({}));
+        let refused = call(&client, "close_windows", vin()).unwrap_err();
+        assert_eq!(refused.class, "BydEndpointNotSupportedError");
+        assert_eq!(refused.code.as_deref(), Some("command_gate_blocked"));
+        assert!(recorder.named("gate_policy").is_empty(), "{policy}");
+    }
+    assert!(world.requests(REMOTE).is_empty());
+}
+
+#[test]
 fn the_gate_policy_is_the_built_in_one_or_the_hosts() {
     let world = World::new();
     let missing = json!({"cfFixedList": []});

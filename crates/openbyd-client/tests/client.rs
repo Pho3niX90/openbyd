@@ -406,6 +406,54 @@ async fn a_1003_is_retried_with_the_clock_of_the_date_header() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn no_gate_policy_sends_what_a_guest_grant_refuses() {
+    // A guest granted basic control ("21") and only the lock functionNo
+    // ("1005"): closing the windows (1026) is refused by the grant's
+    // allow-list. pyBYD reports that as function_no_missing; a policy that
+    // lets missing data through must still not send it.
+    let world = World::start([Account::new(USER, PASSWORD)]).await;
+    world.server.reply(
+        VEHICLES,
+        Reply::Data(json!([{
+            "vin": VIN, "energyType": "0", "empowerType": -1, "empowerId": 7,
+            "rangeDetailList": [{"code": "2", "childList": [{"code": "21"}, {"code": "1005"}]}],
+        }])),
+    );
+    world.server.reply(
+        LATEST_CONFIG,
+        Reply::Data(json!({VIN: {"cfFixedList": [{"functionNo": "1026"}, {"functionNo": "1005"}]}})),
+    );
+    world.server.reply(REMOTE_CONTROL, Reply::Data(json!({"requestSerial": "S1"})));
+    let mut options = ClientOptions::default();
+    options.gate_policy = Some(Arc::new(|_vin, verdict| {
+        verdict.supported
+            || ["function_no_missing", "learn_info_missing"].contains(&verdict.reason.as_str())
+    }));
+    let client = world.client(world.config(USER, false), options);
+    client.login().await.unwrap();
+    client.get_vehicles().await.unwrap();
+    client.enable_commands();
+    let error = client.close_windows(VIN, Some("123456")).await.unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::BydEndpointNotSupportedError);
+    assert_eq!(error.code(), "command_gate_blocked");
+    // Battery heat needs "43", which the grant lacks.
+    let error = client
+        .set_battery_heat(
+            VIN,
+            &openbyd_protocol::models::control::BatteryHeatParams::from_kwargs(
+                json!({"on": true}).as_object().unwrap(),
+            )
+            .unwrap(),
+            Some("123456"),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.code(), "command_gate_blocked");
+    assert!(world.server.requests_to(REMOTE_CONTROL).is_empty());
+    world.server.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn the_request_observer_sees_every_request() {
     let world = World::start([Account::new(USER, PASSWORD)]).await;
     world.server.reply(GPS_TRIGGER, Reply::code("1008"));

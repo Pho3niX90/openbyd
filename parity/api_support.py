@@ -951,9 +951,25 @@ def run_client(  # noqa: C901, PLR0913, PLR0915
             original_gate = client_module.evaluate_command_gate
             bypass = set(options["gate_bypass"])
 
+            def guest_refused(verdict: Any, positional: tuple, keywords: dict) -> bool:
+                # openbyd's gate policy (which this option stands for) can
+                # never override a refusal the guest grant caused: denied
+                # outright, or the grant's allow-list took away a functionNo
+                # an owner's verdict matches.
+                if not keywords.get("is_shared") or not keywords.get("guest_permissions"):
+                    return False
+                if verdict.reason == "guest_permission_denied":
+                    return True
+                owner = original_gate(*positional, **{**keywords, "is_shared": False, "guest_permissions": None})
+                return len(owner.matched_function_nos) > len(verdict.matched_function_nos)
+
             def evaluate_command_gate(*positional: Any, **keywords: Any) -> Any:
                 verdict = original_gate(*positional, **keywords)
-                if not verdict.supported and verdict.reason in bypass:
+                if (
+                    not verdict.supported
+                    and verdict.reason in bypass
+                    and not guest_refused(verdict, positional, keywords)
+                ):
                     return verdict.model_copy(update={"supported": True})
                 return verdict
 

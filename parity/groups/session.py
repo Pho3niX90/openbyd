@@ -6,6 +6,7 @@ import time
 from unittest import mock
 
 from pybyd.session import Session
+from pydantic import ValidationError
 
 from parity.framework import Group
 from parity.groups.config import SAMPLE_SESSION, finite, random_session_kwargs
@@ -49,7 +50,7 @@ def age(session: dict, now: float):
         return finite(built.age)
 
 
-@group.oracle("session.with_refreshed_tokens")
+@group.oracle("session.with_refreshed_tokens", errors=(TypeError, ValidationError))
 def with_refreshed_tokens(session: dict, now: float, guest_vins: dict, user_type_settled: list, **tokens) -> dict:
     built = make_session(session, now)
     built.guest_vins.update(guest_vins)
@@ -64,10 +65,19 @@ def with_refreshed_tokens(session: dict, now: float, guest_vins: dict, user_type
     }
 
 
+# Tokens BYD's refresh reply could carry that are not strings: pyBYD's Session
+# refuses them (ValidationError), null included for the two required ones.
+BAD_TOKENS = [None, 5, 1.5, True, [], {}, ["S2"]]
+
+
 def refresh_case(rng, session: dict, now: float) -> dict:
     tokens = {"sign_token": rng.choice(["S2", " padded\t", "", "ü 🚗"]), "encry_token": rng.choice(["E2", "  ", "ü"])}
     if rng.random() < 0.6:
         tokens["refresh_token"] = rng.choice([None, "R2", " R3 ", ""])
+    if rng.random() < 0.15:
+        tokens[rng.choice(["sign_token", "encry_token", "refresh_token"])] = rng.choice(BAD_TOKENS)
+    if rng.random() < 0.03:
+        del tokens[rng.choice(["sign_token", "encry_token"])]
     return {
         "session": session,
         "now": now,
@@ -99,6 +109,14 @@ def recorded():
     for session in [SAMPLE_SESSION, {**SAMPLE_SESSION, "refresh_token": "REFRESH-synthetic", "ttl": 60.0}]:
         for _ in range(6):
             yield "session.with_refreshed_tokens", refresh_case(rng, session, rng.choice([100.0, 5e5]))
+    # Null and other non-string tokens, and a required one missing.
+    base = {"session": {**SAMPLE_SESSION, "refresh_token": "REFRESH-synthetic"}, "now": 100.0, "guest_vins": {},
+            "user_type_settled": [], "sign_token": "S2", "encry_token": "E2"}
+    for name in ["sign_token", "encry_token", "refresh_token"]:
+        for value in BAD_TOKENS:
+            yield "session.with_refreshed_tokens", {**base, name: value}
+    for name in ["sign_token", "encry_token"]:
+        yield "session.with_refreshed_tokens", {key: value for key, value in base.items() if key != name}
 
 
 @group.fuzz

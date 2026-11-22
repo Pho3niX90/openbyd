@@ -317,15 +317,24 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
                     session.settle_user_type(vin, endpoint);
                 }
             }
-            let token = |name: &str| -> Result<Option<String>, ParityError> {
-                match args.value(name) {
-                    Value::Null => Ok(None),
-                    value => Ok(Some(lax_str(value, name)?)),
+            // sign_token and encry_token are required keywords that become
+            // Session fields (a str: null is a ValidationError); refresh_token
+            // may be None, which keeps the session's own.
+            let required = |name: &str| -> Result<String, ParityError> {
+                match args.0.get(name) {
+                    None => Err(ParityError::new(
+                        "TypeError",
+                        format!("missing required keyword argument {name:?}"),
+                    )),
+                    Some(value) => Ok(lax_str(value, name)?),
                 }
             };
-            let sign = token("sign_token")?.unwrap_or_default();
-            let encry = token("encry_token")?.unwrap_or_default();
-            let refresh = token("refresh_token")?;
+            let sign = required("sign_token")?;
+            let encry = required("encry_token")?;
+            let refresh = match args.value("refresh_token") {
+                Value::Null => None,
+                value => Some(lax_str(value, "refresh_token")?),
+            };
             let refreshed =
                 session.with_refreshed_tokens(&sign, &encry, refresh.as_deref(), now()?);
             let mut settled: Vec<_> = refreshed.user_type_settled().into_iter().collect();
@@ -392,6 +401,35 @@ mod tests {
         let renewed = session.with_refreshed_tokens("s3", "e3", Some("r3"), 6.0);
         assert_eq!(renewed.refresh_token(), "r3");
         assert_eq!(renewed.to_dump()["refresh_token"], "r3");
+    }
+
+    #[test]
+    fn refreshed_tokens_must_be_strings() {
+        let call = |tokens: Value| {
+            let mut args = json!({"session": {"user_id": "1", "sign_token": "s", "encry_token": "e",
+                                              "created_at": 0.0}, "now": 1.0,
+                                  "guest_vins": {}, "user_type_settled": []});
+            args.as_object_mut()
+                .unwrap()
+                .extend(tokens.as_object().unwrap().clone());
+            parity_call("session.with_refreshed_tokens", &args).unwrap()
+        };
+        let kind = |tokens: Value| call(tokens).unwrap_err().kind;
+        assert_eq!(
+            kind(json!({"sign_token": null, "encry_token": "e"})),
+            "ValidationError"
+        );
+        assert_eq!(
+            kind(json!({"sign_token": "s", "encry_token": 5})),
+            "ValidationError"
+        );
+        assert_eq!(
+            kind(json!({"sign_token": "s", "encry_token": "e", "refresh_token": []})),
+            "ValidationError"
+        );
+        assert_eq!(kind(json!({"encry_token": "e"})), "TypeError");
+        let kept = call(json!({"sign_token": " s ", "encry_token": "e", "refresh_token": null}));
+        assert_eq!(kept.unwrap()["dump"]["sign_token"], "s");
     }
 
     #[test]

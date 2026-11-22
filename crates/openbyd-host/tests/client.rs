@@ -446,7 +446,10 @@ fn no_gate_policy_sends_what_a_guest_grant_refuses() {
         LATEST_CONFIG,
         json!({"data": {VIN: {"cfFixedList": [{"functionNo": "1026"}, {"functionNo": "1005"}]}}}),
     );
-    world.reply(REMOTE, json!({"data": {"controlState": 1, "requestSerial": "S1"}}));
+    world.reply(
+        REMOTE,
+        json!({"data": {"controlState": 1, "requestSerial": "S1"}}),
+    );
     for policy in ["allow_missing_data", "host"] {
         let (client, recorder) = world.client(json!({}), json!({"gate_policy": policy}));
         let allow: Answerer = Box::new(|_, _| Some(json!({"value": true})));

@@ -421,9 +421,13 @@ async fn no_gate_policy_sends_what_a_guest_grant_refuses() {
     );
     world.server.reply(
         LATEST_CONFIG,
-        Reply::Data(json!({VIN: {"cfFixedList": [{"functionNo": "1026"}, {"functionNo": "1005"}]}})),
+        Reply::Data(
+            json!({VIN: {"cfFixedList": [{"functionNo": "1026"}, {"functionNo": "1005"}]}}),
+        ),
     );
-    world.server.reply(REMOTE_CONTROL, Reply::Data(json!({"requestSerial": "S1"})));
+    world
+        .server
+        .reply(REMOTE_CONTROL, Reply::Data(json!({"requestSerial": "S1"})));
     let mut options = ClientOptions::default();
     options.gate_policy = Some(Arc::new(|_vin, verdict| {
         verdict.supported

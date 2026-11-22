@@ -15,11 +15,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use openbyd_protocol::models::command_gating::{
     CommandGateVerdict, GuestScope, evaluate_command_gate,
 };
-use openbyd_protocol::models::latest_config::VehicleCapabilities;
 use openbyd_protocol::models::control::{
     BatteryHeatParams, ChargeChangeResult, ClimateScheduleParams, ClimateStartParams, CommandAck,
     RemoteCommand, RemoteControlResult, SeatClimateParams, VerifyControlPasswordResponse,
 };
+use openbyd_protocol::models::latest_config::VehicleCapabilities;
 use serde_json::{Map, Value};
 
 use super::{BydClient, ChargePollSettings, ReadFetch, TriggeredRead};
@@ -112,14 +112,8 @@ fn guest_refused(
     if gate.reason == "guest_permission_denied" {
         return Ok(true);
     }
-    let owner = evaluate_command_gate(
-        command,
-        capabilities,
-        params,
-        learn_info,
-        GuestScope::OWNER,
-    )
-    .map_err(model_error)?;
+    let owner = evaluate_command_gate(command, capabilities, params, learn_info, GuestScope::OWNER)
+        .map_err(model_error)?;
     Ok(owner.matched_function_nos.len() > gate.matched_function_nos.len())
 }
 

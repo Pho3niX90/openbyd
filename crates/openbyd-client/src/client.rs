@@ -1015,30 +1015,9 @@ impl<E: ClientEnv> BydClient<E> {
                 return false;
             }
         };
-        // One step, as pyBYD's has no await in it: another call may have
-        // replaced the session meanwhile (then use that one); otherwise stamp
-        // the cooldown and, for an expiry, drop the session, but only if it is
-        // still the probed one.
         let refresh = probe_error.is_a(ErrorKind::BydTokenRefreshError);
-        let current = {
-            let mut state = self.state();
-            let now = self.inner.env.monotonic();
-            if state.session.as_ref().is_some_and(|current| {
-                !Arc::ptr_eq(current, &session) && !current.is_expired(now)
-            }) {
-                return true;
-            }
-            state.busy_reauth_last_at = Some(now);
-            let current = state.session.clone();
-            if !refresh
-                && state
-                    .session
-                    .as_ref()
-                    .is_some_and(|installed| Arc::ptr_eq(installed, &session))
-            {
-                state.session = None;
-            }
-            current
+        let Some(current) = self.claim_busy_reauth(&session, !refresh) else {
+            return true;
         };
         let recovered = if refresh {
             log::info!("1008 reflects a refreshable session; refreshing it");
@@ -1048,6 +1027,35 @@ impl<E: ClientEnv> BydClient<E> {
             self.ensure_session().await.map(drop)
         };
         recovered.is_ok()
+    }
+
+    /// The step after a 1008 probe found the session expired, taken under
+    /// one lock as pyBYD's has no await in it. `None` when another call
+    /// replaced the session meanwhile with a live one, which is then used.
+    /// Otherwise it stamps the re-auth cooldown, drops the session if
+    /// `drop_probed` and it is still the `probed` one, and returns the
+    /// session the recovery starts from.
+    fn claim_busy_reauth(
+        &self,
+        probed: &Arc<Session>,
+        drop_probed: bool,
+    ) -> Option<Option<Arc<Session>>> {
+        let mut state = self.state();
+        let now = self.inner.env.monotonic();
+        let is_probed = |installed: &Arc<Session>| Arc::ptr_eq(installed, probed);
+        if state
+            .session
+            .as_ref()
+            .is_some_and(|current| !is_probed(current) && !current.is_expired(now))
+        {
+            return None;
+        }
+        state.busy_reauth_last_at = Some(now);
+        let current = state.session.clone();
+        if drop_probed && state.session.as_ref().is_some_and(is_probed) {
+            state.session = None;
+        }
+        Some(current)
     }
 
     /// The second half of pyBYD's `login`: the new session takes over the
@@ -2027,7 +2035,13 @@ mod tests {
         let waited = block_on(client.mqtt_wait(VIN, None, None, Some(30.0))).unwrap();
         assert_eq!(waited.unwrap(), None);
         assert!(client.state().waiters.is_empty());
-        assert!(client.env().steps().iter().all(|step| step.get("mqtt_wait").is_none()));
+        assert!(
+            client
+                .env()
+                .steps()
+                .iter()
+                .all(|step| step.get("mqtt_wait").is_none())
+        );
     }
 
     #[test]
@@ -2045,7 +2059,10 @@ mod tests {
         assert!(client.state().waiters.is_empty());
         let steps = client.env().steps();
         assert!(steps.iter().any(|step| step.get("mqtt_wait").is_some()));
-        assert!(steps.iter().all(|step| step.get("mqtt_timeout").is_none()), "{steps:?}");
+        assert!(
+            steps.iter().all(|step| step.get("mqtt_timeout").is_none()),
+            "{steps:?}"
+        );
     }
 
     #[test]

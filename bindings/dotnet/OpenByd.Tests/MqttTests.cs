@@ -113,18 +113,23 @@ public sealed class MqttTests
     }
 
     [Fact]
-    public async Task ClosingCancelsAWaitForAPush()
+    public async Task ClosingEndsAWaitForAPushLikeATimeout()
     {
+        // pyBYD #98: the read goes on to poll over HTTP instead of being cancelled.
         using var world = new World();
         world.Server.Reply(Gps, Reply.Data(World.Json("""{"requestSerial": "G1"}""")));
+        world.Server.Reply(
+            "/control/getGpsInfoResult",
+            Reply.Data(World.Json("""{"requestSerial": "G1", "latitude": 52.0, "longitude": 4.0}""")));
         var client = world.Client(config: world.Config(mqttEnabled: true));
         await client.LoginAsync();
         await world.UntilSubscribed(client);
-        var waiting = client.GetGpsInfoAsync(Vin, mqttTimeout: 30);
+        var waiting = client.GetGpsInfoAsync(Vin, mqttTimeout: 30, pollAttempts: 1, pollInterval: 0.0);
         await World.Until("the trigger", () => world.Server.Requests(Gps).Count == 1);
         await Task.Delay(50);
         client.Close();
-        await Assert.ThrowsAsync<CancelledException>(() => waiting);
+        Assert.Equal(52.0, (await waiting).Latitude);
+        Assert.Single(world.Server.Requests("/control/getGpsInfoResult"));
     }
 
     [Fact]

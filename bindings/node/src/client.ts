@@ -92,7 +92,7 @@ export interface ClientHooks {
   requestObserver?: ((record: RequestRecord) => void) | undefined;
   /** How long a command waits for its acknowledgement, in seconds. Default `300`. */
   commandAckTtlSeconds?: number | undefined;
-  /** Attempts per remote command. Default `3`. */
+  /** Attempts per remote command. Default `1`; more retry a command the cloud could not confirm, never one the car refused. */
   commandRetries?: number | undefined;
   /** Whether a command is sent, given the command gate's verdict. Default `"strict"`. */
   gatePolicy?: GatePolicy | undefined;
@@ -440,7 +440,8 @@ export class Client extends ClientMethods {
   /**
    * Closes the cars, stops MQTT and makes later calls fail with `BydError`
    * (pyBYD's `async_close`). Calls already in flight finish; one waiting
-   * for an MQTT push stops waiting with `CancelledError`.
+   * for an MQTT push stops waiting and polls over HTTP instead, as when the
+   * wait times out.
    */
   close(): void {
     this.#cars.clear();

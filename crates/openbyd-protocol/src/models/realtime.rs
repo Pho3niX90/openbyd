@@ -115,6 +115,10 @@ byd_enum! {
         NotCharging = 0 => "NOT_CHARGING",
         /// Charging.
         Charging = 1 => "CHARGING",
+        /// Plugged in and waiting for a scheduled start (`waitStatus` 1);
+        /// also in `flashChargeState` and the home page's `chargingState`
+        /// (Seal; issue #20).
+        WaitingForSchedule = 9 => "WAITING_FOR_SCHEDULE",
         /// Misnamed: 15 is the idle value, reported both unplugged and plugged
         /// in but not charging (Sealion 6, Sealion 7, ATTO 3 EVO; issue #20).
         Connected = 15 => "CONNECTED",
@@ -202,6 +206,22 @@ byd_enum! {
         Starting = 2 => "STARTING",
         /// On.
         On = 3 => "ON",
+    }
+}
+
+byd_enum! {
+    /// Whether the A/C is running (`airRunState`).
+    ///
+    /// Follows the A/C itself, not the circulation mode: it stayed `OFF`
+    /// while `cycleChoice` switched and went `ON` only during a climate
+    /// run, in step with `hvac.status` (#20).
+    AirRunState {
+        /// No mapped member.
+        Unknown = -1 => "UNKNOWN",
+        /// Running.
+        On = 1 => "ON",
+        /// Not running.
+        Off = 2 => "OFF",
     }
 }
 
@@ -939,8 +959,9 @@ pub struct VehicleRealtimeData {
     /// Driver-side set temperature (deg C, precise).
     #[serde(serialize_with = "base::ser_opt_float")]
     pub main_setting_temp_new: Option<f64>,
-    /// Raw `airRunState`, left uninterpreted until confirmed live.
-    pub air_run_state: Option<i64>,
+    /// Whether the A/C is running.
+    #[serde(serialize_with = "base::ser_opt_int_enum")]
+    pub air_run_state: Option<AirRunState>,
 
     // --- Seat heating/ventilation ---
     /// Driver seat heating.
@@ -981,7 +1002,9 @@ pub struct VehicleRealtimeData {
     /// Authoritative realtime charging state.
     #[serde(serialize_with = "base::ser_opt_int_enum")]
     pub charge_state: Option<ChargingState>,
-    /// Charge wait status.
+    /// Charge wait status: `1` while a scheduled start is still to come
+    /// (later today or tomorrow), `0` inside the window or with no
+    /// schedule. Seal, see issue #20.
     pub wait_status: Option<i64>,
     /// Estimated hours to full charge. Sentinel `-1` -> `None`.
     pub full_hour: Option<i64>,
@@ -997,6 +1020,11 @@ pub struct VehicleRealtimeData {
     pub booking_charging_hour: Option<i64>,
     /// Scheduled charge start minute.
     pub booking_charging_minute: Option<i64>,
+    /// Hours until the next scheduled charge start. Present only while
+    /// [`Self::wait_status`] is `1`. Seal, see issue #20.
+    pub charge_start_time_hour: Option<i64>,
+    /// Minutes part of the time until the next scheduled charge start.
+    pub charge_start_time_min: Option<i64>,
 
     // --- Doors ---
     /// Left front door.
@@ -1421,21 +1449,37 @@ impl VehicleRealtimeData {
 
     /// Whether the charging gun is connected, as far as realtime can tell.
     ///
-    /// `true` while charging, otherwise `None`: `charge_state` reads `15`
-    /// both unplugged and plugged in but idle, and `connect_state` stays
-    /// `-1`. Use `ChargingStatus::is_connected` for plug state.
+    /// `true` while charging or waiting for a scheduled start, otherwise
+    /// `None`: `charge_state` reads `15` both unplugged and plugged in but
+    /// idle, and `connect_state` stays `-1`. Use
+    /// `ChargingStatus::is_connected` for plug state.
     pub fn is_charger_connected(&self) -> Option<bool> {
-        self.is_charging().then_some(true)
+        matches!(
+            self.effective_charging_state(),
+            ChargingState::Charging | ChargingState::WaitingForSchedule
+        )
+        .then_some(true)
+    }
+
+    /// Minutes until the next scheduled charge start; `None` unless the car
+    /// reports a pending scheduled start. A parsed model always holds the
+    /// sum ([`base::hours_and_minutes`] refuses one beyond `i64`); on fields
+    /// set by hand that overflow, `None`.
+    pub fn time_to_scheduled_start_minutes(&self) -> Option<i64> {
+        base::hours_and_minutes(self.charge_start_time_hour, self.charge_start_time_min)
+            .ok()
+            .flatten()
     }
 
     /// Total estimated minutes until fully charged.
     ///
-    /// `None` when either component is unavailable, and also when the sum
-    /// does not fit in `i64` (Python would return a larger integer).
+    /// `None` when either component is unavailable. A parsed model always
+    /// holds the sum ([`base::hours_and_minutes`] refuses one beyond `i64`);
+    /// on fields set by hand that overflow, `None`.
     pub fn time_to_full_minutes(&self) -> Option<i64> {
-        self.full_hour?
-            .checked_mul(60)?
-            .checked_add(self.full_minute?)
+        base::hours_and_minutes(self.full_hour, self.full_minute)
+            .ok()
+            .flatten()
     }
 
     /// Whether the interior temperature reading is valid.
@@ -1493,6 +1537,14 @@ impl VehicleRealtimeData {
         matches!(self.power_gear, Some(PowerGear::Starting | PowerGear::On))
     }
 
+    /// Whether the A/C is running; `None` when not reported.
+    pub fn is_ac_running(&self) -> Option<bool> {
+        match self.air_run_state {
+            None | Some(AirRunState::Unknown) => None,
+            Some(state) => Some(state == AirRunState::On),
+        }
+    }
+
     /// Whether the battery heating system is active.
     pub fn is_battery_heating(&self) -> Option<bool> {
         self.battery_heat_state.map(|state| state != 0)
@@ -1547,7 +1599,7 @@ impl BydModel for VehicleRealtimeData {
             temp_in_car: fields.opt("temp_in_car", float),
             main_setting_temp: fields.opt("main_setting_temp", int),
             main_setting_temp_new: fields.opt("main_setting_temp_new", float),
-            air_run_state: fields.opt("air_run_state", int),
+            air_run_state: fields.opt("air_run_state", enum_field),
             main_seat_heat_state: fields.opt("main_seat_heat_state", enum_field),
             main_seat_ventilation_state: fields.opt("main_seat_ventilation_state", enum_field),
             copilot_seat_heat_state: fields.opt("copilot_seat_heat_state", enum_field),
@@ -1568,6 +1620,8 @@ impl BydModel for VehicleRealtimeData {
             booking_charge_state: fields.opt("booking_charge_state", int),
             booking_charging_hour: fields.opt("booking_charging_hour", int),
             booking_charging_minute: fields.opt("booking_charging_minute", int),
+            charge_start_time_hour: fields.opt("charge_start_time_hour", int),
+            charge_start_time_min: fields.opt("charge_start_time_min", int),
             left_front_door: fields.opt("left_front_door", enum_field),
             right_front_door: fields.opt("right_front_door", enum_field),
             left_rear_door: fields.opt("left_rear_door", enum_field),
@@ -1713,6 +1767,9 @@ impl BydModel for VehicleRealtimeData {
             base::clear_if(field, base::is_negative);
         }
         base::clear_if(&mut m.rate, is_rate_sentinel);
+        // The minute properties are Python ints: refuse one openbyd cannot hold.
+        base::hours_and_minutes(model.full_hour, model.full_minute)?;
+        base::hours_and_minutes(model.charge_start_time_hour, model.charge_start_time_min)?;
         Ok(model)
     }
 
@@ -1725,6 +1782,10 @@ impl BydModel for VehicleRealtimeData {
             ),
             ("is_charging", json!(self.is_charging())),
             ("is_charger_connected", json!(self.is_charger_connected())),
+            (
+                "time_to_scheduled_start_minutes",
+                json!(self.time_to_scheduled_start_minutes()),
+            ),
             ("time_to_full_minutes", json!(self.time_to_full_minutes())),
             (
                 "interior_temp_available",
@@ -1734,6 +1795,7 @@ impl BydModel for VehicleRealtimeData {
             ("is_any_door_open", json!(self.is_any_door_open())),
             ("is_any_window_open", json!(self.is_any_window_open())),
             ("is_vehicle_on", json!(self.is_vehicle_on())),
+            ("is_ac_running", json!(self.is_ac_running())),
             ("is_battery_heating", json!(self.is_battery_heating())),
             (
                 "is_steering_wheel_heating",
@@ -1757,6 +1819,7 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
         "models.realtime.PowerGear" => enum_call::<PowerGear>(args),
         "models.realtime.StearingWheelHeat" => enum_call::<StearingWheelHeat>(args),
         "models.realtime.SeatHeatVentState" => enum_call::<SeatHeatVentState>(args),
+        "models.realtime.AirRunState" => enum_call::<AirRunState>(args),
         "models.realtime.AirCirculationMode" => enum_call::<AirCirculationMode>(args),
         "models.realtime.VehicleRealtimeData" => base::model_call::<VehicleRealtimeData>(args),
         "models.realtime.VehicleRealtimeData.is_ready_raw" => {
@@ -1909,12 +1972,17 @@ mod tests {
 
     #[test]
     fn properties_and_overflow() {
-        let data = parse(
-            json!({"fullHour": i64::MAX, "fullMinute": 1, "batteryHeatState": 2,
-                   "leftFrontDoorLock": 0, "rightFrontDoorLock": 2}),
+        let mut data = parse(
+            json!({"batteryHeatState": 2, "leftFrontDoorLock": 0, "rightFrontDoorLock": 2}),
             0,
         );
+        // Fields set by hand past what the sum can hold give no minutes.
+        data.full_hour = Some(i64::MAX);
+        data.full_minute = Some(1);
+        data.charge_start_time_hour = Some(i64::MIN);
+        data.charge_start_time_min = Some(0);
         assert_eq!(data.time_to_full_minutes(), None);
+        assert_eq!(data.time_to_scheduled_start_minutes(), None);
         assert_eq!(data.is_battery_heating(), Some(true));
         assert_eq!(data.is_locked(), Some(true));
         assert_eq!(data.is_charger_connected(), None);
@@ -1922,6 +1990,40 @@ mod tests {
             is_steering_wheel_heating(Some(StearingWheelHeat::Off)),
             Some(false)
         );
+    }
+
+    #[test]
+    fn minutes_python_cannot_fit_in_i64_are_unsupported() {
+        // pyBYD answers a larger int; openbyd refuses the payload, as it does
+        // an input integer beyond i64.
+        let context = json!({"energy_type": {"EnergyType": 0}});
+        let refused = |raw: Value| {
+            VehicleRealtimeData::parse(&raw, &context)
+                .unwrap_err()
+                .exception
+        };
+        for raw in [
+            json!({"fullHour": i64::MAX, "fullMinute": 1}),
+            json!({"chargeStartTimeHour": i64::MAX / 60 + 1, "chargeStartTimeMin": 0}),
+            json!({"chargeStartTimeHour": i64::MAX / 60, "chargeStartTimeMin": i64::MAX}),
+            json!({"chargeStartTimeHour": i64::MIN / 60 - 1, "chargeStartTimeMin": 0}),
+            json!({"chargeStartTimeHour": 1_u64 << 63, "chargeStartTimeMin": 0}),
+        ] {
+            assert_eq!(refused(raw.clone()), "Unsupported", "{raw}");
+        }
+        // Within i64, and with one side missing, the payload parses.
+        let largest = parse(
+            json!({"chargeStartTimeHour": i64::MAX / 60, "chargeStartTimeMin": i64::MAX % 60}),
+            0,
+        );
+        assert_eq!(largest.time_to_scheduled_start_minutes(), Some(i64::MAX));
+        let one_sided = parse(json!({"chargeStartTimeHour": i64::MAX}), 0);
+        assert_eq!(one_sided.time_to_scheduled_start_minutes(), None);
+        let sentinel = parse(
+            json!({"chargeStartTimeHour": -1, "chargeStartTimeMin": -1}),
+            0,
+        );
+        assert_eq!(sentinel.time_to_scheduled_start_minutes(), Some(-61));
     }
 
     #[test]

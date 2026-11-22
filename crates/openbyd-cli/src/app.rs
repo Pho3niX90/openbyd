@@ -257,6 +257,7 @@ pub fn hide_tokens(client: &Client) {
     if let Some(tokens) = client.export_session() {
         scrubber().add_secret(&tokens.sign_token);
         scrubber().add_secret(&tokens.encry_token);
+        scrubber().add_secret(&tokens.refresh_token);
     }
 }
 
@@ -287,5 +288,37 @@ pub fn close(holder: &Holder) {
         .take();
     if let Some(client) = client {
         client.async_close();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use openbyd_client::client::SessionTokens;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn every_session_token_is_hidden() {
+        let config = BydConfig::new("user@example.com", "secret");
+        let pool = HttpPool::new();
+        let env =
+            ProductionEnv::with_mqtt_options(HttpEnv::for_config(&pool, &config), mqtt_options());
+        let client = BydClient::new(config, env, ClientOptions::default());
+        client
+            .import_session(SessionTokens {
+                user_id: "1".into(),
+                sign_token: "SIGN-hidden-token".into(),
+                encry_token: "ENCRY-hidden-token".into(),
+                refresh_token: "REFRESH-hidden-token".into(),
+                ttl_remaining: None,
+                guest_vins: HashMap::new(),
+            })
+            .await;
+        hide_tokens(&client);
+        let shown =
+            scrubber().scrub_text("SIGN-hidden-token ENCRY-hidden-token REFRESH-hidden-token");
+        assert!(!shown.contains("hidden-token"), "{shown}");
     }
 }

@@ -37,7 +37,10 @@ Both sides follow the same rules, so neither has to count clock reads:
 - ``transport.post_secure`` records the step and answers with the next
   reply: an outer reply, or a ``BydTransportError``. With no reply left it
   raises ``ScriptExhausted``, which is not a pyBYD error, so it passes
-  through every ``except`` in pyBYD and ends the flow.
+  through every ``except`` in pyBYD and ends the flow. A reply may carry
+  ``"date"``, the HTTP ``Date`` header it came with: the transport's
+  ``server_time_offset_ms`` follows it through pyBYD's own
+  ``SecureTransport._sync_clock_from_header``, on a host whose zone is UTC.
 
 Porting a flow needs an oracle and cases::
 
@@ -71,6 +74,7 @@ from pybyd import exceptions
 from pybyd._crypto.aes import aes_encrypt_hex
 from pybyd._crypto.hashing import md5_hex
 from pybyd.config import BydConfig
+from pybyd.models import command_gating
 from pybyd.session import Session
 
 from parity.framework import Group, random_hex, random_text
@@ -84,7 +88,7 @@ NOW_MS = 1_700_000_000_000
 #: guest, unmapped ones and near misses.
 CODES = [
     "0", "1001", "1002", "1011", "3001", "3003", "1005", "1010", "1008", "6002", "6051", "8003", "8002", "9999", "",
-    " 1001", "1001 ",
+    " 1001", "1001 ", "1030", "1003",
 ]
 #: Codes that are not strings: pyBYD compares ``str(code)``.
 ODD_CODES = [0, 1001, 1001.0, 8003, None, True, [], {"a": 1}]
@@ -140,12 +144,15 @@ def scenario(
     seed: str = "seed",
     replies: Iterable[dict] = (),
     args: dict | None = None,
+    server_time_offset_ms: int | None = None,
     **more_args: Any,
 ) -> dict:
     """The arguments of a flow's parity call. The function's own arguments are
     ``args`` and any keywords not named here (pass a pyBYD ``now_ms`` in
-    ``args``: the keyword is the clock)."""
-    return {
+    ``args``: the keyword is the clock). ``server_time_offset_ms`` is the
+    transport's clock offset before the flow, as earlier ``Date`` headers
+    would have left it."""
+    case = {
         "config": SAMPLE_CONFIG if config is None else config,
         "session": SAMPLE_SESSION if session is None else session,
         "guest_vins": guest_vins or {},
@@ -155,11 +162,33 @@ def scenario(
         "replies": list(replies),
         "args": {**(args or {}), **more_args},
     }
+    if server_time_offset_ms is not None:
+        case["server_time_offset_ms"] = server_time_offset_ms
+    return case
+
+
+def random_date(rng) -> str:
+    """A ``Date`` header near the usual scripted clock (within the drift
+    threshold or beyond it), far from it, or one Python cannot read."""
+    roll = rng.random()
+    if roll < 0.8:
+        return http_date(NOW_MS + rng.choice([0, 5_000, -29_000, 31_000, -45_000, 120_000, rng.randint(-10**7, 10**7)]))
+    if roll < 0.9:
+        return http_date(rng.randint(0, 2**41))
+    return rng.choice(["", "nonsense", "Sat, 22 Nov 2026 10:00:00", "31 Feb 2026 10:00:00 GMT"])
 
 
 def random_reply(rng, session: dict, data: Callable[[Any], Any] | None = None) -> dict:
     """A reply of any shape: success with assorted data, error codes, broken
-    ``respondData``, non-object replies and transport errors."""
+    ``respondData``, non-object replies and transport errors; now and then
+    with a ``Date`` header."""
+    reply = _random_reply(rng, session, data)
+    if rng.random() < 0.15:
+        reply = date_reply(reply, random_date(rng))
+    return reply
+
+
+def _random_reply(rng, session: dict, data: Callable[[Any], Any] | None = None) -> dict:
     roll = rng.random()
     if roll < 0.35:
         payload = data(rng) if data else random_data(rng)
@@ -249,6 +278,11 @@ def random_vehicle_script(rng, session: dict, endpoint: str, data: Callable[[Any
     return {"vin": vin, "guest_vins": guest_vins, "user_type_settled": settled, "replies": replies}
 
 
+def random_offset(rng) -> int:
+    """A clock offset earlier replies may have left: none, or a drift either way."""
+    return rng.choice([0, 0, 0, 60_000, -45_000, rng.randint(-10**8, 10**8)])
+
+
 def random_scenario_base(rng) -> dict:
     """Random config, session, clock and seed for a flow case."""
     from parity.groups.config import random_config_kwargs, random_session_kwargs
@@ -324,18 +358,41 @@ def patch_datetime_now(stack: ExitStack, clock: _Clock) -> None:
     stack.enter_context(mock.patch.object(standby, "dt", _ScriptedDatetime(clock)))
 
 
+def date_reply(entry: dict, date: str) -> dict:
+    """``entry`` arriving with the HTTP ``Date`` header ``date``."""
+    return {**entry, "date": date}
+
+
+def http_date(ms: int) -> str:
+    """The ``Date`` header for the instant ``ms`` (whole seconds, GMT)."""
+    import email.utils
+
+    return email.utils.formatdate(ms / 1000, usegmt=True)
+
+
 class ScriptedTransport:
     """Stands in for ``SecureTransport``: records each request, answers from the script."""
 
     def __init__(self, replies: list[dict], steps: list[dict]) -> None:
+        import logging
+
         self.replies = list(replies)
         self.steps = steps
+        self.server_time_offset_ms = 0
+        self._logger = logging.getLogger("parity.transport")
 
     async def post_secure(self, endpoint: str, outer_payload: dict) -> Any:
+        from pybyd._transport import SecureTransport
+
+        from parity.groups.envelope import utc_host
+
         self.steps.append({"post": endpoint, "outer": copy.deepcopy(dict(outer_payload))})
         if not self.replies:
             raise ScriptExhausted(f"no scripted reply left for {endpoint}")
         entry = self.replies.pop(0)
+        if entry.get("date") is not None:
+            with utc_host():
+                SecureTransport._sync_clock_from_header(self, entry["date"])
         if "transport_error" in entry:
             raise exceptions.BydTransportError(
                 f"scripted transport error from {endpoint}",
@@ -396,11 +453,13 @@ def run_flow(
     args: dict,
     guest_vins: dict[str, bool] | None = None,
     user_type_settled: list[list[str]] | None = None,
+    server_time_offset_ms: int = 0,
 ) -> dict:
     """Run a pyBYD flow against the script and return its trace."""
     clock = _Clock(now_ms, seed)
     steps: list[dict] = []
     transport = ScriptedTransport(replies, steps)
+    transport.server_time_offset_ms = server_time_offset_ms
 
     async def sleep(delay: float, result: Any = None) -> Any:
         clock.slept += delay
@@ -754,6 +813,20 @@ async def _client_method(client: Any, method: str, args: dict) -> Any:  # noqa: 
         return jsonable(await client.toggle_smart_charging(vin, enable=bool(args.get("enable", False))))
     if method in ("start_charging", "stop_charging"):
         return jsonable(await getattr(client, method)(vin, **charge))
+    if method == "get_ota_version":
+        return jsonable(await client.get_ota_version(vin))
+    if method == "set_ota_auto_upgrade":
+        time_arg = args.get("auto_upgrade_time")
+        return jsonable(
+            await client.set_ota_auto_upgrade(
+                vin,
+                enabled=bool(args.get("enabled", False)),
+                auto_upgrade_time="2:00" if time_arg is None else time_arg,
+                command_pwd=pwd,
+            )
+        )
+    if method == "get_empower_detail":
+        return jsonable(await client.get_empower_detail(vin, empower_id=args.get("empower_id")))
     if method in EXTRA_CLIENT_METHODS:
         return await EXTRA_CLIENT_METHODS[method](client, args)
     raise KeyError(f"no client method {method!r}")
@@ -819,10 +892,17 @@ def run_client(  # noqa: C901, PLR0913, PLR0915
 
     original_session = client_module.Session
     original_pending = client_module._PendingCommand
+    original_refreshed = original_session.with_refreshed_tokens
 
     def make_session(**kwargs: Any) -> Any:
         kwargs.setdefault("created_at", time.monotonic())
         return original_session(**kwargs)
+
+    def with_refreshed_tokens(self: Any, **tokens: Any) -> Any:
+        # Its Session() takes the real time.monotonic bound at import; pyBYD
+        # means "now", so the refreshed session is made at the patched now.
+        refreshed = original_refreshed(self, **tokens)
+        return refreshed.model_copy(update={"created_at": time.monotonic()}, deep=True)
 
     def make_pending(*, command: str) -> Any:
         return original_pending(command=command, created_at=time.monotonic())
@@ -853,6 +933,7 @@ def run_client(  # noqa: C901, PLR0913, PLR0915
         stack.enter_context(mock.patch.object(client_module, "BydMqttRuntime", harness.runtime_class()))
         stack.enter_context(mock.patch.object(client_module, "Session", make_session))
         stack.enter_context(mock.patch.object(client_module, "_PendingCommand", make_pending))
+        stack.enter_context(mock.patch.object(original_session, "with_refreshed_tokens", with_refreshed_tokens))
         # pyBYD logs failed background re-logins as warnings; they are part of the trace already.
         stack.enter_context(mock.patch.object(client_module._logger, "disabled", True))
         if "command_retries" in options:
@@ -871,9 +952,33 @@ def run_client(  # noqa: C901, PLR0913, PLR0915
             original_gate = client_module.evaluate_command_gate
             bypass = set(options["gate_bypass"])
 
+            def guest_refused(verdict: Any, positional: tuple, keywords: dict) -> bool:
+                # openbyd's gate policy (which this option stands for) can
+                # never override a refusal the guest grant caused
+                # (GuestScope::refuses and guest_refused in openbyd-client):
+                # the grant lacks the level 2 permission, its allow-list admits
+                # none of the rule's functionNos, or an owner's verdict matches
+                # functionNos and the guest's none.
+                scope = {"is_shared": keywords.get("is_shared", False),
+                         "guest_permissions": keywords.get("guest_permissions")}
+                if verdict.supported or not scope["is_shared"] or not scope["guest_permissions"]:
+                    return False
+                command = positional[0] if positional else keywords["command"]
+                if not command_gating._guest_permission_ok(command, **scope):
+                    return True
+                required = set(verdict.required_function_nos)
+                if required and not command_gating._filter_guest_function_nos(required, **scope):
+                    return True
+                owner = original_gate(*positional, **{**keywords, "is_shared": False, "guest_permissions": None})
+                return bool(owner.matched_function_nos) and not verdict.matched_function_nos
+
             def evaluate_command_gate(*positional: Any, **keywords: Any) -> Any:
                 verdict = original_gate(*positional, **keywords)
-                if not verdict.supported and verdict.reason in bypass:
+                if (
+                    not verdict.supported
+                    and verdict.reason in bypass
+                    and not guest_refused(verdict, positional, keywords)
+                ):
                     return verdict.model_copy(update={"supported": True})
                 return verdict
 
@@ -962,7 +1067,14 @@ def run_client(  # noqa: C901, PLR0913, PLR0915
         trace["state"] = {
             "session": None
             if current is None
-            else [current.user_id, current.sign_token, current.encry_token, _num(current.created_at), _num(current.ttl)],
+            else [
+                current.user_id,
+                current.sign_token,
+                current.encry_token,
+                _num(current.created_at),
+                _num(current.ttl),
+                current.refresh_token,
+            ],
             "guest_vins": dict(sorted(client._guest_vins.items())),
             "user_type_settled": [list(pair) for pair in sorted(current.user_type_settled)] if current else [],
             "commands_enabled": client._commands_enabled,
@@ -982,6 +1094,10 @@ def run_client(  # noqa: C901, PLR0913, PLR0915
             "data_poll_serials": len(client._data_poll_serials),
             "reauth": [_num(client._mqtt_reauth_at), client._mqtt_decrypt_reauths],
             "recovery": [client._mqtt_recovery_attempts, _num(client._mqtt_recovery_last_at)],
+            "busy": [
+                None if client._busy_probe_last_at is None else _num(client._busy_probe_last_at),
+                None if client._busy_reauth_last_at is None else _num(client._busy_reauth_last_at),
+            ],
             "closed": client._transport is None,
         }
     trace["unused_replies"] = len(transport.replies)
@@ -1009,13 +1125,14 @@ OLD_SESSION = {**SAMPLE_SESSION, "created_at": 100.0}
 BROKER_REPLY_DATA = {"emqBorker": "emq.example.com:8883"}
 
 
-def login_reply(token: Any = None, *, password: str | None = None, code: Any = "0") -> dict:
-    """A login reply carrying ``token`` (``LOGIN_TOKEN`` by default),
-    sealed with the key of ``password`` (the sample config's by default)."""
+def login_reply(token: Any = None, *, password: str | None = None, code: Any = "0", **extra: Any) -> dict:
+    """A login reply carrying ``token`` (``LOGIN_TOKEN`` by default) and any
+    ``extra`` keys beside it (``newTokens``), sealed with the key of
+    ``password`` (the sample config's by default)."""
     from pybyd._crypto.hashing import pwd_login_key
 
     key = pwd_login_key(SAMPLE_CONFIG["password"] if password is None else password)
-    inner = json.dumps({"token": LOGIN_TOKEN if token is None else token}, ensure_ascii=False)
+    inner = json.dumps({"token": LOGIN_TOKEN if token is None else token, **extra}, ensure_ascii=False)
     return {"reply": {"code": code, "message": "ok", "respondData": aes_encrypt_hex(inner, key)}}
 
 
@@ -1084,7 +1201,7 @@ FUZZ_SERIALS = ["S1", "S1", "S2", "", None, 5, "S3"]
 #: rate limited, refused command, PIN errors, guest retries.
 CLIENT_CODES = [
     "1002", "1011", "3001", "3003", "1002", "1005", "1010", "1008", "6002", "6051", "6024", "1009", "1001", "8003", "5005",
-    "5006", "5011", "9999",
+    "5006", "5011", "9999", "1030", "1003", "1008",
 ]
 #: Commands with their parameter models.
 COMMAND_PARAMS = {
@@ -1236,6 +1353,11 @@ def _method_args(rng, method: str) -> dict:  # noqa: PLR0911
         return {"vin": vin, "name": rng.choice(["Seal", "比亚迪", ""])}
     if method == "toggle_smart_charging":
         return {"vin": vin, "enable": rng.random() < 0.5}
+    if method == "set_ota_auto_upgrade":
+        return {"vin": vin, "enabled": rng.random() < 0.5, "command_pwd": pwd,
+                "auto_upgrade_time": rng.choice([None, "2:00", "03:30", "24:00", "x"])}
+    if method == "get_empower_detail":
+        return {"vin": vin, "empower_id": rng.choice([None, None, 114149, 0])}
     return {"vin": vin}
 
 
@@ -1254,7 +1376,8 @@ def _focused_reply(rng, method: str) -> dict:
     """A reply a trigger or a poll of ``method`` could get."""
     roll = rng.random()
     if roll < 0.2:
-        return error_reply(rng.choice(["6024", "1009", "1001", "1002", "3003", "1005", "6051", "1008", "5005", "6002"]))
+        return error_reply(rng.choice(["6024", "1009", "1001", "1002", "3003", "1005", "6051", "1008", "5005", "6002",
+                                       "1030", "1003"]))
     if roll < 0.25:
         return transport_error(rng.choice([None, 500]))
     serial = rng.choice(["S1", "S1", "S1", "S2", "", 5])
@@ -1308,9 +1431,15 @@ def _focused_event(rng, at: float, method: str) -> dict:
 def _focused_client_case(rng, method: str) -> dict:
     """A case for a command or polled read that gets past the checks in
     front (session, PIN, gate) and into the trigger, wait and polls."""
+    vehicle = {"vin": VIN, "energyType": rng.choice(["0", "2"]), "modelName": "SEAL"}
+    if rng.random() < 0.15:
+        vehicle.update(empowerType=-1, empowerId=114149,
+                       rangeDetailList=rng.choice([[{"code": "21"}, {"code": "41"}], [{"code": "31"}], []]))
+    session = LIVE_SESSION if rng.random() < 0.8 else {**LIVE_SESSION, "refresh_token": "REFRESH-synthetic"}
     state = logged_in(
+        session=session,
         mqtt=rng.random() < 0.85,
-        vehicles=[{"vin": VIN, "energyType": rng.choice(["0", "2"]), "modelName": "SEAL"}],
+        vehicles=[vehicle],
         capabilities={VIN: rng.choice([ALL_FUNCTIONS_CONFIG] * 5 + [DEDICATED_HEAT_CONFIG])},
         commands_enabled=True,
         guest_vins={VIN: rng.random() < 0.2},
@@ -1319,6 +1448,8 @@ def _focused_client_case(rng, method: str) -> dict:
     if rng.random() < 0.3:
         config["mqtt_timeout"] = rng.choice([0.0, 1.0, 3.0])
     replies = [_focused_reply(rng, method) for _ in range(rng.choice([1, 2, 3, 4, 6, 8, 12]))]
+    if rng.random() < 0.1:
+        replies = [date_reply(reply, random_date(rng)) if rng.random() < 0.3 else reply for reply in replies]
     if rng.random() < 0.15:
         replies.insert(rng.randint(0, len(replies)), login_reply())
         replies.insert(rng.randint(0, len(replies)), broker_reply())
@@ -1374,6 +1505,10 @@ def random_client_case(rng, method: str) -> dict:
     if state and rng.random() < 0.6:
         energy = rng.choice(["0", "1", "2", "-1", "x"])
         vehicle = {"vin": VIN, "energyType": energy, "modelName": "SEAL"}
+        if rng.random() < 0.25:
+            vehicle.update(empowerType=-1, empowerId=rng.choice([114149, None]),
+                           rangeDetailList=rng.choice([[], [{"code": "21"}], [{"code": "31"}, {"code": "41"}],
+                                                       [{"code": "2", "childList": [{"code": "21"}, {"code": "1005"}]}]]))
         if rng.random() < 0.3:
             vehicle["vehicleFunLearnInfo"] = {"openWindowLearnInfo": rng.choice([0, 1, -1])}
         if rng.random() < 0.2:

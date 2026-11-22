@@ -70,25 +70,34 @@ def known() -> list[str]:
     return sorted(known_command_function_nos())
 
 
-@group.oracle("models.command_gating.evaluate_command_gate", errors=ERRORS)
-def evaluate(command: Any, capabilities: Any, control_params: Any = None, learn_info: Any = None) -> Any:
+def _guest(is_shared: bool = False, guest_permissions: list[str] | None = None) -> dict[str, Any]:
+    """pyBYD's guest arguments: a frozenset of codes, or None."""
+    return {"is_shared": is_shared,
+            "guest_permissions": None if guest_permissions is None else frozenset(guest_permissions)}
+
+
+def evaluate(command: Any, capabilities: Any, control_params: Any = None, learn_info: Any = None, **guest) -> Any:
     member = RemoteCommand(command)
     caps = VehicleCapabilities.model_validate(capabilities)
-    verdict = evaluate_command_gate(member, caps, control_params=control_params, learn_info=learn_info)
+    verdict = evaluate_command_gate(member, caps, control_params=control_params, learn_info=learn_info,
+                                    **_guest(**guest))
     return jsonable(verdict.model_dump(mode="json"))
 
 
+group.oracle("models.command_gating.evaluate_command_gate", errors=ERRORS)(evaluate)
+
+
 @group.oracle("models.command_gating.evaluate_all_command_gates", errors=ERRORS)
-def evaluate_all(capabilities: Any, learn_info: Any = None) -> Any:
+def evaluate_all(capabilities: Any, learn_info: Any = None, **guest) -> Any:
     caps = VehicleCapabilities.model_validate(capabilities)
     return [jsonable(verdict.model_dump(mode="json"))
-            for verdict in evaluate_all_command_gates(caps, learn_info=learn_info)]
+            for verdict in evaluate_all_command_gates(caps, learn_info=learn_info, **_guest(**guest))]
 
 
 @group.oracle("models.command_gating.evaluate_rule", errors=ERRORS)
-def evaluate_rule(rule: Any, function_nos: list[str], learn_info: Any = None) -> Any:
+def evaluate_rule(rule: Any, function_nos: list[str], learn_info: Any = None, **guest) -> Any:
     verdict = _evaluate_rule(CommandGateRule.model_validate(rule), VehicleCapabilities(),
-                             function_nos=set(function_nos), learn_info=learn_info)
+                             function_nos=set(function_nos), learn_info=learn_info, **_guest(**guest))
     return jsonable(verdict.model_dump(mode="json"))
 
 
@@ -153,9 +162,31 @@ LEARN_VALUES: list[Any] = [1, 0, -1, 2, 0.5, -0.5, 0.0, True, False, None, "", "
                            2**64 - 1, -(2**63)]
 
 
-def _gate_args(command: Any, capabilities: Any, control_params: Any = None, learn_info: Any = None) -> dict[str, Any]:
+def _gate_args(command: Any, capabilities: Any, control_params: Any = None, learn_info: Any = None,
+               **guest: Any) -> dict[str, Any]:
     return {"command": command, "capabilities": capabilities, "control_params": control_params,
-            "learn_info": learn_info}
+            "learn_info": learn_info, **guest}
+
+
+#: Grants of pyBYD's guest permission tests and around them: level 2 codes,
+#: level 3/4 functionNo allow-lists, deep tree codes, empty and missing.
+GUEST_GRANTS: list[Any] = [
+    None,
+    [],
+    ["2", "21", "4", "41"],
+    ["2", "21", "1001", "1005"],
+    ["2", "21", "2101"],
+    ["21"],
+    ["31"],
+    ["41", "43"],
+    ["21", "31", "41", "43"],
+    ["1005"],
+    ["10020004", "21"],
+    ["1004", "21"],
+    ["2", "4"],
+]
+#: pyBYD's test_guest_permissions fixture: climate, lock, window, battery heat and charging functionNos.
+GUEST_CAPS = ["1001", "1005", "1026", "10020004", "10020001", "10100001", "1012"]
 
 
 @group.recorded
@@ -198,6 +229,17 @@ def recorded() -> Iterator[Case]:
     # Upstream tests/test_command_gating.py: electric A/C (1015) allows every climate command.
     for command in ["OPENAIR", "CLOSEAIR", "BOOKINGAIR"]:
         yield call, _gate_args(command, caps(["1015"]))
+    # Guest grants (pyBYD #103 and its follow-up): every command, shared or not, every grant.
+    for command in COMMANDS:
+        for grant in GUEST_GRANTS:
+            for shared in [True, False]:
+                yield call, _gate_args(command, caps(GUEST_CAPS), {"chairType": "1"}, None,
+                                       is_shared=shared, guest_permissions=grant)
+            yield call, _gate_args(command, caps(ALL_FUNCTION_NOS), {"chairType": "2"}, {"openWindowLearnInfo": 1},
+                                   is_shared=True, guest_permissions=grant)
+    for grant in GUEST_GRANTS:
+        yield "models.command_gating.evaluate_all_command_gates", {
+            "capabilities": caps(ALL_FUNCTION_NOS), "learn_info": None, "is_shared": True, "guest_permissions": grant}
     # evaluate_all_command_gates
     for fixture in [{}, caps([]), caps(OVERSEAS), caps(ATTO3_EVO), caps(["1005"]), caps([1])]:
         for learn_info in [None, {"openWindowLearnInfo": 0}]:
@@ -222,6 +264,9 @@ def recorded() -> Iterator[Case]:
     yield rule_call, {"rule": open_rule, "function_nos": [], "learn_info": {"openWindowLearnInfo": 1}}
     yield rule_call, {"rule": {**lock_rule, "requiredFunctionNos": ["b", "a", "a", "c"]}, "function_nos": ["c", "a"]}
     yield rule_call, {"rule": {"gateId": "t"}, "function_nos": []}
+    for grant in GUEST_GRANTS:
+        yield rule_call, {"rule": lock_rule, "function_nos": ["1005", "10020001"], "learn_info": None,
+                          "is_shared": True, "guest_permissions": grant}
 
 
 _SEAT_GATES = {"1": "seat_driver", "2": "seat_passenger", "3": "seat_rear_left", "4": "seat_rear_right",
@@ -293,8 +338,14 @@ def fuzz(rng: random.Random) -> Iterator[Case]:
                                      LEARN_VALUES)
         if isinstance(learn_info, dict) and rng.random() < 0.5:
             learn_info["openWindowLearnInfo"] = rng.choice([1, 0, -1, 2, True, None])
+        guest = {}
+        if rng.random() < 0.4:
+            grant = rng.choice(GUEST_GRANTS)
+            if grant is not None and rng.random() < 0.5:
+                grant = grant + rng.sample(COMMAND_FUNCTION_NOS + ["21", "31", "41", "43", "2101"], k=rng.randint(0, 3))
+            guest = {"is_shared": rng.random() < 0.8, "guest_permissions": grant}
         args = _gate_args(command, _with_own_function_nos(rng, command, _random_capabilities(rng)), control_params,
-                          learn_info)
+                          learn_info, **guest)
         if json_safe(args):
             yield "models.command_gating.evaluate_command_gate", args
 
@@ -304,6 +355,8 @@ def fuzz_all(rng: random.Random) -> Iterator[Case]:
     while True:
         args = {"capabilities": _random_capabilities(rng),
                 "learn_info": _random_mapping(rng, ["openWindowLearnInfo", "openWindow499LearnInfo"], LEARN_VALUES)}
+        if rng.random() < 0.4:
+            args.update(is_shared=rng.random() < 0.8, guest_permissions=rng.choice(GUEST_GRANTS))
         if json_safe(args):
             yield "models.command_gating.evaluate_all_command_gates", args
 
@@ -317,6 +370,8 @@ def fuzz_rule(rng: random.Random) -> Iterator[Case]:
                 "requiredLearnInfoKeys": rng.sample(keys, k=rng.randint(0, 3))}
         args = {"rule": rule, "function_nos": _random_function_nos(rng) if rng.random() < 0.9 else [],
                 "learn_info": _random_mapping(rng, keys, LEARN_VALUES)}
+        if rng.random() < 0.4:
+            args.update(is_shared=rng.random() < 0.8, guest_permissions=rng.choice(GUEST_GRANTS))
         if not isinstance(args["function_nos"], list) or not all(isinstance(fn, str) for fn in args["function_nos"]):
             args["function_nos"] = []
         if json_safe(args):

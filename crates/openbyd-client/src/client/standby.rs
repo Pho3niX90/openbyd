@@ -47,7 +47,7 @@ impl<E: ClientEnv> BydClient<E> {
     /// Fetches the preconditioning plans app 3.6.0 schedules climate with
     /// (pyBYD's `get_standby_plans`).
     pub async fn get_standby_plans(&self, vin: &str) -> Result<StandbyPlanList, Error> {
-        authed!(self, |cx| fetch_standby_plans(cx, vin))
+        authed!(self, probe, |cx| fetch_standby_plans(cx, vin))
     }
 
     /// Saves a plan's name, commands and schedule, then returns the fresh
@@ -59,6 +59,10 @@ impl<E: ClientEnv> BydClient<E> {
     /// `plan.commands` (for example the `OPENAIR` `controlParamsMap`) to
     /// change what the plan does. Saving with `default_plan` 1 makes it the
     /// default; the cloud clears the flag on the others.
+    ///
+    /// A once run less than 20 minutes ahead fails with
+    /// `BydStandbyScheduleError`; a daily or weekly one is saved but skips
+    /// today, which only the returned list's `message` says.
     pub async fn save_standby_plan(
         &self,
         vin: &str,
@@ -73,8 +77,15 @@ impl<E: ClientEnv> BydClient<E> {
                 &current
             }
         };
-        authed!(self, |cx| save_standby_plan(cx, vin, plan, schedule))?;
-        self.get_standby_plans(vin).await
+        let saved = authed!(self, |cx| save_standby_plan(cx, vin, plan, schedule))?;
+        let mut plans = self.get_standby_plans(vin).await?;
+        // `model_copy(update={"message": saved.get("message") or None})`:
+        // not validated, so a message that is not text stays what BYD sent.
+        plans.message = saved
+            .get("message")
+            .filter(|message| crate::api::control::truthy(message))
+            .cloned();
+        Ok(plans)
     }
 
     /// Creates a user plan and returns it (pyBYD's `create_standby_plan`).
@@ -170,7 +181,8 @@ impl<E: ClientEnv> BydClient<E> {
     /// is not waited for. A result still at 1 when polling gives up is
     /// returned as it is, since the app itself stops polling there; any
     /// other `res` than 1 or 2 fails with `BydRemoteControlError` (its code
-    /// is the `res`).
+    /// is the `res`). Once the run is dispatched it is not sent again on a
+    /// session error.
     pub async fn run_standby_plan(
         &self,
         vin: &str,
@@ -178,8 +190,11 @@ impl<E: ClientEnv> BydClient<E> {
         settings: RunPollSettings,
     ) -> Result<StandbyPlanRunResult, Error> {
         let fetch = make_send_fetch_fn(plan_id);
-        with_reauth!(
+        let dispatched = std::sync::atomic::AtomicBool::new(false);
+        reauth!(
             self,
+            false,
+            !dispatched.load(std::sync::atomic::Ordering::SeqCst),
             async {
                 let raw = self
                     .trigger_and_poll(TriggeredRead {
@@ -191,8 +206,9 @@ impl<E: ClientEnv> BydClient<E> {
                         mqtt_event_type: None,
                         mqtt_timeout: Some(0.0),
                         poll_attempts: settings.poll_attempts,
-                        poll_interval: settings.poll_interval,
+                        poll_interval: Some(settings.poll_interval),
                         signal_retries: 2,
+                        dispatched: Some(&dispatched),
                     })
                     .await?;
                 let mut result: StandbyPlanRunResult = parse_model(&raw)?;

@@ -302,7 +302,14 @@ test("sessions are exported, restored and renewed", async () => {
   const first = world.client();
   await first.login();
   const saved = world.session(first);
-  assert.deepEqual(Object.keys(saved), ["user_id", "sign_token", "encry_token", "ttl_remaining", "guest_vins"]);
+  assert.deepEqual(Object.keys(saved), [
+    "user_id",
+    "sign_token",
+    "encry_token",
+    "refresh_token",
+    "ttl_remaining",
+    "guest_vins",
+  ]);
   assert.ok(saved.ttl_remaining !== null && saved.ttl_remaining > 0);
 
   const { password: _password, ...withoutPassword } = world.options();
@@ -324,6 +331,15 @@ test("sessions are exported, restored and renewed", async () => {
     Client.fromSession({ ...saved, user_id: "" }, withoutPassword),
     DataError,
   );
+  // A record saved before openbyd kept the refresh token still restores.
+  const { refresh_token: _refresh, ...old } = saved;
+  const fromOld = await Client.fromSession(old, withoutPassword);
+  try {
+    assert.equal(fromOld.exportSession()?.refresh_token, "");
+    assert.equal(fromOld.exportSession()?.sign_token, saved.sign_token);
+  } finally {
+    fromOld.close();
+  }
 
   // A relogin function hands over a new session when one is needed.
   let asked = 0;
@@ -413,6 +429,8 @@ test("standby plans round-trip, including daily schedules with zone", async () =
     executeType: "1",
   };
   world.server.reply(SAVE, { data: {} });
+  // The first save answers a message that is not text: it comes back as sent.
+  world.server.script(SAVE, [{ data: { message: { warning: 1 } } }]);
   world.server.reply(SET_DEFAULT, { data: {} });
   world.server.reply(DELETE, { data: {} });
   world.server.reply(SEND, { data: { requestSerial: "RUN1" } });
@@ -440,6 +458,7 @@ test("standby plans round-trip, including daily schedules with zone", async () =
     },
   });
   assert.equal(saved.plans[0]?.id, "101");
+  assert.deepEqual(saved.message, { warning: 1 });
   const saveInner = world.server.requests(SAVE)[0]?.inner as { executeType: string; executeTime: number };
   assert.equal(saveInner.executeType, "1");
   assert.ok(saveInner.executeTime > 0);
@@ -474,4 +493,39 @@ test("standby plans round-trip, including daily schedules with zone", async () =
   const run = await client.runStandbyPlan(VIN, "101", { pollAttempts: 2, pollInterval: 0.01 });
   assert.equal(run.res, 2);
   assert.equal(run.vin, VIN);
+});
+
+test("the OTA version, the night auto-upgrade and a guest's grant", async () => {
+  using world = new World();
+  world.server.reply("/control/otaUpgrade/getOtaVersion", {
+    data: { currentVersion: "V1.3.0", updateVersion: "V1.4.0", upgradeStatus: 1, autoUpgradeSwitch: "1", autoUpgradeTime: "3:00" },
+  });
+  world.server.reply("/control/otaUpgrade/syncAutoUpgrade", { data: {} });
+  world.server.reply("/vehicle/empower/query/empowerDetailByVin", {
+    data: { empowerControlPwdStatus: true, data: { empowerId: 7, detailList: [{ code: "2", childList: [{ code: "21" }] }] } },
+  });
+  const client = world.client();
+  const ota = await client.getOtaVersion(VIN);
+  assert.deepEqual([ota.current_version, ota.update_version, ota.upgrade_status], ["V1.3.0", "V1.4.0", 1]);
+  assert.equal(typeof (world.server.requests("/control/otaUpgrade/getOtaVersion")[0]?.inner as { language: unknown }).language, "string");
+
+  // The night auto-upgrade needs command access and the PIN, as a command does.
+  assert.ok((await thrown(() => client.setOtaAutoUpgrade(VIN, true))) instanceof BydControlPasswordError);
+  await client.verifyCommandAccess(VIN);
+  assert.equal((await client.setOtaAutoUpgrade(VIN, false, { autoUpgradeTime: "03:30" })).vin, VIN);
+  const sync = world.server.requests("/control/otaUpgrade/syncAutoUpgrade")[0]?.inner as { autoUpgradeSwitch: string; autoUpgradeTime: string };
+  assert.deepEqual([sync.autoUpgradeSwitch, sync.autoUpgradeTime], ["0", "3:30"]);
+  assert.ok((await thrown(() => client.setOtaAutoUpgrade(VIN, true, { autoUpgradeTime: "25:00" }))) instanceof DataError);
+
+  // An owner's car has no grant; with an explicit ID it is fetched.
+  const notShared = await thrown(() => client.getEmpowerDetail(VIN));
+  assert.ok(notShared instanceof BydEndpointNotSupportedError);
+  assert.equal(notShared.code, "not_shared_vehicle");
+  const detail = await client.getEmpowerDetail(VIN, { empowerId: 7 });
+  assert.deepEqual([detail.empower_id, detail.empower_control_pwd_status, detail.detail_list.length], [7, true, 1]);
+
+  const car = await client.getCar(VIN);
+  assert.equal((await car.getOtaVersion()).current_version, "V1.3.0");
+  await car.setOtaAutoUpgrade(true);
+  assert.equal(world.server.requests("/control/otaUpgrade/syncAutoUpgrade").length, 2);
 });

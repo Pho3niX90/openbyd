@@ -4,7 +4,7 @@
 //! and the pending-command registry).
 
 use openbyd_protocol::coerce::ValidationError;
-use openbyd_protocol::error::{Error, ErrorKind};
+use openbyd_protocol::error::Error;
 use openbyd_protocol::models::base::BydModel;
 use openbyd_protocol::models::charging::ChargingStatus;
 use openbyd_protocol::models::control::{
@@ -76,19 +76,13 @@ impl<E: ClientEnv> Drop for WaitGuard<'_, E> {
     }
 }
 
-fn cancelled() -> Error {
-    Error::new(
-        ErrorKind::CancelledError,
-        "the MQTT wait was cancelled because MQTT stopped",
-    )
-}
-
 impl<E: ClientEnv> BydClient<E> {
     /// Waits for an MQTT event for `vin` (of `event_type`, with `serial`,
     /// when given) and returns its `respondData`; `None` when MQTT is not
     /// running, `timeout` (default `config.mqtt_timeout`) is not above 0,
-    /// or nothing came in time. Fails with `CancelledError` when MQTT stops
-    /// meanwhile (pyBYD's `_mqtt_wait`).
+    /// or nothing came in time. MQTT stopping meanwhile ends the wait the
+    /// same way, so the caller falls back to polling (pyBYD's `_mqtt_wait`;
+    /// before pyBYD #98 the wait was cancelled).
     pub(crate) async fn mqtt_wait(
         &self,
         vin: &str,
@@ -97,12 +91,17 @@ impl<E: ClientEnv> BydClient<E> {
         timeout: Option<f64>,
     ) -> Result<Option<Map<String, Value>>, Error> {
         let timeout = timeout.unwrap_or(self.inner.config.mqtt_timeout);
-        if !self.mqtt_is_running() || timeout <= 0.0 {
+        if timeout <= 0.0 {
             return Ok(None);
         }
         let (slot, receiver) = tokio::sync::oneshot::channel();
+        // Checked and registered under one lock, which `stop_mqtt` drains
+        // under: a stop either comes first (no wait at all) or ends this one.
         let id = {
             let mut state = self.state();
+            if !(state.mqtt_started && self.inner.env.mqtt_running()) {
+                return Ok(None);
+            }
             state.next_waiter += 1;
             let id = state.next_waiter;
             state.waiters.push(Waiter {
@@ -118,7 +117,7 @@ impl<E: ClientEnv> BydClient<E> {
         match self.inner.env.wait_for(Box::pin(receiver), timeout).await {
             None => Ok(None),
             Some(Ok(Some(data))) => Ok(Some(data)),
-            Some(Ok(None) | Err(_)) => Err(cancelled()),
+            Some(Ok(None) | Err(_)) => Ok(None),
         }
     }
 

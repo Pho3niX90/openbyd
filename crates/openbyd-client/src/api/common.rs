@@ -32,7 +32,8 @@ pub struct ErrorCodes<'a> {
 /// Posts a token-enveloped request and returns the decrypted `respondData`
 /// (an empty object when there is none), as pyBYD's `post_token_json`.
 ///
-/// `now_ms` defaults to the environment's clock. `user_type` is sent and
+/// `now_ms` defaults to the environment's clock plus the server clock
+/// offset; with an offset, the inner `timeStamp` is that time too. `user_type` is sent and
 /// signed when given. A non-zero `code` becomes the error
 /// [`raise_for_code`] picks; a reply that is not an object is an
 /// `AttributeError`, as in pyBYD.
@@ -45,7 +46,18 @@ pub async fn post_token_json<E: Env>(
     codes: ErrorCodes<'_>,
     user_type: Option<&str>,
 ) -> Result<Value, Error> {
-    let now_ms = now_ms.unwrap_or_else(|| cx.env.now_ms());
+    // Requests are stamped with BYD's clock once its `Date` header showed a drift.
+    let offset_ms = cx.env.server_time_offset_ms();
+    let now_ms = now_ms.unwrap_or_else(|| cx.env.now_ms() + offset_ms);
+    let stamped;
+    let inner = if offset_ms != 0 && inner.contains_key("timeStamp") {
+        let mut copy = inner.clone();
+        copy.insert("timeStamp".into(), json!(now_ms.to_string()));
+        stamped = copy;
+        &stamped
+    } else {
+        inner
+    };
     // pyBYD's envelope reads the clock again for `serviceTime`.
     let service_time_ms = cx.env.now_ms();
     let (outer, content_key) = build_token_outer_envelope(

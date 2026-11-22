@@ -7,8 +7,8 @@ use serde_json::{Map, Value, json};
 
 use super::base::{self, BydModel, Fields, Plan, byd_enum, enum_call, enum_field};
 use super::realtime::{
-    AirCirculationMode, SeatHeatVentState, StearingWheelHeat, is_steering_wheel_heating,
-    steering_wheel_heat,
+    AirCirculationMode, AirRunState, SeatHeatVentState, StearingWheelHeat,
+    is_steering_wheel_heating, steering_wheel_heat,
 };
 use crate::coerce::{self, ValidationError};
 use crate::constants;
@@ -121,8 +121,9 @@ pub struct HvacStatus {
     /// Air circulation mode (external / internal).
     #[serde(serialize_with = "base::ser_opt_int_enum")]
     pub cycle_choice: Option<AirCirculationMode>,
-    /// Raw `airRunState`, left uninterpreted until confirmed live.
-    pub air_run_state: Option<i64>,
+    /// Whether the A/C is running, same scale as `status`.
+    #[serde(serialize_with = "base::ser_opt_int_enum")]
+    pub air_run_state: Option<AirRunState>,
 
     // --- Temperature ---
     /// Driver-side set temperature on BYD scale (1-17).
@@ -278,7 +279,7 @@ impl BydModel for HvacStatus {
             wind_mode: fields.opt("wind_mode", enum_field),
             wind_position: fields.opt("wind_position", enum_field),
             cycle_choice: fields.opt("cycle_choice", enum_field),
-            air_run_state: fields.opt("air_run_state", int),
+            air_run_state: fields.opt("air_run_state", enum_field),
             main_setting_temp: fields.opt("main_setting_temp", float),
             main_setting_temp_new: fields.opt("main_setting_temp_new", float),
             copilot_setting_temp: fields.opt("copilot_setting_temp", float),

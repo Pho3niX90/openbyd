@@ -130,7 +130,8 @@ class TypeScript:
         for entry in item.fields:
             text = "The reply this was parsed from, as BYD sent it." if entry.name == "raw" else entry.doc
             doc(writer, " ".join(part for part in (text, self.note(entry)) if part))
-            writer.line(f"readonly {entry.name}: {self.type(entry.type)};")
+            optional = "?" if entry.read_back_default() is not None else ""
+            writer.line(f"readonly {entry.name}{optional}: {self.type(entry.type)};")
         writer.dedent()
         writer.line("}")
         writer.blank()

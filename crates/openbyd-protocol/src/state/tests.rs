@@ -208,15 +208,30 @@ fn overrides_dump_like_pydantic() {
         dumped_override::<R>("left_front_door_lock", &json!(true)),
         json!(true)
     );
-    // Plain ints since pyBYD #94 and #96 (the second is `int | str`).
-    for field in ["air_run_state", "repair_mode_switch"] {
-        assert_eq!(dumped_override::<R>(field, &json!(true)), json!(1));
-        assert_eq!(dumped_override::<R>(field, &json!(false)), json!(0));
-        assert_eq!(dumped_override::<R>(field, &json!("x")), json!("x"));
+    // A plain int since pyBYD #96 (`int | str`).
+    assert_eq!(
+        dumped_override::<R>("repair_mode_switch", &json!(true)),
+        json!(1)
+    );
+    assert_eq!(
+        dumped_override::<R>("repair_mode_switch", &json!(false)),
+        json!(0)
+    );
+    assert_eq!(
+        dumped_override::<R>("repair_mode_switch", &json!("x")),
+        json!("x")
+    );
+    // An enum again since pyBYD #100: shown as written.
+    for value in [json!(true), json!(false), json!("x"), json!(2)] {
+        assert_eq!(dumped_override::<R>("air_run_state", &value), value);
+        assert_eq!(
+            dumped_override::<HvacStatus>("air_run_state", &value),
+            value
+        );
     }
     assert_eq!(
-        dumped_override::<HvacStatus>("air_run_state", &json!(false)),
-        json!(0)
+        dumped_override::<R>("charge_start_time_hour", &json!(true)),
+        json!(1)
     );
 }
 
@@ -465,7 +480,10 @@ fn a_status_push_skips_unknown_sections_and_rebuilds_once() {
     assert_eq!(hv.status, Some(HvacOverallStatus::Off));
     assert!(!hv.raw.contains_key("elecPercent"));
     assert_eq!(hv.cycle_choice, Some(AirCirculationMode::Internal));
-    assert_eq!(hv.air_run_state, Some(1));
+    assert_eq!(
+        hv.air_run_state,
+        Some(crate::models::realtime::AirRunState::On)
+    );
     assert_eq!(hv.main_setting_temp_new, Some(23.0));
     let ch = snapshot.charging.as_ref().unwrap().base();
     assert_eq!(ch.soc, Some(70));

@@ -1,4 +1,4 @@
-{"group": "models_control", "upstream_commit": "c1e88052f4f724343507bd8bda0ef990129071ba", "cases": [
+{"group": "models_control", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
 {"call":"models.control.RemoteCommand","args":{"value":"LOCKDOOR"},"ok":{"name":"LOCK","value":"LOCKDOOR"}},
 {"call":"models.control.RemoteCommand","args":{"value":"OPENDOOR"},"ok":{"name":"UNLOCK","value":"OPENDOOR"}},
 {"call":"models.control.RemoteCommand","args":{"value":"OPENAIR"},"ok":{"name":"START_CLIMATE","value":"OPENAIR"}},

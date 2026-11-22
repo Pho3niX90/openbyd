@@ -12,9 +12,12 @@
 
 use serde_json::{Map, Value, json};
 
+pub mod clock;
+
 use crate::aes::{aes_decrypt_utf8, aes_encrypt_hex, is_python_space};
 use crate::api::common::random_hex;
 use crate::config::BydConfig;
+use crate::constants::SERVER_TIME_DIFF_CODES;
 use crate::error::{Error, ErrorKind, raise_for_code};
 use crate::hashing::{compute_checkcode, md5_hex, pwd_login_key, sha1_mixed};
 use crate::models::token::AuthToken;
@@ -171,13 +174,23 @@ pub fn parse_login_response(outer_response: &Value, password: &str) -> Result<Au
     let response = outer_response
         .as_object()
         .ok_or_else(|| not_a_dict("login response"))?;
-    let code = response.get("code").unwrap_or(&Value::Null);
-    if py_str(code) != "0" {
+    // `str(outer_response.get("code", ""))`: a missing code is "", a null one "None".
+    let code = response.get("code").map(py_str).unwrap_or_default();
+    if code != "0" {
         let message = response.get("message").map(py_str).unwrap_or_default();
+        if SERVER_TIME_DIFF_CODES.contains(&code.as_str()) {
+            return Err(Error::api(
+                ErrorKind::BydServerTimeError,
+                format!("Login failed: code={code} message={message}"),
+                code,
+                LOGIN_ENDPOINT,
+            ));
+        }
+        let shown = py_str(response.get("code").unwrap_or(&Value::Null));
         return Err(Error::api(
             ErrorKind::BydAuthenticationError,
-            format!("Login failed: code={} message={message}", py_str(code)),
-            response.get("code").map(py_str).unwrap_or_default(),
+            format!("Login failed: code={shown} message={message}"),
+            code,
             LOGIN_ENDPOINT,
         ));
     }
@@ -214,10 +227,25 @@ pub fn parse_login_response(outer_response: &Value, password: &str) -> Result<Au
             user_id,
             sign_token,
             encry_token,
+            refresh_token: login_refresh_token(&inner, token),
             raw: token.clone(),
         }),
         _ => Err(auth_error("Login response missing token fields")),
     }
+}
+
+/// The refresh token a login reply carries: `newTokens.refreshToken` when
+/// set, else `token.refreshToken`, else empty.
+fn login_refresh_token(inner: &Value, token: &Map<String, Value>) -> String {
+    let set = |object: Option<&Map<String, Value>>| {
+        object
+            .and_then(|object| object.get("refreshToken"))
+            .filter(|value| truthy(value))
+            .map(py_str)
+    };
+    set(inner.get("newTokens").and_then(Value::as_object))
+        .or_else(|| set(Some(token)))
+        .unwrap_or_default()
 }
 
 /// The signed outer payload of a request made with a session, as pyBYD's
@@ -448,6 +476,49 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
         "envelope.build_token_outer_envelope" => {
             token_envelope_call(&args).map(|(outer, key)| json!([outer, key]))
         }
+        "envelope.sync_clock_from_header" => (|| {
+            let header = match args.value("date_header") {
+                Value::Null => None,
+                _ => Some(args.str("date_header")?),
+            };
+            let int = |name: &str| {
+                args.value(name)
+                    .as_i64()
+                    .ok_or_else(|| ParityError::bad_arguments(format!("{name} must be an integer")))
+            };
+            clock::sync_clock_from_header(header, int("now_ms")?, int("offset_ms")?)
+                .map(|offset| json!(offset))
+                .map_err(|_| {
+                    ParityError::new("OverflowError", "a number in the Date header overflows")
+                })
+        })(),
+        "envelope.post_secure_clock" => (|| {
+            let header = match args.value("date_header") {
+                Value::Null => None,
+                _ => Some(args.str("date_header")?),
+            };
+            let int = |name: &str| {
+                args.value(name)
+                    .as_i64()
+                    .ok_or_else(|| ParityError::bad_arguments(format!("{name} must be an integer")))
+            };
+            let offset = clock::sync_clock_from_header(header, int("now_ms")?, int("offset_ms")?)
+                .map_err(|_| {
+                ParityError::new("OverflowError", "a number in the Date header overflows")
+            })?;
+            let mut outcome = Map::new();
+            match decode_response_body("/app/x", status_argument(&args)?, args.str("text")?) {
+                Ok(result) => {
+                    outcome.insert("result".into(), result);
+                }
+                Err(error) if error.is_a(ErrorKind::BydError) => {
+                    outcome.insert("error".into(), json!(error.class_name()));
+                }
+                Err(error) => return Err(error.into()),
+            }
+            outcome.insert("offset_ms".into(), json!(offset));
+            Ok(Value::Object(outcome))
+        })(),
         "envelope.request_headers" => Ok(Value::Object(
             REQUEST_HEADERS
                 .iter()
@@ -547,7 +618,7 @@ mod tests {
     fn login_round_trip() {
         let config = BydConfig::new("user@example.com", "pa$$ \"wörd\" 🚗");
         let outer = build_login_request(&config, 1_700_000_000_000, &[7; 16], 1_700_000_000_005);
-        assert_eq!(outer["appName"], "pyBYD+0.0.86");
+        assert_eq!(outer["appName"], "pyBYD+0.0.89");
         assert!(encode_request_body(&outer).starts_with("{\"request\": \"F"));
         let token = json!({"userId": 5, "signToken": "s", "encryToken": "e"});
         let respond = aes_encrypt_hex(

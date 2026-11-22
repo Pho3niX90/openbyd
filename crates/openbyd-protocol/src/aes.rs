@@ -122,7 +122,7 @@ fn parse_key(key_hex: &str) -> Result<Vec<u8>, Error> {
 }
 
 /// True for the characters Python's `str.strip()` removes.
-pub(crate) fn is_python_space(ch: char) -> bool {
+pub fn is_python_space(ch: char) -> bool {
     ch.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&ch)
 }
 

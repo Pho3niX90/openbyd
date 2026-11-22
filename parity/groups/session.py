@@ -6,6 +6,7 @@ import time
 from unittest import mock
 
 from pybyd.session import Session
+from pydantic import ValidationError
 
 from parity.framework import Group
 from parity.groups.config import SAMPLE_SESSION, finite, random_session_kwargs
@@ -49,6 +50,43 @@ def age(session: dict, now: float):
         return finite(built.age)
 
 
+@group.oracle("session.with_refreshed_tokens", errors=(TypeError, ValidationError))
+def with_refreshed_tokens(session: dict, now: float, guest_vins: dict, user_type_settled: list, **tokens) -> dict:
+    built = make_session(session, now)
+    built.guest_vins.update(guest_vins)
+    built.user_type_settled.update((vin, endpoint) for vin, endpoint in user_type_settled)
+    # The new Session's created_at default is the real time.monotonic bound
+    # at import (see make_session); pyBYD means "now", so read it at now.
+    refreshed = built.with_refreshed_tokens(**tokens).model_copy(update={"created_at": now}, deep=True)
+    return {
+        "dump": finite(refreshed.model_dump(mode="json")),
+        "guest_vins": dict(sorted(refreshed.guest_vins.items())),
+        "user_type_settled": [list(pair) for pair in sorted(refreshed.user_type_settled)],
+    }
+
+
+# Tokens BYD's refresh reply could carry that are not strings: pyBYD's Session
+# refuses them (ValidationError), null included for the two required ones.
+BAD_TOKENS = [None, 5, 1.5, True, [], {}, ["S2"]]
+
+
+def refresh_case(rng, session: dict, now: float) -> dict:
+    tokens = {"sign_token": rng.choice(["S2", " padded\t", "", "ü 🚗"]), "encry_token": rng.choice(["E2", "  ", "ü"])}
+    if rng.random() < 0.6:
+        tokens["refresh_token"] = rng.choice([None, "R2", " R3 ", ""])
+    if rng.random() < 0.15:
+        tokens[rng.choice(["sign_token", "encry_token", "refresh_token"])] = rng.choice(BAD_TOKENS)
+    if rng.random() < 0.03:
+        del tokens[rng.choice(["sign_token", "encry_token"])]
+    return {
+        "session": session,
+        "now": now,
+        "guest_vins": rng.choice([{}, {"TESTVIN0000000001": True}, {"TESTVIN0000000001": False, "B": True}]),
+        "user_type_settled": rng.choice([[], [["TESTVIN0000000001", "/control/getGpsInfo"]]]),
+        **tokens,
+    }
+
+
 CALLS = ["session.Session", "session.content_key", "session.sign_key", "session.is_expired", "session.age"]
 
 
@@ -63,6 +101,27 @@ def recorded():
         yield call, {"session": {**SAMPLE_SESSION, "created_at": "nan"}, "now": 1.0}
         yield call, {"session": {**SAMPLE_SESSION, "user_id": 5}, "now": 1.0}
         yield call, {"session": {"user_id": "1", "created_at": 0.0}, "now": 1.0}
+        yield call, {"session": {**SAMPLE_SESSION, "refresh_token": " REFRESH-synthetic "}, "now": 1.0}
+        yield call, {"session": {**SAMPLE_SESSION, "refresh_token": 5}, "now": 1.0}
+    import random
+
+    rng = random.Random("session-recorded")
+    for session in [SAMPLE_SESSION, {**SAMPLE_SESSION, "refresh_token": "REFRESH-synthetic", "ttl": 60.0}]:
+        for _ in range(6):
+            yield "session.with_refreshed_tokens", refresh_case(rng, session, rng.choice([100.0, 5e5]))
+    # Null and other non-string tokens, and a required one missing.
+    base = {"session": {**SAMPLE_SESSION, "refresh_token": "REFRESH-synthetic"}, "now": 100.0, "guest_vins": {},
+            "user_type_settled": [], "sign_token": "S2", "encry_token": "E2"}
+    for name in ["sign_token", "encry_token", "refresh_token"]:
+        for value in BAD_TOKENS:
+            yield "session.with_refreshed_tokens", {**base, name: value}
+    for name in ["sign_token", "encry_token"]:
+        yield "session.with_refreshed_tokens", {key: value for key, value in base.items() if key != name}
+    # One missing and the other invalid: the missing keyword (TypeError) wins.
+    for present, missing in [("sign_token", "encry_token"), ("encry_token", "sign_token")]:
+        for bad in [None, 5]:
+            case = {key: value for key, value in base.items() if key != missing}
+            yield "session.with_refreshed_tokens", {**case, present: bad}
 
 
 @group.fuzz
@@ -72,3 +131,5 @@ def fuzz(rng):
         session.setdefault("created_at", 0.0)
         now = rng.choice([0.0, 100.0, rng.uniform(0, 2e6)])
         yield rng.choice(CALLS), {"session": session, "now": now}
+        if "created_at" in session and rng.random() < 0.3:
+            yield "session.with_refreshed_tokens", refresh_case(rng, session, now)

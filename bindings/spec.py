@@ -58,6 +58,20 @@ INPUT_MODELS = {
     "StandbySchedule",
 }
 
+#: pyBYD output fields whose type openbyd widens, as (type, doc): what openbyd
+#: answers that pyBYD's annotation does not cover.
+OUTPUT_FIELD_TYPES: dict[str, dict[str, tuple[Type, str]]] = {
+    "StandbyPlanList": {
+        # A save keeps BYD's message as sent (pyBYD reads it from the reply
+        # with `.get`), so it can be any JSON value, not only a string.
+        "message": (
+            opt(ANY),
+            "BYD's message about the list: usually text, but after a save the reply's `message` as BYD sent it "
+            "(any JSON value). Null when there is none.",
+        ),
+    },
+}
+
 #: Extra fields openbyd adds to pyBYD's parameter models.
 EXTRA_INPUT_FIELDS: dict[str, tuple[Field, ...]] = {
     "StandbySchedule": (
@@ -107,6 +121,15 @@ def add_pybyd_models(surface: Surface) -> None:
                 extra = EXTRA_INPUT_FIELDS.get(cls_name)
                 if extra:
                     struct = dataclasses.replace(struct, fields=(*struct.fields, *extra))
+                widened = OUTPUT_FIELD_TYPES.get(cls_name, {})
+                if widened:
+                    names = {entry.name for entry in struct.fields}
+                    assert set(widened) <= names, f"{cls_name}: no field {sorted(set(widened) - names)}"
+                    struct = dataclasses.replace(struct, fields=tuple(
+                        dataclasses.replace(entry, type=widened[entry.name][0], doc=widened[entry.name][1])
+                        if entry.name in widened else entry
+                        for entry in struct.fields
+                    ))
                 surface.add(struct)
             elif issubclass(cls, enum.Enum):
                 surface.add(enum_from_class(cls, name))
@@ -157,6 +180,14 @@ def add_openbyd_shapes(surface: Surface) -> None:
             Field("user_id", STR, "The account's user ID."),
             Field("sign_token", STR, "The token requests are signed with. A secret."),
             Field("encry_token", STR, "The token the content key derives from. A secret."),
+            Field(
+                "refresh_token",
+                STR,
+                "The token that buys new tokens when BYD answers 1030; empty when the login gave none. "
+                "A secret. Optional on import: older records without it still import.",
+                required=False,
+                default="",
+            ),
             Field("ttl_remaining", opt(FLOAT), "Seconds the session has left; null for no expiry."),
             Field("guest_vins", map_of(BOOL), "Whether the account reaches each VIN as a guest."),
         )
@@ -280,9 +311,15 @@ POLL = (
 )
 CHARGE_POLL = (
     option("mqtt_timeout", opt(FLOAT), None, "Seconds to wait for the MQTT push; the config's `mqtt_timeout` when null."),
-    option("poll_attempts", INT, 6, "HTTP polls after the MQTT wait."),
-    option("poll_interval", FLOAT, 2.0, "Seconds slept before each poll."),
+    option("poll_attempts", INT, 10, "HTTP polls after the MQTT wait."),
+    option(
+        "poll_interval",
+        opt(FLOAT),
+        None,
+        "Seconds slept before each poll; null for the official app's 33 s ladder (1, 0.5, 0.5, 2, 2, 2, 5, 5, 5, 10).",
+    ),
 )
+
 COMMAND = (
     option(
         "command_pwd",
@@ -290,6 +327,10 @@ COMMAND = (
         None,
         "The control PIN for this command; the config's `control_pin` when null.",
     ),
+)
+OTA_UPGRADE = (
+    option("auto_upgrade_time", STR, "2:00", "When the night upgrade runs, `H:mm`."),
+    *COMMAND,
 )
 SCHEDULE = (
     Field("start_charge_time", STR, "When charging starts, `HH:MM`."),
@@ -474,6 +515,27 @@ def client_methods() -> list[Method]:
             returns=ref("CommandAck"),
         ),
         read("get_booking_list", ref("BookingList"), "The scheduled-climate timers."),
+        # Firmware and guest grants
+        read("get_ota_version", ref("OtaUpgradeInfo"), "The OTA firmware version, release notes and night auto-upgrade settings."),
+        Method(
+            "set_ota_auto_upgrade",
+            "set_ota_auto_upgrade",
+            "Turn the night auto-upgrade on or off and set its time. Needs command access and the control PIN.",
+            (VIN, Field("enabled", BOOL, "Whether the night auto-upgrade is on.")),
+            OTA_UPGRADE,
+            "OtaUpgradeOptions",
+            ref("CommandAck"),
+        ),
+        Method(
+            "get_empower_detail",
+            "get_empower_detail",
+            "A shared guest's grant in detail. Fails with `BydEndpointNotSupportedError` (code `not_shared_vehicle`) "
+            "when the car has no grant ID.",
+            (VIN,),
+            (option("empower_id", opt(INT), None, "The grant ID; the cached vehicle's when null."),),
+            "EmpowerDetailOptions",
+            ref("EmpowerDetail"),
+        ),
         # Preconditioning plans
         read("get_standby_plans", ref("StandbyPlanList"), "The preconditioning plans for a vehicle."),
         Method(
@@ -668,6 +730,20 @@ def car_methods() -> list[Method]:
             "CarScheduleOptions",
             ref("ChargeChangeResult"),
         ),
+        Method(
+            "get_ota_version",
+            "car.get_ota_version",
+            "The OTA firmware version and night auto-upgrade settings.",
+            returns=ref("OtaUpgradeInfo"),
+        ),
+        Method(
+            "set_ota_auto_upgrade",
+            "car.set_ota_auto_upgrade",
+            "Turn the night auto-upgrade on or off and set its time.",
+            (Field("enabled", BOOL, "Whether the night auto-upgrade is on."),),
+            OTA_UPGRADE,
+            "OtaUpgradeOptions",
+        ),
         push("realtime", "vehicleInfo", ", after any command in flight"),
         Method(
             "handle_mqtt_status_push",
@@ -854,9 +930,15 @@ def errors() -> list[ErrorClass]:
         api("BydAuthenticationError", "Login failed or the session expired."),
         api(
             "BydSessionExpiredError",
-            "The server rejected the session token (for example code `1005`).",
+            "The server rejected the session token (for example codes `1002`, `1011`).",
             "BydAuthenticationError",
         ),
+        api(
+            "BydTokenRefreshError",
+            "The session token needs a refresh or a new login (code `1030`).",
+            "BydSessionExpiredError",
+        ),
+        api("BydServerTimeError", "The client's clock is too far from BYD's (code `1003`)."),
         api("BydRemoteControlError", "A remote control command failed after the cloud accepted it."),
         api(
             "BydControlPasswordError",
@@ -865,7 +947,8 @@ def errors() -> list[ErrorClass]:
         ),
         api(
             "BydEndpointNotSupportedError",
-            "The endpoint is not supported for this vehicle or region (for example code `1001`).",
+            "The endpoint is not supported or not permitted for this vehicle or account (for example code `1001`, "
+            "GPS code `8002`, or `guest_permission_denied` for a shared guest).",
         ),
         api(
             "BydDataUnavailableError",
@@ -873,6 +956,11 @@ def errors() -> list[ErrorClass]:
         ),
         api("BydRateLimitError", "A previous command is still in progress (code `6024`)."),
         api("BydServiceBusyError", "The backend is busy (code `1008`); keep the last data and back off."),
+        api(
+            "BydStandbyScheduleError",
+            "A preconditioning plan's run time was refused (code `6111`): a one-off run must be at least 20 minutes "
+            "ahead and within 30 days.",
+        ),
         ErrorClass(
             "DataError",
             "OpenBydError",
@@ -990,7 +1078,13 @@ CLIENT_OPTIONS = (
     option(
         "command_ack_ttl_seconds", FLOAT, 300.0, "How long a command waits for its acknowledgement, in seconds."
     ),
-    option("command_retries", INT, 3, "Attempts per remote command."),
+    option(
+        "command_retries",
+        INT,
+        1,
+        "Attempts per remote command. More retry a command the cloud could not confirm; one the car refused "
+        "is never sent again.",
+    ),
 )
 
 GET_CAR_OPTIONS = (

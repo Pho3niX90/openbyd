@@ -21,7 +21,10 @@
 //! - The n-th random value (from 0) is `MD5("<seed>:<n>")`.
 //! - A reply is `{"reply": <outer reply>}` or
 //!   `{"transport_error": {"status_code": <int or null>}}`. Running out of
-//!   replies fails the request with [`ErrorKind::ScriptExhausted`].
+//!   replies fails the request with [`ErrorKind::ScriptExhausted`]. Either
+//!   may carry `"date"`, the HTTP `Date` header it came with: the server
+//!   clock offset follows it as pyBYD's `SecureTransport` follows the real
+//!   header, read against the scripted wall clock.
 //!
 //! For the client parity tests ([`crate::client`]) it is also a
 //! [`ClientEnv`], with a timeline of MQTT deliveries ([`ScriptedMqtt`]):
@@ -55,6 +58,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError, Weak};
 use std::task::{Context as TaskContext, Poll, Waker};
 
 use openbyd_protocol::config::BydConfig;
+use openbyd_protocol::envelope::clock::sync_clock_from_header;
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::hashing::md5_hex;
 use openbyd_protocol::models::base::BydModel;
@@ -173,12 +177,23 @@ impl ScriptedMqtt {
     }
 }
 
+/// The `Date` header of each script entry (`"date"`), if any.
+pub fn dates_from_json(entries: &[Value]) -> Vec<Option<String>> {
+    entries
+        .iter()
+        .map(|entry| entry.get("date").and_then(Value::as_str).map(str::to_owned))
+        .collect()
+}
+
 #[derive(Default)]
 struct State {
     slept: f64,
     draws: u64,
     uniform_draws: u64,
     replies: VecDeque<Reply>,
+    /// The `Date` header that comes with each reply.
+    dates: VecDeque<Option<String>>,
+    server_time_offset_ms: i64,
     steps: Vec<Value>,
     mqtt: VecDeque<ScriptedMqtt>,
     mqtt_starts: VecDeque<bool>,
@@ -235,6 +250,17 @@ impl ScriptedEnv {
     /// wait or callback, so its place among the posts and sleeps is compared.
     pub fn record(&self, step: Value) {
         self.state().steps.push(step);
+    }
+
+    /// Gives the replies `Date` headers, in order (see [`dates_from_json`]).
+    pub fn with_dates(self, dates: Vec<Option<String>>) -> Self {
+        self.state().dates = dates.into();
+        self
+    }
+
+    /// Sets the server clock offset, as earlier replies would have.
+    pub fn set_server_time_offset_ms(&self, offset_ms: i64) {
+        self.state().server_time_offset_ms = offset_ms;
     }
 
     /// How many replies the flow did not use.
@@ -373,10 +399,18 @@ impl Env for ScriptedEnv {
         endpoint: &str,
         outer: &Map<String, Value>,
     ) -> Result<Value, Error> {
+        let now_ms = self.now_ms();
         let mut state = self.state();
         state
             .steps
             .push(json!({ "post": endpoint, "outer": outer }));
+        if !state.replies.is_empty()
+            && let Some(Some(date)) = state.dates.pop_front()
+        {
+            let offset = state.server_time_offset_ms;
+            state.server_time_offset_ms = sync_clock_from_header(Some(&date), now_ms, offset)
+                .map_err(|_| crate::http::clock_overflow(endpoint))?;
+        }
         match state.replies.pop_front() {
             None => Err(Error::new(
                 ErrorKind::ScriptExhausted,
@@ -389,6 +423,10 @@ impl Env for ScriptedEnv {
                 endpoint,
             )),
         }
+    }
+
+    fn server_time_offset_ms(&self) -> i64 {
+        self.state().server_time_offset_ms
     }
 }
 
@@ -521,15 +559,22 @@ impl Scenario {
     /// Reads a flow parity call's arguments.
     pub fn from_args(args: &Value) -> Result<Self, ParityError> {
         let call = Args(args);
-        let replies = call
+        let entries = call
             .value("replies")
             .as_array()
-            .ok_or_else(|| ParityError::bad_arguments("replies must be a list"))?
+            .ok_or_else(|| ParityError::bad_arguments("replies must be a list"))?;
+        let replies = entries
             .iter()
             .map(Reply::from_json)
             .collect::<Result<Vec<_>, _>>()?;
         let seed = call.str("seed")?;
-        let env = ScriptedEnv::new(call.i64("now_ms")?, seed, replies);
+        let env = ScriptedEnv::new(call.i64("now_ms")?, seed, replies)
+            .with_dates(dates_from_json(entries));
+        // The transport's clock offset before the flow (default 0).
+        match call.value("server_time_offset_ms") {
+            Value::Null => {}
+            _ => env.set_server_time_offset_ms(call.i64("server_time_offset_ms")?),
+        }
         let object = |key: &str| {
             call.value(key)
                 .as_object()

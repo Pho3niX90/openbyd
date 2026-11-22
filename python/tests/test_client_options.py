@@ -102,6 +102,91 @@ def lock_with(world, *, functions: dict | None = None, **options: Any) -> dict |
     return run(main())
 
 
+def test_no_gate_policy_sends_what_a_guest_grant_refuses(world) -> None:
+    # A guest granted basic control ("21") and only the lock functionNo:
+    # pyBYD refuses closing the windows (function_no_missing); a permissive
+    # policy must not send it anyway.
+    world.server.reply(VEHICLES, world.Reply.data([{
+        "vin": VIN, "energyType": "0", "empowerType": -1, "empowerId": 7,
+        "rangeDetailList": [{"code": "2", "childList": [{"code": "21"}, {"code": "1005"}]}],
+    }]))
+    world.server.reply(
+        LATEST_CONFIG, world.Reply.data({VIN: {"cfFixedList": [{"functionNo": "1026"}, {"functionNo": "1005"}]}})
+    )
+    world.server.reply(REMOTE, world.Reply.data(DONE))
+    asked: list[dict] = []
+
+    async def main(policy: Any) -> BaseException:
+        async with world.client(gate_policy=policy) as client:
+            await client.verify_command_access(VIN)
+            await client.get_vehicles()
+            try:
+                await client.close_windows(VIN)
+            except Exception as error:  # noqa: BLE001 - the test looks at it
+                return error
+            raise AssertionError("the command was sent")
+
+    for policy in ["allow_missing_data", lambda vin, verdict: asked.append(verdict) or True]:
+        refused = run(main(policy))
+        assert isinstance(refused, exceptions.BydEndpointNotSupportedError)
+        assert refused.code == "command_gate_blocked"
+    assert asked == []
+    assert world.requests(REMOTE) == []
+
+
+def guest_posted(world, grant: list[str] | None, policy: Any, call: Any) -> bool:
+    """Whether ``call(client)`` posts a command on a car shared under ``grant``
+    (owned when ``None``) whose getLatestConfig fails (capabilities unknown)."""
+    if grant is None:
+        vehicle = {"vin": VIN, "energyType": "0"}
+    else:
+        vehicle = {"vin": VIN, "energyType": "0", "empowerType": -1, "empowerId": 7,
+                   "rangeDetailList": [{"code": "2", "childList": [{"code": code} for code in grant]}]}
+    world.server.reply(VEHICLES, world.Reply.data([vehicle]))
+    world.server.reply(LATEST_CONFIG, world.Reply.code("1001"))
+    world.server.reply(REMOTE, world.Reply.data(DONE))
+    before = len(world.requests(REMOTE))
+
+    async def main() -> None:
+        async with world.client(gate_policy=policy) as client:
+            await client.verify_command_access(VIN)
+            await client.get_vehicles()
+            try:
+                await call(client)
+            except exceptions.BydEndpointNotSupportedError as error:
+                assert error.code == "command_gate_blocked"
+
+    run(main())
+    return len(world.requests(REMOTE)) > before
+
+
+def test_a_guest_grant_refuses_without_the_cars_capabilities(world) -> None:
+    # Unknown capabilities are what allow_missing_data lets through; the grant
+    # (basic control, only the lock functionNo) still refuses closing windows.
+    def close(client: Any) -> Any:
+        return client.close_windows(VIN)
+
+    def lock(client: Any) -> Any:
+        return client.lock(VIN)
+
+    for policy in ["allow_missing_data", lambda vin, verdict: True]:
+        assert not guest_posted(world, ["21", "1005"], policy, close)
+        assert guest_posted(world, ["21", "1005"], policy, lock)
+    assert guest_posted(world, None, "allow_missing_data", close)
+
+
+def test_a_guest_grant_refuses_a_seat_command_without_a_seat(world) -> None:
+    # No chair_type: seat_target_unknown is decided before the grant is read.
+    def seat(client: Any) -> Any:
+        return client.set_seat_climate(VIN, params={})
+
+    def allow_all(vin: str, verdict: Any) -> bool:
+        return True
+
+    assert not guest_posted(world, ["43"], allow_all, seat)
+    assert guest_posted(world, ["21"], allow_all, seat)
+
+
 def test_gate_policy(world, caplog) -> None:
     missing = {"cfFixedList": []}
     refused = lock_with(world, functions=missing)
@@ -254,8 +339,20 @@ def test_export_and_restore_without_a_password_login(world) -> None:
             return client.export_session()
 
     saved = run(first())
-    assert set(saved) == {"user_id", "sign_token", "encry_token", "ttl_remaining", "guest_vins"}
+    assert set(saved) == {"user_id", "sign_token", "encry_token", "refresh_token", "ttl_remaining", "guest_vins"}
     assert 0 < saved["ttl_remaining"] <= 12 * 3600
+
+    # The refresh token goes round; a record saved before openbyd kept it still imports.
+    async def round_trip(record: dict) -> dict:
+        async with world.client() as client:
+            await client.import_session(record)
+            return client.export_session()
+
+    assert run(round_trip({**saved, "refresh_token": "R-synthetic"}))["refresh_token"] == "R-synthetic"
+    old = {key: value for key, value in saved.items() if key != "refresh_token"}
+    assert run(round_trip(old))["refresh_token"] == ""
+    with pytest.raises(ValueError, match="refresh_token"):
+        run(round_trip({**saved, "refresh_token": 5}))
 
     async def restored() -> Any:
         client = openbyd.Client.from_session(saved, username=USER, base_url=world.server.url, mqtt_enabled=False)
@@ -428,19 +525,22 @@ def test_closing_with_calls_in_flight(world) -> None:
     assert run(main())["ac_switch"] == 1
 
 
-def test_closing_cancels_mqtt_waits(world) -> None:
+def test_closing_ends_mqtt_waits_like_a_timeout(world) -> None:
+    # pyBYD #98: stopping MQTT ends a pending wait as if it timed out, so the
+    # read goes on to poll over HTTP instead of failing with CancelledError.
     world.server.reply("/control/getGpsInfo", world.Reply.data({"requestSerial": "G1"}))
 
     async def main() -> None:
         async with world.client(mqtt_enabled=True) as client:
             await client.login()
             await world.until_subscribed(client)
-            waiting = asyncio.create_task(client.get_gps_info(VIN, mqtt_timeout=30))
+            waiting = asyncio.create_task(client.get_gps_info(VIN, mqtt_timeout=30, poll_interval=0.0))
             await until(lambda: len(world.requests("/control/getGpsInfo")) == 1, "the trigger")
             await asyncio.sleep(0.05)
             await client.close()
-            with pytest.raises(asyncio.CancelledError):
-                await asyncio.wait_for(waiting, 5)
+            (outcome,) = await asyncio.wait_for(asyncio.gather(waiting, return_exceptions=True), 5)
+            assert not isinstance(outcome, asyncio.CancelledError), outcome
+            assert world.requests("/control/getGpsInfoResult"), "the read polled after the wait ended"
 
     run(main())
 

@@ -108,9 +108,10 @@ def test_cancel_after_completion_is_harmless():
 
 ERROR_KINDS = [
     "BydError", "BydCryptoError", "BangcleError", "BangcleTableLoadError", "BydTransportError",
-    "BydApiError", "BydAuthenticationError", "BydSessionExpiredError", "BydRemoteControlError",
+    "BydApiError", "BydAuthenticationError", "BydSessionExpiredError", "BydTokenRefreshError",
+    "BydServerTimeError", "BydRemoteControlError",
     "BydControlPasswordError", "BydEndpointNotSupportedError", "BydDataUnavailableError",
-    "BydRateLimitError", "BydServiceBusyError", "ValueError", "JSONDecodeError",
+    "BydRateLimitError", "BydServiceBusyError", "BydStandbyScheduleError", "ValueError", "JSONDecodeError",
     "UnicodeDecodeError", "ValidationError", "TypeError", "AttributeError", "AssertionError",
     "ScriptExhausted", "CancelledError",
 ]

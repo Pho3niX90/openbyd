@@ -1,4 +1,4 @@
-{"group": "redact", "upstream_commit": "c1e88052f4f724343507bd8bda0ef990129071ba", "cases": [
+{"group": "redact", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
 {"call":"redact.redact_for_log","args":{"value":{"password":"x","encryData":"AB","respondData":{"token":"y","name":"Seal"},"request":["a"],"list":[1,"abc",null,true,1.5]}},"ok":{"password":"<redacted>","encryData":"<redacted>","respondData":{"token":"<redacted>","name":"Seal"},"request":["a"],"list":[1,"abc",null,true,1.5]}},
 {"call":"redact.redact_for_log","args":{"value":["abcdef","Zo\u00eb \ud83d\ude97 \u6bd4\u4e9a\u8fea",""],"max_string":0},"ok":["\u2026<truncated>","\u2026<truncated>",""]},
 {"call":"redact.redact_for_log","args":{"value":["abcdef","Zo\u00eb \ud83d\ude97 \u6bd4\u4e9a\u8fea",""],"max_string":1},"ok":["a\u2026<truncated>","Z\u2026<truncated>",""]},

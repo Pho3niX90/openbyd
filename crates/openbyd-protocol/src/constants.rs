@@ -14,6 +14,79 @@ pub const USER_AGENT: &str = "okhttp/4.12.0";
 /// API codes that mean the session token is no longer valid.
 pub const SESSION_EXPIRED_CODES: [&str; 4] = ["1002", "1011", "3001", "3003"];
 
+/// API codes that mean the session token needs a refresh (or a new login).
+pub const TOKEN_REFRESH_CODES: [&str; 1] = ["1030"];
+
+/// API codes that mean the client's clock is too far from BYD's.
+pub const SERVER_TIME_DIFF_CODES: [&str; 1] = ["1003"];
+
+/// How far BYD's clock (from the HTTP `Date` header) may drift from ours, in
+/// milliseconds, before requests are stamped with BYD's time instead.
+pub const SERVER_TIME_DRIFT_THRESHOLD_MS: i64 = 30_000;
+
+/// The official app's 10-step command polling ladder (33 s in all), in seconds.
+pub const COMMAND_POLL_DELAYS_S: [f64; 10] = [1.0, 0.5, 0.5, 2.0, 2.0, 2.0, 5.0, 5.0, 5.0, 10.0];
+
+/// Why [`resolve_poll_delays`] has no list to give, where pyBYD raises.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PollDelaysError {
+    /// Python's `MemoryError`: the list does not fit in memory.
+    MemoryError,
+    /// Python's `IndexError`: more attempts than steps on an empty ladder.
+    IndexError,
+    /// Python's `OverflowError`: more attempts than an index holds (on a
+    /// 32-bit target, where Python's index is 32 bits too).
+    OverflowError,
+}
+
+/// The sleep before each poll attempt, one at a time: what
+/// [`resolve_poll_delays`] lists, without a list, so the loops that poll
+/// allocate nothing however many attempts they are given.
+///
+/// With a fixed `poll_interval`, that interval `poll_attempts` times;
+/// without one, the steps of `default_ladder`, repeating its last step
+/// when there are more attempts than steps. An empty ladder gives nothing
+/// (pyBYD raises `IndexError` there).
+pub fn poll_delays(
+    poll_attempts: i64,
+    poll_interval: Option<f64>,
+    default_ladder: &[f64],
+) -> impl Iterator<Item = f64> + '_ {
+    let last = default_ladder.last().copied();
+    // Counted in i64, so no target's usize shortens the run.
+    (0..poll_attempts.max(0)).map_while(move |index| match poll_interval {
+        Some(interval) => Some(interval),
+        None => usize::try_from(index)
+            .ok()
+            .and_then(|index| default_ladder.get(index))
+            .copied()
+            .or(last),
+    })
+}
+
+/// The sleep before each poll attempt, as a list (pyBYD's
+/// `resolve_poll_delays`): [`poll_delays`] collected, failing where Python
+/// does instead of aborting on an allocation it cannot make.
+pub fn resolve_poll_delays(
+    poll_attempts: i64,
+    poll_interval: Option<f64>,
+    default_ladder: &[f64],
+) -> Result<Vec<f64>, PollDelaysError> {
+    if poll_attempts <= 0 {
+        return Ok(Vec::new());
+    }
+    if poll_interval.is_none() && default_ladder.is_empty() {
+        return Err(PollDelaysError::IndexError);
+    }
+    let attempts = usize::try_from(poll_attempts).map_err(|_| PollDelaysError::OverflowError)?;
+    let mut delays = Vec::new();
+    delays
+        .try_reserve_exact(attempts)
+        .map_err(|_| PollDelaysError::MemoryError)?;
+    delays.extend(poll_delays(poll_attempts, poll_interval, default_ladder));
+    Ok(delays)
+}
+
 const SCALE_MIN: i64 = 1;
 const SCALE_MAX: i64 = 17;
 
@@ -205,6 +278,10 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
         "constants.values" => Ok(json!({
             "USER_AGENT": USER_AGENT,
             "SESSION_EXPIRED_CODES": SESSION_EXPIRED_CODES,
+            "TOKEN_REFRESH_CODES": TOKEN_REFRESH_CODES,
+            "SERVER_TIME_DIFF_CODES": SERVER_TIME_DIFF_CODES,
+            "SERVER_TIME_DRIFT_THRESHOLD_MS": SERVER_TIME_DRIFT_THRESHOLD_MS,
+            "COMMAND_POLL_DELAYS_S": COMMAND_POLL_DELAYS_S,
             "DEFAULT_TEMP_OFFSET_C": DEFAULT_TEMP_OFFSET_C,
             "VALID_CLIMATE_DURATIONS": VALID_CLIMATE_DURATIONS,
         })),
@@ -249,8 +326,89 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
             });
             Ok(json!(found.and_then(time_span_to_minutes)))
         }
+        "constants.resolve_poll_delays" => poll_delays_call(&args),
         _ => return None,
     })
+}
+
+/// pyBYD's `resolve_poll_delays` on JSON arguments: `poll_attempts` is
+/// Python's operand of `n <= 0`, `[x] * n` and `ladder[:n]` (an int or a
+/// bool; a float only gets past the comparison), and the interval and the
+/// ladder's steps come back as given.
+fn poll_delays_call(args: &Args<'_>) -> Outcome {
+    let attempts = args.value("poll_attempts");
+    let interval = args.value("poll_interval");
+    let ladder: Vec<Value> = match args.0.get("default_ladder") {
+        None => COMMAND_POLL_DELAYS_S
+            .iter()
+            .map(|step| json!(step))
+            .collect(),
+        Some(Value::Array(steps)) => steps.clone(),
+        Some(_) => return Err(type_error("the ladder must be a list")),
+    };
+    let count = match attempts {
+        Value::Bool(flag) => i128::from(*flag),
+        Value::Number(number) => match number
+            .as_i64()
+            .map(i128::from)
+            .or_else(|| number.as_u64().map(i128::from))
+        {
+            Some(whole) => whole,
+            None => {
+                // A float passes `<= 0`, then fails at `[x] * n`, at
+                // `ladder[:n]` or, past an empty ladder, at `ladder[-1]`.
+                let float = number.as_f64().unwrap_or(f64::NAN);
+                if float <= 0.0 {
+                    return Ok(json!([]));
+                }
+                if interval.is_null() && ladder.is_empty() {
+                    return Err(ParityError::new("IndexError", "tuple index out of range"));
+                }
+                return Err(type_error(
+                    "can't multiply sequence by non-int of type 'float'",
+                ));
+            }
+        },
+        _ => return Err(type_error("'<=' not supported")),
+    };
+    if count <= 0 {
+        return Ok(json!([]));
+    }
+    // `[x] * n` takes an index-sized n: beyond it, OverflowError; within it
+    // but too large to allocate, MemoryError (as `try_reserve` finds).
+    let overflow = || {
+        ParityError::new(
+            "OverflowError",
+            "cannot fit 'int' into an index-sized integer",
+        )
+    };
+    let memory = || ParityError::new("MemoryError", "");
+    let filled = |value: &Value, n: i128| -> Result<Vec<Value>, ParityError> {
+        if n > i128::from(i64::MAX) {
+            return Err(overflow());
+        }
+        // Beyond this target's index (32-bit): OverflowError, as Python's.
+        let n = usize::try_from(n).map_err(|_| overflow())?;
+        let mut items = Vec::new();
+        items.try_reserve_exact(n).map_err(|_| memory())?;
+        items.resize(n, value.clone());
+        Ok(items)
+    };
+    if !interval.is_null() {
+        return filled(interval, count).map(Value::Array);
+    }
+    let length = ladder.len() as i128;
+    if count <= length {
+        return Ok(Value::Array(ladder[..count as usize].to_vec()));
+    }
+    let Some(last) = ladder.last().cloned() else {
+        return Err(ParityError::new("IndexError", "tuple index out of range"));
+    };
+    let tail = filled(&last, count - length)?;
+    let mut delays = ladder;
+    delays.try_reserve_exact(tail.len()).map_err(|_| memory())?;
+    delays.extend(tail);
+    Ok(Value::Array(delays))
 }
 
 #[cfg(test)]
@@ -278,6 +436,97 @@ mod tests {
         assert_eq!(time_span_to_minutes(0), None);
         assert_eq!(time_span_to_minutes(6), None);
         assert_eq!(time_span_to_minutes(i64::MIN), None);
+    }
+
+    #[test]
+    fn poll_delays_follow_the_ladder() {
+        let ladder = COMMAND_POLL_DELAYS_S;
+        let resolve = |n, interval| resolve_poll_delays(n, interval, &ladder).unwrap();
+        assert_eq!(resolve(0, None), Vec::<f64>::new());
+        assert_eq!(resolve(-3, Some(1.5)), Vec::<f64>::new());
+        assert_eq!(resolve(3, None), vec![1.0, 0.5, 0.5]);
+        assert_eq!(resolve(2, Some(1.5)), vec![1.5, 1.5]);
+        assert_eq!(resolve(10, None).iter().sum::<f64>(), 33.0);
+        assert_eq!(resolve(12, None)[10..], [10.0, 10.0]);
+        // Lazily, any number of attempts costs nothing up front.
+        let mut lazy = poll_delays(i64::MAX, None, &ladder);
+        assert_eq!(lazy.by_ref().take(12).sum::<f64>(), 53.0);
+        assert_eq!(lazy.next(), Some(10.0));
+        assert_eq!(
+            poll_delays(i64::MAX, Some(0.5), &ladder).nth(1 << 20),
+            Some(0.5)
+        );
+        assert_eq!(poll_delays(3, None, &[]).count(), 0);
+        // A list that cannot be allocated is Python's MemoryError, not an abort.
+        assert_eq!(
+            resolve_poll_delays(i64::MAX, None, &ladder),
+            Err(PollDelaysError::MemoryError)
+        );
+        assert_eq!(
+            resolve_poll_delays(1 << 62, Some(1.0), &ladder),
+            Err(PollDelaysError::MemoryError)
+        );
+        assert_eq!(
+            resolve_poll_delays(1, None, &[]),
+            Err(PollDelaysError::IndexError)
+        );
+        // A count at or below 0 is an empty list before the ladder is read.
+        assert_eq!(resolve_poll_delays(0, None, &[]), Ok(Vec::new()));
+        assert_eq!(resolve_poll_delays(i64::MIN, None, &[]), Ok(Vec::new()));
+        // Where usize is 32 bits, Python's index is too: OverflowError.
+        #[cfg(target_pointer_width = "32")]
+        assert_eq!(
+            resolve_poll_delays(1 << 40, Some(1.0), &ladder),
+            Err(PollDelaysError::OverflowError)
+        );
+        // The lazy delays count in i64 whatever the target.
+        assert_eq!(
+            poll_delays(i64::MAX, None, &ladder).nth(1 << 24),
+            Some(10.0)
+        );
+        assert_eq!(poll_delays(i64::MIN, Some(1.0), &ladder).count(), 0);
+        let call = |args: Value| poll_delays_call(&Args(&args));
+        let kind = |args: Value| call(args).unwrap_err().kind;
+        assert_eq!(
+            kind(json!({"poll_attempts": 2.5, "poll_interval": null})),
+            "TypeError"
+        );
+        assert_eq!(
+            call(json!({"poll_attempts": -2.5, "poll_interval": null})).unwrap(),
+            json!([])
+        );
+        assert_eq!(
+            kind(json!({"poll_attempts": "2", "poll_interval": null})),
+            "TypeError"
+        );
+        assert_eq!(
+            kind(json!({"poll_attempts": 2, "poll_interval": null, "default_ladder": []})),
+            "IndexError"
+        );
+        assert_eq!(
+            kind(json!({"poll_attempts": 2, "poll_interval": null, "default_ladder": 5})),
+            "TypeError"
+        );
+        assert_eq!(
+            kind(json!({"poll_attempts": 1_u64 << 62, "poll_interval": 1})),
+            "MemoryError"
+        );
+        assert_eq!(
+            kind(json!({"poll_attempts": i64::MAX, "poll_interval": null})),
+            "MemoryError"
+        );
+        assert_eq!(
+            kind(json!({"poll_attempts": 1_u64 << 63, "poll_interval": 1})),
+            "OverflowError"
+        );
+        assert_eq!(
+            kind(json!({"poll_attempts": 1_u64 << 63, "poll_interval": null})),
+            "MemoryError"
+        );
+        assert_eq!(
+            kind(json!({"poll_attempts": u64::MAX, "poll_interval": null})),
+            "OverflowError"
+        );
     }
 
     #[test]

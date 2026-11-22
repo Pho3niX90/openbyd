@@ -116,9 +116,12 @@ MISSING: Any = _Missing()
 class Field:
     """A field of a struct, or a parameter of a method.
 
-    ``required`` only matters for input: an output struct always has every
-    field. ``default`` is what the core uses when an optional input is not
-    given, for documentation and for languages that write defaults out.
+    ``required`` matters for input, and for an output struct a caller also
+    gives back (``SessionTokens``, which ``import_session`` reads): there a
+    field with ``required=False`` may be missing from a record saved by an
+    older version and takes its ``default`` (a string). Openbyd always writes
+    every field. ``default`` is what the core uses when an optional input is
+    not given, for documentation and for languages that write defaults out.
     """
 
     name: str
@@ -126,6 +129,14 @@ class Field:
     doc: str = ""
     required: bool = True
     default: Any = MISSING
+
+    def read_back_default(self) -> str | None:
+        """The string an output field takes when a record read back lacks it,
+        or ``None`` for a field every record has (see the class doc)."""
+        if self.required:
+            return None
+        assert isinstance(self.default, str), f"{self.name}: an optional output field needs a string default"
+        return self.default
 
     def to_json(self) -> dict[str, Any]:
         out: dict[str, Any] = {"name": self.name, "type": self.type.to_json(), "required": self.required}

@@ -316,17 +316,31 @@ def recorded():  # noqa: C901
     yield call, dispatch({"at": 0.0, "decrypt_error": True}, replies=[])
     yield call, dispatch({"at": 0.0, "decrypt_error": True}, replies=[login_reply()], mqtt_starts=[False])
     yield call, dispatch({"at": 0.0, "decrypt_error": True}, now_ms=30_000, replies=login_replies())
-    # a re-login while a read waits for its push cancels the wait (pyBYD's
-    # stop of the old runtime cancels the waiting future)
+    # a re-login while a read waits for its push ends the wait like a
+    # timeout, and the read polls over HTTP (pyBYD #98; before, the stop
+    # of the old runtime cancelled the waiting future)
     yield "client.get_gps_info", dispatch(
         {"at": 1.0, "decrypt_error": True},
         replies=[gps_trigger, *login_replies()],
         vin=VIN,
     )
+    yield "client.get_gps_info", dispatch(
+        {"at": 1.0, "decrypt_error": True},
+        replies=[gps_trigger, *login_replies(), ok_reply(SAMPLE_SESSION, {"latitude": 52.0, "longitude": 4.0,
+                                                                          "requestSerial": "S1"})],
+        vin=VIN, poll_interval=0.0,
+    )
     yield "client.lock", dispatch(
         {"at": 1.0, "decrypt_error": True},
         state=READY,
         replies=[trigger, *login_replies()],
+        vin=VIN,
+        command_pwd="123456",
+    )
+    yield "client.lock", dispatch(
+        {"at": 1.0, "decrypt_error": True},
+        state=READY,
+        replies=[trigger, *login_replies(), ok_reply(SAMPLE_SESSION, {"controlState": 1, "requestSerial": "S1"})],
         vin=VIN,
         command_pwd="123456",
     )

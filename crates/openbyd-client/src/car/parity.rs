@@ -60,6 +60,7 @@ use openbyd_protocol::capabilities::validation_error;
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::models::base::BydModel;
 use openbyd_protocol::models::charging::ChargingStatus;
+use openbyd_protocol::models::control::CommandAck;
 use openbyd_protocol::models::control::{
     BatteryHeatParams, ChargeChangeResult, ClimateScheduleParams, ClimateStartParams,
     RemoteControlResult, SeatClimateParams,
@@ -68,6 +69,7 @@ use openbyd_protocol::models::energy::EnergyConsumption;
 use openbyd_protocol::models::gps::GpsInfo;
 use openbyd_protocol::models::hvac::HvacStatus;
 use openbyd_protocol::models::latest_config::{VehicleCapabilities, VehicleLatestConfig};
+use openbyd_protocol::models::ota::OtaUpgradeInfo;
 use openbyd_protocol::models::realtime::VehicleRealtimeData;
 use openbyd_protocol::models::smart_charging::{AcCurrentLimit, SmartChargingSchedule};
 use openbyd_protocol::models::vehicle::Vehicle;
@@ -92,6 +94,8 @@ pub const CALLS: &[&str] = &[
     "car.update_energy",
     "car.get_ac_current_limit",
     "car.save_charging_schedule",
+    "car.get_ota_version",
+    "car.set_ota_auto_upgrade",
     "car.handle_mqtt_realtime",
     "car.handle_mqtt_status_push",
     "car.handle_mqtt_charging",
@@ -430,6 +434,28 @@ impl CarBackend for ScriptedBackend {
         }))
         .await
     }
+
+    async fn get_ota_version(&self, vin: &str) -> Result<OtaUpgradeInfo, Error> {
+        self.model(json!({"method": "get_ota_version", "vin": vin}))
+            .await
+    }
+
+    async fn set_ota_auto_upgrade(
+        &self,
+        vin: &str,
+        enabled: bool,
+        auto_upgrade_time: &str,
+        command_pwd: Option<&str>,
+    ) -> Result<CommandAck, Error> {
+        self.model(json!({
+            "method": "set_ota_auto_upgrade",
+            "vin": vin,
+            "enabled": enabled,
+            "auto_upgrade_time": auto_upgrade_time,
+            "command_pwd": command_pwd,
+        }))
+        .await
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -554,6 +580,21 @@ async fn call(
         ("car", "start_charging") => dumped(car.start_charging().await),
         ("car", "stop_charging") => dumped(car.stop_charging().await),
         ("car", "get_ac_current_limit") => dumped(car.get_ac_current_limit().await),
+        ("car", "get_ota_version") => dumped(car.get_ota_version().await),
+        ("car", "set_ota_auto_upgrade") => {
+            let time = match args.value("auto_upgrade_time") {
+                Value::Null => "2:00".to_owned(),
+                _ => text_arg(args, "auto_upgrade_time")?,
+            };
+            done(
+                car.set_ota_auto_upgrade(
+                    args.bool("enabled")?,
+                    &time,
+                    args.opt_str("command_pwd")?,
+                )
+                .await,
+            )
+        }
         ("car", "save_charging_schedule") => {
             let enabled = match args.value("enabled") {
                 Value::Null => true,

@@ -121,7 +121,8 @@ public sealed partial class Client : IDisposable
     /// <summary>
     /// Closes the cars, stops MQTT and makes later calls fail with <see cref="BydException"/>
     /// (pyBYD's <c>async_close</c>), until <see cref="Start"/>. Calls already in flight
-    /// finish; one waiting for an MQTT push stops waiting with <see cref="CancelledException"/>.
+    /// finish; one waiting for an MQTT push stops waiting and polls over HTTP instead, as when
+    /// the wait times out.
     /// </summary>
     public void Close()
     {

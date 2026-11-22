@@ -1,6 +1,6 @@
 {
  "version": "0.1.3",
- "pybyd_commit": "c1e88052f4f724343507bd8bda0ef990129071ba",
+ "pybyd_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7",
  "structs": [
   {
    "name": "ClimateBooking",
@@ -1331,7 +1331,9 @@
     {
      "name": "air_run_state",
      "type": {
-      "opt": "int"
+      "opt": {
+       "ref": "AirRunState"
+      }
      },
      "required": true
     },
@@ -2121,6 +2123,138 @@
    ]
   },
   {
+   "name": "OtaUpgradeResult",
+   "role": "output",
+   "pybyd": "ota",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "status",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "status_code",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "message",
+     "type": "str",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "OtaUpgradeInfo",
+   "role": "output",
+   "pybyd": "ota",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "current_version",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "update_version",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "upgrade_status",
+     "type": {
+      "ref": "OtaStatus"
+     },
+     "required": true
+    },
+    {
+     "name": "auto_upgrade_switch",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "auto_upgrade_time",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "booking_time_stamp",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    },
+    {
+     "name": "current_update_time",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    },
+    {
+     "name": "estimate_upgrade_time",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "pad_time_zone",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "function_addition",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "function_optimization",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "function_description",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "acknowledgements",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "upgrade_result",
+     "type": {
+      "opt": {
+       "ref": "OtaUpgradeResult"
+      }
+     },
+     "required": true
+    }
+   ]
+  },
+  {
    "name": "PushSwitch",
    "role": "output",
    "pybyd": "push_notification",
@@ -2322,7 +2456,9 @@
     {
      "name": "air_run_state",
      "type": {
-      "opt": "int"
+      "opt": {
+       "ref": "AirRunState"
+      }
      },
      "required": true
     },
@@ -2474,6 +2610,20 @@
     },
     {
      "name": "booking_charging_minute",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "charge_start_time_hour",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "charge_start_time_min",
      "type": {
       "opt": "int"
      },
@@ -3686,6 +3836,13 @@
       }
      },
      "required": true
+    },
+    {
+     "name": "message",
+     "type": {
+      "opt": "any"
+     },
+     "required": true
     }
    ]
   },
@@ -3755,6 +3912,78 @@
     },
     {
      "name": "children",
+     "type": {
+      "list": {
+       "ref": "EmpowerRange"
+      }
+     },
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "EmpowerDetail",
+   "role": "output",
+   "pybyd": "vehicle",
+   "fields": [
+    {
+     "name": "raw",
+     "type": {
+      "map": "any",
+      "key": "str"
+     },
+     "required": true
+    },
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "empower_id",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "empower_status",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "empower_control_pwd_status",
+     "type": "bool",
+     "required": true
+    },
+    {
+     "name": "owner_email",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "email",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "auth_period",
+     "type": {
+      "opt": "int"
+     },
+     "required": true
+    },
+    {
+     "name": "expire_date",
+     "type": {
+      "opt": "datetime"
+     },
+     "required": true
+    },
+    {
+     "name": "detail_list",
      "type": {
       "list": {
        "ref": "EmpowerRange"
@@ -3866,6 +4095,16 @@
     },
     {
      "name": "tbox_version",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "not_upgrade_now_switch",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "support_ota_night_upgrade",
      "type": "str",
      "required": true
     },
@@ -4166,6 +4405,12 @@
      "name": "encry_token",
      "type": "str",
      "required": true
+    },
+    {
+     "name": "refresh_token",
+     "type": "str",
+     "required": false,
+     "default": ""
     },
     {
      "name": "ttl_remaining",
@@ -4635,6 +4880,21 @@
    }
   },
   {
+   "name": "OtaStatus",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "IDLE": 0,
+    "UPGRADE_AVAILABLE": 1,
+    "UPGRADE_BOOKED": 2,
+    "UPGRADING": 3,
+    "UPGRADE_READY": 4,
+    "BOOKING": 5,
+    "CANCEL_BOOKING": 6,
+    "NIGHT_SYNC": 100
+   }
+  },
+  {
    "name": "OnlineState",
    "base": "int",
    "members": {
@@ -4668,6 +4928,7 @@
     "UNKNOWN": -1,
     "NOT_CHARGING": 0,
     "CHARGING": 1,
+    "WAITING_FOR_SCHEDULE": 9,
     "CONNECTED": 15
    }
   },
@@ -4746,6 +5007,15 @@
     "OFF": 1,
     "LOW": 2,
     "HIGH": 3
+   }
+  },
+  {
+   "name": "AirRunState",
+   "base": "int",
+   "members": {
+    "UNKNOWN": -1,
+    "ON": 1,
+    "OFF": 2
    }
   },
   {
@@ -5384,6 +5654,89 @@
    }
   },
   {
+   "name": "get_ota_version",
+   "wire": "get_ota_version",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "OtaUpgradeInfo"
+   }
+  },
+  {
+   "name": "set_ota_auto_upgrade",
+   "wire": "set_ota_auto_upgrade",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    },
+    {
+     "name": "enabled",
+     "type": "bool",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "auto_upgrade_time",
+     "type": "str",
+     "required": false,
+     "default": "2:00"
+    },
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "OtaUpgradeOptions",
+   "prop": false,
+   "returns": {
+    "ref": "CommandAck"
+   }
+  },
+  {
+   "name": "get_empower_detail",
+   "wire": "get_empower_detail",
+   "sync": false,
+   "params": [
+    {
+     "name": "vin",
+     "type": "str",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "empower_id",
+     "type": {
+      "opt": "int"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "EmpowerDetailOptions",
+   "prop": false,
+   "returns": {
+    "ref": "EmpowerDetail"
+   }
+  },
+  {
    "name": "get_standby_plans",
    "wire": "get_standby_plans",
    "sync": false,
@@ -6013,13 +6366,15 @@
      "name": "poll_attempts",
      "type": "int",
      "required": false,
-     "default": 6
+     "default": 10
     },
     {
      "name": "poll_interval",
-     "type": "float",
+     "type": {
+      "opt": "float"
+     },
      "required": false,
-     "default": 2.0
+     "default": null
     }
    ],
    "options_name": "SaveScheduleOptions",
@@ -6075,13 +6430,15 @@
      "name": "poll_attempts",
      "type": "int",
      "required": false,
-     "default": 6
+     "default": 10
     },
     {
      "name": "poll_interval",
-     "type": "float",
+     "type": {
+      "opt": "float"
+     },
      "required": false,
-     "default": 2.0
+     "default": null
     }
    ],
    "options_name": "ChargePollOptions",
@@ -6114,13 +6471,15 @@
      "name": "poll_attempts",
      "type": "int",
      "required": false,
-     "default": 6
+     "default": 10
     },
     {
      "name": "poll_interval",
-     "type": "float",
+     "type": {
+      "opt": "float"
+     },
      "required": false,
-     "default": 2.0
+     "default": null
     }
    ],
    "options_name": "ChargePollOptions",
@@ -6297,6 +6656,49 @@
    "returns": {
     "ref": "ChargeChangeResult"
    }
+  },
+  {
+   "name": "get_ota_version",
+   "wire": "car.get_ota_version",
+   "sync": false,
+   "params": [],
+   "optional": [],
+   "options_name": "",
+   "prop": false,
+   "returns": {
+    "ref": "OtaUpgradeInfo"
+   }
+  },
+  {
+   "name": "set_ota_auto_upgrade",
+   "wire": "car.set_ota_auto_upgrade",
+   "sync": false,
+   "params": [
+    {
+     "name": "enabled",
+     "type": "bool",
+     "required": true
+    }
+   ],
+   "optional": [
+    {
+     "name": "auto_upgrade_time",
+     "type": "str",
+     "required": false,
+     "default": "2:00"
+    },
+    {
+     "name": "command_pwd",
+     "type": {
+      "opt": "str"
+     },
+     "required": false,
+     "default": null
+    }
+   ],
+   "options_name": "OtaUpgradeOptions",
+   "prop": false,
+   "returns": null
   },
   {
    "name": "handle_mqtt_realtime",
@@ -6868,6 +7270,22 @@
    "fields": []
   },
   {
+   "name": "BydTokenRefreshError",
+   "parent": "BydSessionExpiredError",
+   "python": [
+    "BydTokenRefreshError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "BydServerTimeError",
+   "parent": "BydApiError",
+   "python": [
+    "BydServerTimeError"
+   ],
+   "fields": []
+  },
+  {
    "name": "BydRemoteControlError",
    "parent": "BydApiError",
    "python": [
@@ -6912,6 +7330,14 @@
    "parent": "BydApiError",
    "python": [
     "BydServiceBusyError"
+   ],
+   "fields": []
+  },
+  {
+   "name": "BydStandbyScheduleError",
+   "parent": "BydApiError",
+   "python": [
+    "BydStandbyScheduleError"
    ],
    "fields": []
   },
@@ -7132,7 +7558,7 @@
    "name": "command_retries",
    "type": "int",
    "required": false,
-   "default": 3
+   "default": 1
   }
  ],
  "options": {
@@ -7212,6 +7638,32 @@
     "default": 1
    }
   ],
+  "OtaUpgradeOptions": [
+   {
+    "name": "auto_upgrade_time",
+    "type": "str",
+    "required": false,
+    "default": "2:00"
+   },
+   {
+    "name": "command_pwd",
+    "type": {
+     "opt": "str"
+    },
+    "required": false,
+    "default": null
+   }
+  ],
+  "EmpowerDetailOptions": [
+   {
+    "name": "empower_id",
+    "type": {
+     "opt": "int"
+    },
+    "required": false,
+    "default": null
+   }
+  ],
   "StandbyScheduleOptions": [
    {
     "name": "schedule",
@@ -7267,13 +7719,15 @@
     "name": "poll_attempts",
     "type": "int",
     "required": false,
-    "default": 6
+    "default": 10
    },
    {
     "name": "poll_interval",
-    "type": "float",
+    "type": {
+     "opt": "float"
+    },
     "required": false,
-    "default": 2.0
+    "default": null
    }
   ],
   "ChargePollOptions": [
@@ -7289,13 +7743,15 @@
     "name": "poll_attempts",
     "type": "int",
     "required": false,
-    "default": 6
+    "default": 10
    },
    {
     "name": "poll_interval",
-    "type": "float",
+    "type": {
+     "opt": "float"
+    },
     "required": false,
-    "default": 2.0
+    "default": null
    }
   ],
   "CarScheduleOptions": [

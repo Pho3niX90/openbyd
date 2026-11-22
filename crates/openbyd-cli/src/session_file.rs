@@ -58,6 +58,7 @@ pub fn save(path: &Path, session: &SavedSession) -> std::io::Result<()> {
         "user_id": session.tokens.user_id,
         "sign_token": session.tokens.sign_token,
         "encry_token": session.tokens.encry_token,
+        "refresh_token": session.tokens.refresh_token,
         "ttl_remaining": session.tokens.ttl_remaining,
         "saved_at": session.saved_at,
         "guest_vins": guest,
@@ -118,12 +119,19 @@ pub fn load(path: &Path, now: u64) -> Result<SavedSession, LoadError> {
                 .collect()
         })
         .unwrap_or_default();
+    // Files saved before openbyd kept the refresh token have none.
+    let refresh_token = match &document["refresh_token"] {
+        Value::Null => String::new(),
+        Value::String(token) => token.clone(),
+        _ => return Err(unusable("not a session file (bad refresh_token)")),
+    };
     Ok(SavedSession {
         username: text_field("username")?,
         tokens: SessionTokens {
             user_id: text_field("user_id")?,
             sign_token: text_field("sign_token")?,
             encry_token: text_field("encry_token")?,
+            refresh_token,
             ttl_remaining,
             guest_vins,
         },
@@ -142,6 +150,7 @@ mod tests {
                 user_id: "u1".into(),
                 sign_token: "sign-token-value".into(),
                 encry_token: "encry-token-value".into(),
+                refresh_token: "refresh-token-value".into(),
                 ttl_remaining: ttl,
                 guest_vins: HashMap::from([("TESTVIN0000000001".to_owned(), true)]),
             },
@@ -196,6 +205,10 @@ mod tests {
                 "ttl.json",
                 r#"{"format":1,"username":"a","user_id":"b","sign_token":"c","encry_token":"d","ttl_remaining":"x"}"#,
             ),
+            (
+                "refresh.json",
+                r#"{"format":1,"username":"a","user_id":"b","sign_token":"c","encry_token":"d","ttl_remaining":null,"refresh_token":5}"#,
+            ),
         ] {
             let path = scratch(name);
             std::fs::write(&path, text).unwrap();
@@ -213,6 +226,17 @@ mod tests {
         .unwrap();
         let loaded = load(&path, 5).unwrap();
         assert!(loaded.tokens.guest_vins.is_empty());
+        assert_eq!(
+            loaded.tokens.refresh_token, "",
+            "a file saved before it was kept"
+        );
+        let path = scratch("null-refresh.json");
+        std::fs::write(
+            &path,
+            r#"{"format":1,"username":"a","user_id":"b","sign_token":"c","encry_token":"d","ttl_remaining":null,"refresh_token":null}"#,
+        )
+        .unwrap();
+        assert_eq!(load(&path, 5).unwrap().tokens.refresh_token, "");
         assert_eq!(loaded.saved_at, 5);
         assert!(now_seconds() > 1_000_000_000);
     }

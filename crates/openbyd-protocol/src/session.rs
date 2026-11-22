@@ -27,6 +27,7 @@ pub struct Session {
     user_id: String,
     sign_token: String,
     encry_token: String,
+    refresh_token: String,
     created_at: f64,
     ttl: f64,
     content_key: String,
@@ -46,6 +47,7 @@ impl Clone for Session {
             user_id: self.user_id.clone(),
             sign_token: self.sign_token.clone(),
             encry_token: self.encry_token.clone(),
+            refresh_token: self.refresh_token.clone(),
             created_at: self.created_at,
             ttl: self.ttl,
             content_key: self.content_key.clone(),
@@ -61,6 +63,7 @@ impl PartialEq for Session {
         self.user_id == other.user_id
             && self.sign_token == other.sign_token
             && self.encry_token == other.encry_token
+            && self.refresh_token == other.refresh_token
             && self.created_at == other.created_at
             && self.ttl == other.ttl
             && self.guest_vins() == other.guest_vins()
@@ -74,6 +77,7 @@ impl fmt::Debug for Session {
             .field("user_id", &self.user_id)
             .field("sign_token", &"<redacted>")
             .field("encry_token", &"<redacted>")
+            .field("refresh_token", &"<redacted>")
             .field("created_at", &self.created_at)
             .field("ttl", &self.ttl)
             .field("guest_vins", &self.guest_vins())
@@ -100,11 +104,37 @@ impl Session {
             sign_key: md5_hex(&sign_token),
             sign_token,
             encry_token,
+            refresh_token: String::new(),
             created_at,
             ttl,
             guest_vins: Mutex::default(),
             user_type_settled: Mutex::default(),
         }
+    }
+
+    /// This session with the token `/app/token/refresh` takes (pyBYD's
+    /// `Session.refresh_token`), stripped as pydantic strips it.
+    pub fn with_refresh_token(mut self, refresh_token: &str) -> Self {
+        self.refresh_token = refresh_token.trim().to_owned();
+        self
+    }
+
+    /// A new session with refreshed tokens that keeps what this one knows
+    /// about guest access (pyBYD's `Session.with_refreshed_tokens`). It is
+    /// created at monotonic time `now`, with this session's TTL, and keeps
+    /// this session's refresh token when `refresh_token` is `None`.
+    pub fn with_refreshed_tokens(
+        &self,
+        sign_token: &str,
+        encry_token: &str,
+        refresh_token: Option<&str>,
+        now: f64,
+    ) -> Self {
+        let refreshed = Self::new(&self.user_id, sign_token, encry_token, now, self.ttl)
+            .with_refresh_token(refresh_token.unwrap_or(&self.refresh_token));
+        lock(&refreshed.guest_vins).extend(self.guest_vins());
+        lock(&refreshed.user_type_settled).extend(self.user_type_settled());
+        refreshed
     }
 
     /// Builds a session from loose values, as `Session(**kwargs)` does.
@@ -113,6 +143,7 @@ impl Session {
         let mut user_id = None;
         let mut sign_token = None;
         let mut encry_token = None;
+        let mut refresh_token = String::new();
         let mut created_at = now;
         let mut ttl = DEFAULT_SESSION_TTL;
         for (key, value) in kwargs {
@@ -120,6 +151,7 @@ impl Session {
                 "user_id" => user_id = Some(lax_str(value, key)?),
                 "sign_token" => sign_token = Some(lax_str(value, key)?),
                 "encry_token" => encry_token = Some(lax_str(value, key)?),
+                "refresh_token" => refresh_token = lax_str(value, key)?,
                 "created_at" => created_at = lax_float(value, key)?,
                 "ttl" => ttl = lax_float(value, key)?,
                 other => {
@@ -135,13 +167,10 @@ impl Session {
         let user_id = required(user_id, "user_id")?;
         let sign_token = required(sign_token, "sign_token")?;
         let encry_token = required(encry_token, "encry_token")?;
-        Ok(Self::new(
-            &user_id,
-            &sign_token,
-            &encry_token,
-            created_at,
-            ttl,
-        ))
+        Ok(
+            Self::new(&user_id, &sign_token, &encry_token, created_at, ttl)
+                .with_refresh_token(&refresh_token),
+        )
     }
 
     /// The authenticated user's ID.
@@ -157,6 +186,12 @@ impl Session {
     /// The token the content key is derived from. A secret.
     pub fn encry_token(&self) -> &str {
         &self.encry_token
+    }
+
+    /// The token that buys new tokens at `/app/token/refresh`; empty when
+    /// the login gave none. A secret.
+    pub fn refresh_token(&self) -> &str {
+        &self.refresh_token
     }
 
     /// When the session was created, in the caller's monotonic seconds.
@@ -235,6 +270,7 @@ impl Session {
             "user_id": self.user_id,
             "sign_token": self.sign_token,
             "encry_token": self.encry_token,
+            "refresh_token": self.refresh_token,
             "created_at": float_dump(self.created_at),
             "ttl": float_dump(self.ttl),
         })
@@ -266,6 +302,52 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
         "session.sign_key" => session_argument(&args).map(|session| json!(session.sign_key())),
         "session.is_expired" => (|| Ok(json!(session_argument(&args)?.is_expired(now()?))))(),
         "session.age" => (|| Ok(float_dump(session_argument(&args)?.age(now()?))))(),
+        "session.with_refreshed_tokens" => (|| {
+            let session = session_argument(&args)?;
+            for (vin, guest) in object_argument(&args, "guest_vins")? {
+                session.set_guest(vin, guest.as_bool().unwrap_or(false));
+            }
+            for pair in args
+                .value("user_type_settled")
+                .as_array()
+                .into_iter()
+                .flatten()
+            {
+                if let (Some(vin), Some(endpoint)) = (pair[0].as_str(), pair[1].as_str()) {
+                    session.settle_user_type(vin, endpoint);
+                }
+            }
+            // sign_token and encry_token are required keywords that become
+            // Session fields (a str: null is a ValidationError); refresh_token
+            // may be None, which keeps the session's own.
+            // Python binds the keywords before the Session validates any:
+            // a missing one is a TypeError whatever the other holds.
+            for name in ["sign_token", "encry_token"] {
+                if args.0.get(name).is_none() {
+                    return Err(ParityError::new(
+                        "TypeError",
+                        format!("missing required keyword argument {name:?}"),
+                    ));
+                }
+            }
+            let sign = lax_str(args.value("sign_token"), "sign_token")?;
+            let encry = lax_str(args.value("encry_token"), "encry_token")?;
+            let refresh = match args.value("refresh_token") {
+                Value::Null => None,
+                value => Some(lax_str(value, "refresh_token")?),
+            };
+            let refreshed =
+                session.with_refreshed_tokens(&sign, &encry, refresh.as_deref(), now()?);
+            let mut settled: Vec<_> = refreshed.user_type_settled().into_iter().collect();
+            settled.sort();
+            let guests: std::collections::BTreeMap<_, _> =
+                refreshed.guest_vins().into_iter().collect();
+            Ok(json!({
+                "dump": refreshed.to_dump(),
+                "guest_vins": guests,
+                "user_type_settled": settled,
+            }))
+        })(),
         _ => return None,
     })
 }
@@ -301,6 +383,56 @@ mod tests {
         assert_ne!(copy, session);
         let shown = format!("{session:?}");
         assert!(!shown.contains("sign\"") && !shown.contains("encry\""));
+    }
+
+    #[test]
+    fn refreshed_tokens_keep_the_guest_state() {
+        let session = Session::new("1", "s", "e", 0.0, 60.0).with_refresh_token(" r ");
+        assert_eq!(session.refresh_token(), "r");
+        session.set_guest("TESTVIN0000000001", true);
+        session.settle_user_type("TESTVIN0000000001", "/x");
+        let refreshed = session.with_refreshed_tokens("s2", "e2", None, 5.0);
+        assert_eq!(refreshed.sign_token(), "s2");
+        assert_eq!(refreshed.content_key(), md5_hex("e2"));
+        assert_eq!(refreshed.refresh_token(), "r");
+        assert_eq!(refreshed.created_at(), 5.0);
+        assert_eq!(refreshed.ttl(), 60.0);
+        assert!(refreshed.is_guest("TESTVIN0000000001"));
+        assert!(refreshed.is_user_type_settled("TESTVIN0000000001", "/x"));
+        let renewed = session.with_refreshed_tokens("s3", "e3", Some("r3"), 6.0);
+        assert_eq!(renewed.refresh_token(), "r3");
+        assert_eq!(renewed.to_dump()["refresh_token"], "r3");
+    }
+
+    #[test]
+    fn refreshed_tokens_must_be_strings() {
+        let call = |tokens: Value| {
+            let mut args = json!({"session": {"user_id": "1", "sign_token": "s", "encry_token": "e",
+                                              "created_at": 0.0}, "now": 1.0,
+                                  "guest_vins": {}, "user_type_settled": []});
+            args.as_object_mut()
+                .unwrap()
+                .extend(tokens.as_object().unwrap().clone());
+            parity_call("session.with_refreshed_tokens", &args).unwrap()
+        };
+        let kind = |tokens: Value| call(tokens).unwrap_err().kind;
+        assert_eq!(
+            kind(json!({"sign_token": null, "encry_token": "e"})),
+            "ValidationError"
+        );
+        assert_eq!(
+            kind(json!({"sign_token": "s", "encry_token": 5})),
+            "ValidationError"
+        );
+        assert_eq!(
+            kind(json!({"sign_token": "s", "encry_token": "e", "refresh_token": []})),
+            "ValidationError"
+        );
+        assert_eq!(kind(json!({"encry_token": "e"})), "TypeError");
+        assert_eq!(kind(json!({"sign_token": null})), "TypeError");
+        assert_eq!(kind(json!({"encry_token": 5})), "TypeError");
+        let kept = call(json!({"sign_token": " s ", "encry_token": "e", "refresh_token": null}));
+        assert_eq!(kept.unwrap()["dump"]["sign_token"], "s");
     }
 
     #[test]

@@ -128,7 +128,8 @@ pub enum Command {
     /// send, and needs the control PIN (--pin, BYD_CONTROL_PIN, or a prompt that
     /// does not echo). It makes a single attempt unless --retries N says
     /// otherwise: BYD can act on a command even when it reports a failure, so an
-    /// automatic second send could lock, unlock or open twice.
+    /// automatic second send could lock, unlock or open twice. A command the car
+    /// refused is never sent again.
     ///
     /// stop-charging is listed for completeness: the BYD cloud accepts it but the
     /// car keeps charging, so it always fails without sending anything.
@@ -294,7 +295,7 @@ pub struct CommandArgs {
     /// The control PIN [env: BYD_CONTROL_PIN]; visible in the process list, so prefer the environment or the prompt.
     #[arg(long, value_name = "PIN")]
     pub pin: Option<String>,
-    /// How many times a refused or unconfirmed command may be sent in all.
+    /// How many times an unconfirmed command may be sent in all (a refused one is sent once).
     #[arg(long, value_name = "N", default_value_t = 1, value_parser = clap::value_parser!(u32).range(1..=10))]
     pub retries: u32,
     /// start-climate: target temperature in degrees C (15 to 31).

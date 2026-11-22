@@ -9,6 +9,8 @@ byte for byte.
 from __future__ import annotations
 
 import asyncio
+import datetime
+import email.utils
 import json
 import math
 import secrets
@@ -16,7 +18,7 @@ import time
 from contextlib import contextmanager
 from unittest import mock
 
-from pybyd import exceptions
+from pybyd import _transport, exceptions
 from pybyd._api import _common, _envelope, login
 from pybyd._crypto.aes import aes_encrypt_hex
 from pybyd._crypto.bangcle import BangcleCodec
@@ -47,9 +49,11 @@ _ERRORS = (exceptions.BydError, ValueError, AttributeError)
 
 
 class _Response:
-    def __init__(self, status: int, text: str) -> None:
+    def __init__(self, status: int, text: str, headers: dict | None = None) -> None:
         self.status = status
         self._text = text
+        # aiohttp's CIMultiDictProxy; pyBYD reads ``resp.headers.get("Date")``.
+        self.headers = dict(headers or {})
 
     async def __aenter__(self) -> _Response:
         return self
@@ -64,21 +68,40 @@ class _Response:
 class FakeHttp:
     """Stands in for ``aiohttp.ClientSession``: records the body, returns a fixed reply."""
 
-    def __init__(self, status: int, text: str) -> None:
+    def __init__(self, status: int, text: str, reply_headers: dict | None = None) -> None:
         self.status = status
         self.text = text
+        self.reply_headers = reply_headers
         self.sent: str | None = None
         self.headers: dict | None = None
 
     def post(self, url: str, data: str, headers: dict) -> _Response:
         self.sent = data
         self.headers = headers
-        return _Response(self.status, self.text)
+        return _Response(self.status, self.text, self.reply_headers)
 
 
-def transport(status: int = 200, text: str = "") -> tuple[SecureTransport, FakeHttp]:
-    http = FakeHttp(status, text)
+def transport(
+    status: int = 200, text: str = "", reply_headers: dict | None = None
+) -> tuple[SecureTransport, FakeHttp]:
+    http = FakeHttp(status, text, reply_headers)
     return SecureTransport(BydConfig(username="u", password="p"), CODEC, http), http
+
+
+def utc_parsedate_to_datetime(data):
+    """``email.utils.parsedate_to_datetime`` on a host whose local zone is UTC.
+
+    A date without a zone is a naive ``datetime``, which ``timestamp()`` reads
+    in the host's zone. openbyd reads no environment and takes it as UTC, so
+    the oracle pins the host's zone the way it pins the clock."""
+    parsed = email.utils.parsedate_to_datetime(data)
+    return parsed.replace(tzinfo=datetime.UTC) if parsed.tzinfo is None else parsed
+
+
+@contextmanager
+def utc_host():
+    with mock.patch.object(_transport, "parsedate_to_datetime", utc_parsedate_to_datetime):
+        yield
 
 
 def wall_clock(ms: int) -> float:
@@ -147,6 +170,31 @@ def request_headers() -> dict:
     secure, http = transport(200, reply_text({}))
     asyncio.run(secure.post_secure("/x", {}))
     return http.headers
+
+
+@group.oracle("envelope.sync_clock_from_header", errors=(*_ERRORS, OverflowError))
+def sync_clock_from_header(date_header, now_ms: int, offset_ms: int) -> int:
+    secure, _ = transport()
+    secure.server_time_offset_ms = offset_ms
+    with fixed(service_time_ms=now_ms), utc_host():
+        secure._sync_clock_from_header(date_header)
+    return secure.server_time_offset_ms
+
+
+@group.oracle("envelope.post_secure_clock", errors=(*_ERRORS, OverflowError))
+def post_secure_clock(status: int, text: str, date_header, now_ms: int, offset_ms: int) -> dict:
+    """The offset after ``post_secure`` reads a reply: every reply counts, a
+    failed one too, before its body is read."""
+    secure, _ = transport(status, text, None if date_header is None else {"Date": date_header})
+    secure.server_time_offset_ms = offset_ms
+    outcome: dict = {}
+    with fixed(service_time_ms=now_ms), utc_host():
+        try:
+            outcome["result"] = asyncio.run(secure.post_secure("/app/x", {}))
+        except exceptions.BydError as error:
+            outcome["error"] = type(error).__name__
+    outcome["offset_ms"] = secure.server_time_offset_ms
+    return outcome
 
 
 @group.oracle("envelope.encode_request_body")
@@ -232,6 +280,75 @@ def golden_token_case(**changes) -> dict:
     return case
 
 
+#: ``Date`` headers: what BYD sends, the other forms Python reads, the ones it
+#: refuses and the ones whose numbers overflow.
+DATE_MS = 1_795_341_600_000
+DATE_HEADERS = [
+    "Sat, 22 Nov 2026 10:00:00 GMT",
+    "Sat, 22 Nov 2026 10:00:00 +0000",
+    "Sat, 22 Nov 2026 12:00:00 +0200",
+    "Sat, 22 Nov 2026 05:00:00 EST",
+    "Sat, 22 Nov 2026 10:00:00 UT",
+    "Sat, 22 Nov 2026 10:00:00 Z",
+    "Sat, 22 Nov 2026 10:00:00 -0000",
+    "Sat, 22 Nov 2026 10:00:00",
+    "Sat, 22 Nov 2026 10:00:00 XYZ",
+    "Saturday, 22-Nov-26 10:00:00 GMT",
+    "Sat Nov 22 10:00:00 2026",
+    "22 Nov 2026 10:00 GMT",
+    "22 Nov 2026 10.00.00 GMT",
+    "22 Nov 2026 10.00 GMT",
+    "22 november 2026 10:00:00+0130",
+    "22 Nov 2026 10:00:00-0130",
+    "Nov 22, 2026, 10:00:00, GMT",
+    "sat,22 Nov 2026 10:00:00 GMT",
+    "22 Nov 69 10:00:00 GMT",
+    "22 Nov 68 10:00:00 GMT",
+    "22 Nov -5 10:00:00 GMT",
+    "22 Nov ٢٠٢٦ 10:00:00 GMT",
+    "22 Nov 2026 10:00:00 +1_00",
+    "22 Nov 2026 10:00:00 +2359",
+    "22 Nov 2026 10:00:00 +2400",
+    "22 Nov 2026 10:00:00 -9999",
+    "29 Feb 2024 10:00:00 GMT",
+    "29 Feb 2026 10:00:00 GMT",
+    "1 Jan 1 00:00:00 GMT",
+    "1 Jan 100 00:00:00 GMT",
+    "31 Dec 9999 23:59:59 GMT",
+    "1 Jan 10000 00:00:00 GMT",
+    "22 Nov 2026 24:00:00 GMT",
+    "22 Nov 2026 10:60:00 GMT",
+    "22 Nov 2026 10:00:60 GMT",
+    "22 Nov 2026 10 GMT",
+    "22 Nov 2026 a:b GMT",
+    "22 Foo 2026 10:00:00 GMT",
+    "22 Nov , 10:00:00 GMT",
+    "garbage",
+    "   ",
+    "",
+    "22 Nov 99999999999999999999 10:00:00 GMT",
+    "22 Nov 2026 10:00:00 +99999999999999",
+    "22 Nov 2026 99999999999:00:00 GMT",
+    "22 Nov 2026 10:00:00 +999999999999999999999999999999999999999999",
+    "22 Nov 2026 10:00:00 -2147483648",
+]
+
+
+def random_date_header(rng) -> str:
+    """A header near a real one: a known form, a random instant in one of the
+    forms, or a known form with a part changed."""
+    roll = rng.random()
+    if roll < 0.3:
+        return rng.choice(DATE_HEADERS)
+    moment = datetime.datetime(1, 1, 1, tzinfo=datetime.UTC) + datetime.timedelta(seconds=rng.randint(0, 315_537_897_599))
+    if roll < 0.6:
+        return email.utils.format_datetime(moment.astimezone(datetime.timezone(datetime.timedelta(minutes=rng.randint(-1439, 1439)))))
+    parts = rng.choice(DATE_HEADERS).split(" ")
+    index = rng.randrange(len(parts)) if parts else 0
+    parts[index] = rng.choice(["", "-0000", "+0100", "GMT", "Feb", "31", "-1", "99", "12:00", "1.2.3", random_text(rng, 4), str(rng.randint(-10**6, 10**6))])
+    return rng.choice([" ", "  ", "\t"]).join(parts)
+
+
 def login_responses(rng, password: str) -> list:
     key = pwd_login_key(password)
 
@@ -243,6 +360,10 @@ def login_responses(rng, password: str) -> list:
         {"code": 0, "respondData": sealed({"token": TOKEN})},
         {"code": 0.0, "respondData": sealed({"token": TOKEN})},
         {"code": "1005", "message": "expired"},
+        {"code": "1003", "message": "time"},
+        {"code": 1003, "message": None},
+        {"code": " 1003"},
+        {"code": "1030"},
         {"code": None},
         {},
         {"code": "0"},
@@ -260,6 +381,14 @@ def login_responses(rng, password: str) -> list:
         {"code": "0", "respondData": sealed({"token": {**TOKEN, "userId": True, "signToken": 1.5}})},
         {"code": "0", "respondData": sealed({"token": {**TOKEN, "userId": [1], "encryToken": {"a": None}}})},
         {"code": "0", "respondData": sealed({"token": {key_: random_json(rng) for key_ in TOKEN}})},
+        {"code": "0", "respondData": sealed({"token": {**TOKEN, "refreshToken": "REFRESH-synthetic"}})},
+        {"code": "0", "respondData": sealed({"token": {**TOKEN, "refreshToken": 77}})},
+        {"code": "0", "respondData": sealed({"token": {**TOKEN, "refreshToken": ""}})},
+        {"code": "0", "respondData": sealed({"token": TOKEN, "newTokens": {"refreshToken": "NEW-R"}})},
+        {"code": "0", "respondData": sealed({"token": {**TOKEN, "refreshToken": "OLD"}, "newTokens": {"refreshToken": ""}})},
+        {"code": "0", "respondData": sealed({"token": {**TOKEN, "refreshToken": "OLD"}, "newTokens": ["x"]})},
+        {"code": "0", "respondData": sealed({"token": TOKEN, "newTokens": {"refreshToken": [1]}})},
+        {"code": "0", "respondData": sealed({"token": TOKEN, "newTokens": random_json(rng)})},
         [],
     ]
 
@@ -310,6 +439,14 @@ def recorded():
             "now_ms": NOW_MS, "user_type": user_type, "service_time_ms": SERVICE_MS,
         }
     yield "envelope.request_headers", {}
+    for header in DATE_HEADERS:
+        for now_ms, offset_ms in [(DATE_MS, 0), (DATE_MS - 60_000, 0), (DATE_MS + 30_001, 9), (DATE_MS + 30_000, 9)]:
+            yield "envelope.sync_clock_from_header", {"date_header": header, "now_ms": now_ms, "offset_ms": offset_ms}
+    for status, text in [(200, reply_text({"code": "0"})), (500, "down"), (200, "not json")]:
+        for header in [None, "", DATE_HEADERS[0], "nonsense"]:
+            yield "envelope.post_secure_clock", {
+                "status": status, "text": text, "date_header": header, "now_ms": DATE_MS - 120_000, "offset_ms": 5,
+            }
     yield "envelope.encode_request_body", {"outer": {"a": 'My "Seal" 🚗', "b": [1, 1.5, None]}}
     for status, text in body_texts(rng):
         yield "envelope.decode_response_body", {"endpoint": "/app/x", "status": status, "text": text}
@@ -326,7 +463,7 @@ def recorded():
     yield "envelope.golden_token", golden_token_case(inner=sample_inner(None), vin=None)
     yield "envelope.golden_token", golden_token_case(reply_text=token_reply(key, [VEHICLE]))
     yield "envelope.golden_token", golden_token_case(reply_text=token_reply(key, None))
-    for code in ["1001", "1005", "1008", "6002", "1007", 1001]:
+    for code in ["1001", "1005", "1008", "6002", "1007", 1001, "1030", "1003", 1030]:
         for not_supported in [None, ["1001"]]:
             yield "envelope.golden_token", golden_token_case(
                 reply_text=token_reply(key, None, code=code, message="Fehler ü"), not_supported_codes=not_supported
@@ -370,7 +507,9 @@ def fuzz(rng):
             [
                 token_reply(key, random_json(rng)),
                 token_reply(key, random_object(rng)),
-                token_reply(key, None, code=rng.choice(["1001", "1002", "1008", "6002", "9"]), message=random_text(rng)),
+                token_reply(
+                    key, None, code=rng.choice(["1001", "1002", "1008", "6002", "9", "1030", "1003"]), message=random_text(rng)
+                ),
                 token_reply(random_hex(rng, 16), {"a": 1}),
             ]
         )
@@ -382,6 +521,20 @@ def fuzz(rng):
             "not_supported_codes": rng.choice([None, ["1001"], []]),
         }
         token = {**TOKEN, "userId": rng.choice([TOKEN["userId"], random_text(rng, 8)])}
+        now_ms = rng.choice([DATE_MS, rng.randint(0, 2**48)])
+        yield "envelope.sync_clock_from_header", {
+            "date_header": rng.choice([random_date_header(rng), None]),
+            "now_ms": now_ms,
+            "offset_ms": rng.choice([0, 0, rng.randint(-10**9, 10**9)]),
+        }
+        status, text = rng.choice(body_texts(rng))
+        yield "envelope.post_secure_clock", {
+            "status": status,
+            "text": text,
+            "date_header": rng.choice([random_date_header(rng), None, ""]),
+            "now_ms": now_ms,
+            "offset_ms": rng.choice([0, rng.randint(-10**6, 10**6)]),
+        }
         yield "envelope.golden_login", {
             "config": config,
             "now_ms": rng.randint(0, 2**53),

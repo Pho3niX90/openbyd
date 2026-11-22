@@ -59,12 +59,13 @@ impl ChargingStatus {
     /// Total estimated minutes until fully charged.
     ///
     /// Combines `full_hour` and `full_minute` into a single value. Returns
-    /// `None` when either component is unavailable, and also when the sum
-    /// does not fit in `i64` (Python would return a larger integer).
+    /// `None` when either component is unavailable. A parsed model always
+    /// holds the sum ([`base::hours_and_minutes`] refuses one beyond `i64`);
+    /// on fields set by hand that overflow, `None`.
     pub fn time_to_full_minutes(&self) -> Option<i64> {
-        self.full_hour?
-            .checked_mul(60)?
-            .checked_add(self.full_minute?)
+        base::hours_and_minutes(self.full_hour, self.full_minute)
+            .ok()
+            .flatten()
     }
 }
 
@@ -93,6 +94,8 @@ impl BydModel for ChargingStatus {
         // _SENTINEL_RULES
         base::clear_if(&mut model.full_hour, base::is_negative);
         base::clear_if(&mut model.full_minute, base::is_negative);
+        // The minute property is a Python int: refuse one openbyd cannot hold.
+        base::hours_and_minutes(model.full_hour, model.full_minute)?;
         Ok(model)
     }
 
@@ -122,11 +125,16 @@ mod tests {
 
     #[test]
     fn time_to_full_does_not_overflow() {
-        let status = ChargingStatus::parse(
+        // pyBYD answers a larger int; openbyd refuses the payload.
+        let error = ChargingStatus::parse(
             &json!({"fullHour": i64::MAX, "fullMinute": 1}),
             &Value::Null,
         )
-        .unwrap();
+        .unwrap_err();
+        assert_eq!(error.exception, "Unsupported");
+        let mut status = ChargingStatus::parse(&json!({"fullHour": 1}), &Value::Null).unwrap();
+        status.full_hour = Some(i64::MAX);
+        status.full_minute = Some(1);
         assert!(status.time_to_full_available());
         assert_eq!(status.time_to_full_minutes(), None);
     }

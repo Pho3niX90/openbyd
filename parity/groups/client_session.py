@@ -11,6 +11,8 @@ from parity.api_support import (
     LIVE_SESSION,
     LOGIN_TOKEN,
     NOW_MS,
+    date_reply,
+    http_date,
     OLD_SESSION,
     VIN,
     broker_reply,
@@ -236,6 +238,113 @@ def recorded():
         replies=[login_reply(), broker_reply(), login_reply(), broker_reply()],
         setup=[{"method": "login"}],
     )
+    yield from refresh_and_clock_cases()
+    yield from busy_session_cases()
+
+
+REFRESHABLE = {**LIVE_SESSION, "refresh_token": "REFRESH-synthetic"}
+NEW_TOKENS = {"signToken": "SIGN-2", "encryToken": "ENCRY-2", "refreshToken": "REFRESH-2"}
+VEHICLES = ok_reply(SAMPLE_SESSION, [OWNER])
+CONFIGS = {VIN: CONFIG}
+
+
+def refresh_and_clock_cases():
+    """pyBYD #102 (test_token_refresh_clock_sync): 1030 refreshes the
+    tokens, 1003 is tried again with BYD's clock."""
+    # The login reply's refresh token: in the token, or newer in newTokens.
+    for token, extra in [({**LOGIN_TOKEN, "refreshToken": "R1"}, {}), (LOGIN_TOKEN, {"newTokens": {"refreshToken": "R2"}}),
+                         ({**LOGIN_TOKEN, "refreshToken": "R1"}, {"newTokens": {"refreshToken": ""}})]:
+        yield "client.login", client_case(replies=[login_reply(token, **extra), broker_reply()])
+    # 1003 on login: tried once more with the clock of the reply's Date header.
+    drifted = http_date(NOW_MS + 120_000)
+    yield "client.login", client_case(replies=[date_reply(login_reply(code="1003"), drifted), *login_replies()])
+    yield "client.login", client_case(replies=[login_reply(code="1003"), login_reply(code="1003")])
+    yield "client.login", client_case(replies=[login_reply(code="1003"), login_reply(code="1002")])
+    yield "client.login", client_case(replies=[date_reply(login_reply(code="1003"), drifted), login_reply(code="1003")])
+    # 1030 with a refresh token: refreshed, the MQTT key follows, the call runs again.
+    for mqtt in [True, False]:
+        refresh = ok_reply(SAMPLE_SESSION, NEW_TOKENS)
+        yield "client.get_vehicles", client_case(
+            state=logged_in(mqtt=mqtt, session=REFRESHABLE, guest_vins={VIN: True}, user_type_settled=[(VIN, "/x")]),
+            replies=[error_reply("1030"), refresh, ok_reply({**SAMPLE_SESSION, "encry_token": "ENCRY-2"}, [OWNER])],
+        )
+    yield "client.get_vehicles", client_case(
+        state=logged_in(session=REFRESHABLE),
+        replies=[error_reply("1030"), ok_reply(SAMPLE_SESSION, {"newTokens": {**NEW_TOKENS, "userId": "42"}}),
+                 error_reply("1030")],
+    )
+    # The refresh fails (a pyBYD error): a full login instead.
+    for failure in [error_reply("9999"), error_reply("1030"), ok_reply(SAMPLE_SESSION, {"signToken": "S"}),
+                    transport_error(500), ok_reply(SAMPLE_SESSION, [])]:
+        yield "client.get_vehicles", client_case(
+            state=logged_in(session=REFRESHABLE), replies=[error_reply("1030"), failure, *login_replies(), VEHICLES],
+        )
+    yield "client.get_vehicles", client_case(state=logged_in(session=REFRESHABLE), replies=[error_reply("1030")])
+    # Without a refresh token: a full login.
+    yield "client.get_vehicles", client_case(state=logged_in(), replies=[error_reply("1030"), *login_replies(), VEHICLES])
+    yield "client.get_vehicles", client_case(
+        state=logged_in(), replies=[error_reply("1030"), login_reply(code="1002")]
+    )
+    # 1003 mid-call: the same call again, no new session; the Date header's clock stamps it.
+    yield "client.get_vehicles", client_case(state=logged_in(), replies=[error_reply("1003"), VEHICLES])
+    yield "client.get_vehicles", client_case(
+        state=logged_in(), replies=[date_reply(error_reply("1003"), drifted), VEHICLES]
+    )
+    yield "client.get_vehicles", client_case(state=logged_in(), replies=[error_reply("1003"), error_reply("1003")])
+    yield "client.get_vehicles", client_case(state=logged_in(), replies=[error_reply("1003"), error_reply("1002")])
+    # A request after a drifted Date header carries BYD's clock.
+    yield "client.get_latest_configs", client_case(
+        state=logged_in(), setup=[{"method": "get_vehicles"}],
+        replies=[date_reply(VEHICLES, http_date(NOW_MS - 3_600_000)), ok_reply(SAMPLE_SESSION, CONFIGS)], vins=[VIN],
+    )
+
+
+def busy_session_cases():
+    """pyBYD #109 (test_busy_session_recovery): a 1008 from a read-only
+    vehicle endpoint asks the vehicle list whether the session is dead."""
+    call = "client.get_latest_configs"
+    ok_configs = ok_reply(SAMPLE_SESSION, CONFIGS)
+    # The probe succeeds: the session is fine, the 1008 stands.
+    yield call, client_case(state=logged_in(), replies=[error_reply("1008"), VEHICLES], vins=[VIN])
+    # The probe says the session is gone: a new login, then the call once more.
+    for code in ["1002", "1011", "3001", "3003"]:
+        yield call, client_case(state=logged_in(), replies=[error_reply("1008"), error_reply(code), *login_replies(),
+                                                            ok_configs], vins=[VIN])
+    # The probe says 1030: the tokens are refreshed (or, without a refresh token, a login).
+    yield call, client_case(
+        state=logged_in(session=REFRESHABLE),
+        replies=[error_reply("1008"), error_reply("1030"), ok_reply(SAMPLE_SESSION, NEW_TOKENS),
+                 ok_reply({**SAMPLE_SESSION, "encry_token": "ENCRY-2"}, CONFIGS)], vins=[VIN],
+    )
+    yield call, client_case(state=logged_in(), replies=[error_reply("1008"), error_reply("1030"), *login_replies(),
+                                                        ok_configs], vins=[VIN])
+    # The probe fails another way, or runs out of replies: the 1008 stands.
+    for failure in [[error_reply("9999")], [error_reply("1008")], [transport_error(502)], [error_reply("1003")],
+                    [ok_reply(SAMPLE_SESSION, {"a": 1})], []]:
+        yield call, client_case(state=logged_in(), replies=[error_reply("1008"), *failure], vins=[VIN])
+    # The recovery fails: the 1008 stands; the retry fails again: no loop.
+    yield call, client_case(state=logged_in(), replies=[error_reply("1008"), error_reply("1002"),
+                                                        login_reply(code="1002")], vins=[VIN])
+    yield call, client_case(state=logged_in(session=REFRESHABLE),
+                            replies=[error_reply("1008"), error_reply("1030"), error_reply("9999"),
+                                     login_reply(code="1002")], vins=[VIN])
+    yield call, client_case(state=logged_in(), replies=[error_reply("1008"), error_reply("1002"), *login_replies(),
+                                                        error_reply("1008")], vins=[VIN])
+    # Cooldowns: a probe at most every 60 s, none within 600 s of a recovery.
+    healthy = [error_reply("1008"), VEHICLES]
+    for gap, more in [(10.0, [error_reply("1008")]), (61.0, healthy)]:
+        yield call, client_case(state=logged_in(), setup=[{"method": "get_latest_configs", "args": {"vins": [VIN]}},
+                                                          {"advance": gap}],
+                                replies=[*healthy, *more], vins=[VIN])
+    recovered = [error_reply("1008"), error_reply("1002"), *login_replies(), ok_configs]
+    for gap, more in [(30.0, [error_reply("1008")]), (100.0, [error_reply("1008")]), (601.0, recovered)]:
+        yield call, client_case(state=logged_in(), setup=[{"method": "get_latest_configs", "args": {"vins": [VIN]}},
+                                                          {"advance": gap}],
+                                replies=[*recovered, *more], vins=[VIN])
+    # The vehicle list itself never probes; nor does a closed client.
+    yield "client.get_vehicles", client_case(state=logged_in(), replies=[error_reply("1008")])
+    yield call, client_case(state=logged_in(), setup=[{"method": "async_close"}], vins=[VIN])
+    yield call, client_case(replies=[*login_replies(), error_reply("1008"), VEHICLES], vins=[VIN])
 
 
 @group.fuzz

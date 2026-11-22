@@ -22,6 +22,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 use openbyd_protocol::coerce::ValidationError;
+use openbyd_protocol::constants::{COMMAND_POLL_DELAYS_S, poll_delays};
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::models::base::BydModel;
 use openbyd_protocol::models::control::{
@@ -373,8 +374,10 @@ pub struct CommandHooks<'a> {
 pub struct PollOptions {
     /// Result polls after the trigger (default 10).
     pub poll_attempts: i64,
-    /// Seconds slept before each poll; none when not above 0 (default 1.5).
-    pub poll_interval: f64,
+    /// Seconds slept before each poll (none when not above 0), or `None`
+    /// (the default) for the official app's 33 s ladder
+    /// ([`COMMAND_POLL_DELAYS_S`]).
+    pub poll_interval: Option<f64>,
     /// Triggers sent while the cloud answers 6024 (default 3).
     pub rate_limit_retries: i64,
     /// Seconds slept after each 6024, the last one included (default 5.0).
@@ -385,7 +388,7 @@ impl Default for PollOptions {
     fn default() -> Self {
         Self {
             poll_attempts: 10,
-            poll_interval: 1.5,
+            poll_interval: None,
             rate_limit_retries: 3,
             rate_limit_delay: 5.0,
         }
@@ -394,15 +397,16 @@ impl Default for PollOptions {
 
 /// The tunables of [`poll_remote_control`], with pyBYD's defaults.
 ///
-/// `RemoteControlOptions { command_retries: 1, ..Default::default() }`
-/// sends a command once and never again.
+/// The default sends a command once and never again.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RemoteControlOptions {
     /// How each attempt triggers and polls.
     pub poll: PollOptions,
-    /// Attempts in all when an attempt fails with `BydRemoteControlError`
-    /// (default 3). 1 means no retry; 0 or less fails with `AssertionError`
-    /// without sending anything, as in pyBYD.
+    /// Attempts in all when an attempt fails with a `BydRemoteControlError`
+    /// that is not the car's refusal, such as a poll timeout or the cloud's
+    /// 1009 (default 1: no replay). A refusal (`controlState` 2, code `"2"`)
+    /// is never sent again. 0 or less fails with `AssertionError` without
+    /// sending anything, as in pyBYD.
     pub command_retries: i64,
     /// Seconds slept between attempts (default 3.0).
     pub command_retry_delay: f64,
@@ -412,7 +416,7 @@ impl Default for RemoteControlOptions {
     fn default() -> Self {
         Self {
             poll: PollOptions::default(),
-            command_retries: 3,
+            command_retries: 1,
             command_retry_delay: 3.0,
         }
     }
@@ -447,10 +451,11 @@ fn failure_message(data: &Value) -> String {
 /// 2. A final trigger reply is the answer (`controlState` 2 fails with
 ///    `BydRemoteControlError` code `"2"`). With no serial to poll with, the
 ///    command cannot be confirmed: code `"no_serial"`.
-/// 3. The MQTT waiter, if any: a successful result is the answer. Anything
-///    else falls back to polling, including a rejection: pyBYD raises it
-///    inside the `try` that guards the waiter, so it is swallowed.
-/// 4. Up to `poll_attempts` polls, each after `poll_interval` when above 0.
+/// 3. The MQTT waiter, if any: a final result is the answer, and a
+///    rejection (`controlState` 2) fails with code `"2"`. A waiter that
+///    fails, gives nothing or a result still pending falls back to polling.
+/// 4. Up to `poll_attempts` polls, each after its delay from
+///    [`poll_delays`] when above 0.
 ///    API errors are skipped, except an expired session; others end the
 ///    attempt. The last reply decides: `controlState` 2 is code `"2"`, a
 ///    reply that never became final is code `"timeout"`.
@@ -555,19 +560,33 @@ pub async fn poll_remote_control_once<E: Env>(
     if let Some(Ok(Some(mqtt_result))) = waited
         // Terminal is `controlState != 0` on the model's dump.
         && mqtt_result.control_state != ControlState::Pending
-        // pyBYD raises a rejection inside the `try` around the waiter and
-        // swallows it, so a rejected command is polled like an unanswered one.
-        && mqtt_result.control_state != ControlState::Failure
     {
+        if mqtt_result.control_state == ControlState::Failure {
+            let detail = ["message", "msg"]
+                .iter()
+                .filter_map(|key| mqtt_result.raw.get(*key))
+                .find(|value| truthy(value))
+                .map_or_else(
+                    || " (controlState=2)".to_owned(),
+                    |message| format!(": {}", py_str(message)),
+                );
+            let message = format!("rejected by vehicle{detail}");
+            return Err(command_failed(command, message, "2", trigger_endpoint));
+        }
         return Ok(mqtt_result);
     }
 
     // Phase 2: poll.
     let mut latest = result;
     let mut reached_terminal = false;
-    for _ in 0..options.poll_attempts.max(0) {
-        if options.poll_interval > 0.0 {
-            cx.env.sleep(options.poll_interval).await;
+    let delays = poll_delays(
+        options.poll_attempts,
+        options.poll_interval,
+        &COMMAND_POLL_DELAYS_S,
+    );
+    for delay in delays {
+        if delay > 0.0 {
+            cx.env.sleep(delay).await;
         }
         match fetch_control_endpoint(
             cx,
@@ -622,10 +641,11 @@ pub async fn poll_remote_control_once<E: Env>(
 /// `poll_remote_control`).
 ///
 /// Each attempt is [`poll_remote_control_once`]. An attempt that fails with
-/// `BydRemoteControlError` (refused, failed, unconfirmed, timed out, or the
-/// cloud's 1001/1009) is made again after `command_retry_delay`, up to
+/// `BydRemoteControlError` (unconfirmed, timed out, or the cloud's
+/// 1001/1009) is made again after `command_retry_delay`, up to
 /// `command_retries` attempts in all; then the last such error is returned.
-/// Any other error is returned at once.
+/// The car's refusal (code `"2"`) and any other error are returned at once:
+/// a refused actuation is never replayed.
 pub async fn poll_remote_control<E: Env>(
     cx: Context<'_, E>,
     vin: &str,
@@ -650,6 +670,9 @@ pub async fn poll_remote_control<E: Env>(
         .await
         {
             Ok(result) => return Ok(result),
+            Err(error) if error.is_a(ErrorKind::BydRemoteControlError) && error.code() == "2" => {
+                return Err(error);
+            }
             Err(error) if error.is_a(ErrorKind::BydRemoteControlError) => {
                 last_error = Some(error);
                 if attempt < retries {
@@ -737,7 +760,10 @@ fn poll_options(args: &Args<'_>) -> Result<PollOptions, ParityError> {
     let defaults = PollOptions::default();
     Ok(PollOptions {
         poll_attempts: int_or(args, "poll_attempts", defaults.poll_attempts)?,
-        poll_interval: float_or(args, "poll_interval", defaults.poll_interval)?,
+        poll_interval: match args.value("poll_interval") {
+            Value::Null => defaults.poll_interval,
+            _ => Some(float_or(args, "poll_interval", 0.0)?),
+        },
         rate_limit_retries: int_or(args, "rate_limit_retries", defaults.rate_limit_retries)?,
         rate_limit_delay: float_or(args, "rate_limit_delay", defaults.rate_limit_delay)?,
     })
@@ -941,12 +967,16 @@ mod tests {
             &'a self,
             _serial: &'a Value,
         ) -> BoxFuture<'a, Result<Option<RemoteControlResult>, Error>> {
-            Box::pin(async { Ok(Some(validate(&json!({"controlState": 2}))?)) })
+            Box::pin(async {
+                Ok(Some(validate(
+                    &json!({"controlState": 2, "message": "Door open"}),
+                )?))
+            })
         }
     }
 
     #[test]
-    fn a_rejection_over_mqtt_falls_back_to_polling() {
+    fn a_rejection_over_mqtt_ends_the_command() {
         let config = BydConfig::new("user@example.com", "p");
         let session = Session::new("1", "s", "e", 0.0, 1.0);
         let key = openbyd_protocol::hashing::md5_hex("e");
@@ -970,8 +1000,9 @@ mod tests {
             mqtt_result_waiter: Some(&Rejecting),
             on_trigger_dispatched: None,
         };
+        // Retries asked for: a refusal is still not sent again (pyBYD #107).
         let options = RemoteControlOptions {
-            command_retries: 1,
+            command_retries: 3,
             ..Default::default()
         };
         let flow = poll_remote_control(
@@ -983,9 +1014,12 @@ mod tests {
             options,
             hooks,
         );
-        let result = block_on(flow).unwrap().unwrap();
-        assert!(result.success);
-        assert_eq!(env.unused_replies(), 0);
+        let error = block_on(flow).unwrap().unwrap_err();
+        assert_eq!(error.kind(), ErrorKind::BydRemoteControlError);
+        assert_eq!(error.code(), "2");
+        assert_eq!(error.endpoint(), "/control/remoteControl");
+        assert!(error.message().ends_with("rejected by vehicle: Door open"));
+        assert_eq!(env.unused_replies(), 1);
     }
 
     #[test]

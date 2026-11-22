@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import copy
 import enum
+import json
 import math
 import random
 import types
@@ -73,6 +74,9 @@ def jsonable(value: Any) -> Any:
         return {str(key): jsonable(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [jsonable(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        # A set has no order of its own (and str hashing changes per run).
+        return sorted((jsonable(item) for item in value), key=lambda item: json.dumps(item, sort_keys=True))
     if isinstance(value, BaseModel):
         return jsonable(value.model_dump(mode="json"))
     return jsonable(pydantic_core.to_jsonable_python(value))
@@ -676,13 +680,14 @@ def _answer_ints(value: Any) -> Iterator[int]:
 
 
 def answer_is_representable(group: Group, call: str, args: dict[str, Any], bound: int = 2**63) -> bool:
-    """Whether every integer in pyBYD's answer to this case fits inside ``(-bound, bound)``."""
+    """Whether every integer in pyBYD's answer to this case fits in ``[-bound, bound)``,
+    which with the default bound is exactly i64."""
     answer = group.answer(call, args)
-    return all(-bound < number < bound for number in _answer_ints(answer.get("ok")))
+    return all(-bound <= number < bound for number in _answer_ints(answer.get("ok")))
 
 
 def skip_unrepresentable_integers(group: Group, bound: int = 2**63) -> None:
-    """Leave out the cases where pyBYD answers an integer outside ``(-bound, bound)``.
+    """Leave out the cases where pyBYD answers an integer outside ``[-bound, bound)``.
 
     openbyd's integers are ``i64`` (docs/porting-models.md, "Representation
     limits"), but pyBYD's are unbounded: a conversion such as ``int(1e300)`` or

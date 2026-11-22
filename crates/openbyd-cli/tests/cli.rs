@@ -387,6 +387,13 @@ async fn secrets_and_personal_data_stay_out_of_the_output() {
     let (_, sign, encry) = tokens_of(&session);
     let file = session.to_str().unwrap();
 
+    // A refresh token in the session file is a secret too.
+    let refresh = "REFRESH-token-from-a-saved-file";
+    let mut document: Value =
+        serde_json::from_str(&std::fs::read_to_string(&session).unwrap()).unwrap();
+    document["refresh_token"] = json!(refresh);
+    std::fs::write(&session, document.to_string()).unwrap();
+
     // A plain dump shows the car's data but never a secret.
     let plain = run(
         &server.url(),
@@ -396,7 +403,7 @@ async fn secrets_and_personal_data_stay_out_of_the_output() {
     .await;
     assert_eq!(plain.code, 0, "{}", plain.stderr);
     assert!(plain.stdout.contains(VIN) && plain.stdout.contains("4.56789"));
-    assert_no_leaks(&plain, &[&sign, &encry, PASSWORD]);
+    assert_no_leaks(&plain, &[&sign, &encry, refresh, PASSWORD]);
 
     // A password login with debug logs does not print the password or the tokens.
     let login = run(&server.url(), &["dump", "--raw", "-vv"], &[]).await;
@@ -707,26 +714,34 @@ async fn stop_charging_never_reaches_the_car() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a_refused_command_is_sent_once_unless_retries_say_otherwise() {
+async fn a_refused_command_is_sent_once_whatever_the_retries() {
     let server = world().await;
-    // The cloud takes the request but the car refuses it.
+    // The cloud takes the request but the car refuses it: never sent again
+    // (pyBYD #107), even when retries are asked for.
     server.reply(
         REMOTE_CONTROL,
         Reply::Data(json!({"requestSerial": "C1", "controlState": 2})),
     );
-    let once = run(
-        &server.url(),
-        &command_args("lock", &["--yes-send-to-car"]),
-        &[("BYD_CONTROL_PIN", PIN)],
-    )
-    .await;
-    assert_eq!(once.code, 1, "{} {}", once.stdout, once.stderr);
-    assert_eq!(
-        once.json()["error"]["class"],
-        json!("BydRemoteControlError")
-    );
-    assert_eq!(server.requests_to(REMOTE_CONTROL).len(), 1);
+    for retries in [None, Some("2")] {
+        server.clear_requests();
+        let mut extra = vec!["--yes-send-to-car"];
+        if let Some(count) = retries {
+            extra.extend(["--retries", count]);
+        }
+        let out = run(
+            &server.url(),
+            &command_args("lock", &extra),
+            &[("BYD_CONTROL_PIN", PIN)],
+        )
+        .await;
+        assert_eq!(out.code, 1, "{} {}", out.stdout, out.stderr);
+        assert_eq!(out.json()["error"]["class"], json!("BydRemoteControlError"));
+        assert_eq!(out.json()["error"]["code"], json!("2"));
+        assert_eq!(server.requests_to(REMOTE_CONTROL).len(), 1);
+    }
 
+    // One the cloud cannot confirm (no serial) is sent again when asked.
+    server.reply(REMOTE_CONTROL, Reply::Data(json!({})));
     server.clear_requests();
     let twice = run(
         &server.url(),
@@ -735,6 +750,7 @@ async fn a_refused_command_is_sent_once_unless_retries_say_otherwise() {
     )
     .await;
     assert_eq!(twice.code, 1, "{} {}", twice.stdout, twice.stderr);
+    assert_eq!(twice.json()["error"]["code"], json!("no_serial"));
     assert_eq!(server.requests_to(REMOTE_CONTROL).len(), 2);
 
     for bad in ["0", "11", "x"] {

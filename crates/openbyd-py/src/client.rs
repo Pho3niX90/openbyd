@@ -159,6 +159,7 @@ fn tokens_to_dict<'py>(py: Python<'py>, tokens: &SessionTokens) -> PyResult<Boun
     dict.set_item("user_id", &tokens.user_id)?;
     dict.set_item("sign_token", &tokens.sign_token)?;
     dict.set_item("encry_token", &tokens.encry_token)?;
+    dict.set_item("refresh_token", &tokens.refresh_token)?;
     dict.set_item("ttl_remaining", tokens.ttl_remaining)?;
     let guests = PyDict::new(py);
     let mut vins: Vec<_> = tokens.guest_vins.iter().collect();
@@ -188,6 +189,12 @@ fn tokens_from_value(value: &Value) -> Result<SessionTokens, String> {
                 .ok_or("session['ttl_remaining'] must be a number or None")?,
         ),
     };
+    // Optional: records saved before openbyd kept it have none.
+    let refresh_token = match map.get("refresh_token") {
+        None | Some(Value::Null) => String::new(),
+        Some(Value::String(token)) => token.clone(),
+        Some(_) => return Err("session['refresh_token'] must be a str or None".into()),
+    };
     let mut guest_vins = HashMap::new();
     match map.get("guest_vins") {
         None | Some(Value::Null) => {}
@@ -205,6 +212,7 @@ fn tokens_from_value(value: &Value) -> Result<SessionTokens, String> {
         user_id: text("user_id")?,
         sign_token: text("sign_token")?,
         encry_token: text("encry_token")?,
+        refresh_token,
         ttl_remaining,
         guest_vins,
     })
@@ -500,7 +508,7 @@ impl PyClient {
         config, *, on_vehicle_info = None, on_mqtt_event = None, on_command_ack = None,
         on_command_lifecycle = None, on_mqtt_connect = None, on_mqtt_disconnect = None,
         on_mqtt_connack_refused = None, command_ack_ttl_seconds = 300.0,
-        gate_policy = None, command_retries = 3, pin_resolver = None, relogin = None,
+        gate_policy = None, command_retries = 1, pin_resolver = None, relogin = None,
         request_observer = None, commands_enabled = false, test_tls = false,
     ))]
     #[allow(clippy::too_many_arguments)]
@@ -913,6 +921,38 @@ impl PyClient {
         read!(self, py, |client| client.get_booking_list(&vin))
     }
 
+    fn get_ota_version<'py>(&self, py: Python<'py>, vin: String) -> PyResult<Bound<'py, PyAny>> {
+        read!(self, py, |client| client.get_ota_version(&vin))
+    }
+
+    #[pyo3(signature = (vin, *, enabled, auto_upgrade_time = "2:00".to_owned(), command_pwd = None))]
+    fn set_ota_auto_upgrade<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        enabled: bool,
+        auto_upgrade_time: String,
+        command_pwd: Option<String>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        read!(self, py, |client| client.set_ota_auto_upgrade(
+            &vin,
+            enabled,
+            &auto_upgrade_time,
+            command_pwd.as_deref()
+        ))
+    }
+
+    #[pyo3(signature = (vin, *, empower_id = None))]
+    fn get_empower_detail<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+        empower_id: Option<i64>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        read!(self, py, |client| client
+            .get_empower_detail(&vin, empower_id))
+    }
+
     fn get_standby_plans<'py>(&self, py: Python<'py>, vin: String) -> PyResult<Bound<'py, PyAny>> {
         read!(self, py, |client| client.get_standby_plans(&vin))
     }
@@ -1169,7 +1209,7 @@ impl PyClient {
         )
     }
 
-    #[pyo3(signature = (vin, *, start_charge_time, end_charge_time, charge_way, enabled = true, mqtt_timeout = None, poll_attempts = 6, poll_interval = 2.0))]
+    #[pyo3(signature = (vin, *, start_charge_time, end_charge_time, charge_way, enabled = true, mqtt_timeout = None, poll_attempts = 10, poll_interval = None))]
     #[allow(clippy::too_many_arguments)]
     fn save_charging_schedule<'py>(
         &self,
@@ -1181,7 +1221,7 @@ impl PyClient {
         enabled: bool,
         mqtt_timeout: Option<f64>,
         poll_attempts: i64,
-        poll_interval: f64,
+        poll_interval: Option<f64>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let settings = ChargePollSettings {
             mqtt_timeout,
@@ -1209,14 +1249,14 @@ impl PyClient {
             .toggle_smart_charging(&vin, enable))
     }
 
-    #[pyo3(signature = (vin, *, mqtt_timeout = None, poll_attempts = 6, poll_interval = 2.0))]
+    #[pyo3(signature = (vin, *, mqtt_timeout = None, poll_attempts = 10, poll_interval = None))]
     fn start_charging<'py>(
         &self,
         py: Python<'py>,
         vin: String,
         mqtt_timeout: Option<f64>,
         poll_attempts: i64,
-        poll_interval: f64,
+        poll_interval: Option<f64>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let settings = ChargePollSettings {
             mqtt_timeout,
@@ -1226,14 +1266,14 @@ impl PyClient {
         read!(self, py, |client| client.start_charging(&vin, settings))
     }
 
-    #[pyo3(signature = (vin, *, mqtt_timeout = None, poll_attempts = 6, poll_interval = 2.0))]
+    #[pyo3(signature = (vin, *, mqtt_timeout = None, poll_attempts = 10, poll_interval = None))]
     fn stop_charging<'py>(
         &self,
         py: Python<'py>,
         vin: String,
         mqtt_timeout: Option<f64>,
         poll_attempts: i64,
-        poll_interval: f64,
+        poll_interval: Option<f64>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let settings = ChargePollSettings {
             mqtt_timeout,

@@ -176,6 +176,26 @@ pub fn is_temp_sentinel(value: impl PyNumber) -> bool {
     value.to_f64() == -129.0
 }
 
+/// pyBYD's `hours * 60 + minutes` for a time split over two fields
+/// (`time_to_full_minutes`, `time_to_scheduled_start_minutes`): `None`
+/// unless both are known. Python's result is unbounded; one beyond `i64` is
+/// refused as `Unsupported`, as an input integer beyond `i64` is
+/// (docs/porting-models.md, "Representation limits"). The models that have
+/// such a property call it while parsing, so a parsed model always holds it.
+pub fn hours_and_minutes(
+    hours: Option<i64>,
+    minutes: Option<i64>,
+) -> Result<Option<i64>, ValidationError> {
+    let (Some(hours), Some(minutes)) = (hours, minutes) else {
+        return Ok(None);
+    };
+    hours
+        .checked_mul(60)
+        .and_then(|total| total.checked_add(minutes))
+        .map(Some)
+        .ok_or_else(|| ValidationError::raised("Unsupported", "int"))
+}
+
 /// One entry of a model's `_SENTINEL_RULES`: sets the field to `None` when the predicate holds.
 pub fn clear_if<T: Copy>(field: &mut Option<T>, predicate: impl Fn(T) -> bool) {
     if field.is_some_and(predicate) {

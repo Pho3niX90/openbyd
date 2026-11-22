@@ -270,6 +270,29 @@ impl PyCar {
         })
     }
 
+    fn get_ota_version<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let car = self.car.clone();
+        bridge::spawn(
+            py,
+            async move { car.get_ota_version().await.map(Dump::new) },
+        )
+    }
+
+    #[pyo3(signature = (*, enabled, auto_upgrade_time = "2:00".to_owned(), command_pwd = None))]
+    fn set_ota_auto_upgrade<'py>(
+        &self,
+        py: Python<'py>,
+        enabled: bool,
+        auto_upgrade_time: String,
+        command_pwd: Option<String>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let car = self.car.clone();
+        bridge::spawn(py, async move {
+            car.set_ota_auto_upgrade(enabled, &auto_upgrade_time, command_pwd.as_deref())
+                .await
+        })
+    }
+
     #[pyo3(signature = (*, start_charge_time, end_charge_time, charge_way, enabled = true))]
     fn save_charging_schedule<'py>(
         &self,

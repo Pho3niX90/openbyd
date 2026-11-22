@@ -291,6 +291,52 @@ def upstream_cases():
             guest_vins=OWNER, replies=[error_reply(code, "test-message")],
             endpoint=TRIGGER, vin=VIN, command="LOCKDOOR", command_pwd=PIN,
         )
+    # test_poll_ladder (#101): the 33 s ladder by default, sleeping 1, 0.5, 0.5, 2 before a final poll.
+    flash = {"vin": VIN, "command": "FLASHLIGHTNOWHISTLE", "command_pwd": PIN}
+    yield "api.control.poll_remote_control", scenario(
+        guest_vins=OWNER, replies=[ok({"controlState": 0, "requestSerial": "ser-1"})] * 4
+        + [ok({"controlState": 1, "requestSerial": "ser-1"})], **flash,
+    )
+    yield "api.control.poll_remote_control", scenario(
+        guest_vins=OWNER, replies=[ok({"requestSerial": "ser-1"})] + [ok({"res": 1})] * 12, poll_attempts=12, **flash,
+    )
+    # test_command_outcomes (#107): one attempt by default, a refusal never replayed.
+    for replies in [[ok({"requestSerial": "S1"}), ok({"res": 3, "message": "Door is open"})],
+                    [ok({"requestSerial": "S1"}), ok({"res": 1})],
+                    [ok({"controlState": 2, "message": "Refused immediately"})],
+                    [ok({"res": 3, "message": "Immediate res=3"})],
+                    [ok({"requestSerial": "S1"}), ok({"controlState": 2, "message": "Poll controlState=2"})]]:
+        for retries in [None, 3]:
+            extra = {} if retries is None else {"command_retries": retries}
+            yield "api.control.poll_remote_control", scenario(
+                guest_vins=OWNER, replies=replies * 3, poll_interval=0.0, poll_attempts=1, **extra, **flash,
+            )
+    # A timeout and a 1009 are retried when asked for, a refusal stops the retries.
+    yield "api.control.poll_remote_control", scenario(
+        guest_vins=OWNER, poll_interval=0.0, poll_attempts=1, command_retries=3, command_retry_delay=0.0,
+        replies=[SERIAL, ok({"res": 1}), error_reply("1009"), SERIAL, ok({"res": 2})], **flash,
+    )
+    yield "api.control.poll_remote_control", scenario(
+        guest_vins=OWNER, poll_interval=0.0, poll_attempts=1, command_retries=3, command_retry_delay=0.0,
+        replies=[SERIAL, ok({"res": 1}), SERIAL, ok({"res": 3, "message": "Rejected"}), SERIAL, ok({"res": 2})],
+        **flash,
+    )
+    # An MQTT refusal ends the command at once; a failing waiter falls back to polling.
+    for result in [{"res": 3, "message": "Door open", "requestSerial": "S1"}, {"controlState": 2},
+                   {"controlState": 2, "msg": "no"}, {"controlState": 2, "message": "", "msg": 0}]:
+        yield "api.control.poll_remote_control", scenario(
+            guest_vins=OWNER, replies=[SERIAL, ok({"res": 2})], poll_interval=0.0, command_retries=3,
+            mqtt_result_waiter={"result": result}, **flash,
+        )
+    yield "api.control.poll_remote_control", scenario(
+        guest_vins=OWNER, replies=[SERIAL, ok({"res": 2, "requestSerial": "S1"})], poll_interval=0.0,
+        mqtt_result_waiter={"raises": True}, **flash,
+    )
+    # 6024 on the trigger is still retried with one attempt.
+    yield "api.control.poll_remote_control", scenario(
+        guest_vins=OWNER, replies=[error_reply("6024"), SERIAL, ok({"res": 2})], poll_interval=0.0,
+        rate_limit_delay=0.0, **flash,
+    )
 
 
 @group.recorded
@@ -473,7 +519,7 @@ def random_command_args(rng) -> dict:
         args["control_params"] = HEAT_DEDICATED
     for key, values in [
         ("poll_attempts", [-1, 0, 1, 2, 2, 3, 3, 10]),
-        ("poll_interval", [0, 0.0, 1.5, -1.0, 0.25]),
+        ("poll_interval", [0, 0.0, 1.5, -1.0, 0.25, None]),
         ("rate_limit_retries", [0, 1, 2, 3, 3, 3, 5]),
         ("rate_limit_delay", [0.0, 5.0, 0.5]),
         ("command_retries", [-1, 0, 1, 1, 1, 2, 2, 3, 3, 4]),

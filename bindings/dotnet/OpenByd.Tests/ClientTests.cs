@@ -430,7 +430,20 @@ public sealed class ClientTests(ITestOutputHelper output)
         Assert.True(saved.TtlRemaining > 0);
         Assert.DoesNotContain(saved.SignToken, saved.ToString());
         Assert.DoesNotContain(saved.EncryToken, saved.ToString());
+        Assert.Contains("RefreshToken = ***", saved.ToString());
         Assert.Contains(saved.UserId, saved.ToString());
+        Assert.Contains("\"refresh_token\"", JsonSerializer.Serialize(saved));
+        // A record saved before openbyd kept the refresh token still reads, with none.
+        var old = JsonSerializer.Deserialize<SessionTokens>(
+            "{\"user_id\":\"1\",\"sign_token\":\"s\",\"encry_token\":\"e\",\"ttl_remaining\":null,\"guest_vins\":{}}");
+        Assert.Equal("", old?.RefreshToken);
+        // null too, as every other layer reads it.
+        var nulled = JsonSerializer.Deserialize<SessionTokens>(
+            "{\"user_id\":\"1\",\"sign_token\":\"s\",\"encry_token\":\"e\",\"refresh_token\":null,\"ttl_remaining\":null,\"guest_vins\":{}}");
+        Assert.Equal("", nulled?.RefreshToken);
+        // Printing never shows a token, the refresh token included.
+        var secret = saved with { RefreshToken = "R-secret" };
+        Assert.DoesNotContain("R-secret", secret.ToString());
 
         var withoutPassword = world.Config(password: "");
         var options = new ClientOptions { TestTls = true };
@@ -566,6 +579,8 @@ public sealed class ClientTests(ITestOutputHelper output)
             }
             """);
         world.Server.Reply(saveEndpoint, Reply.Data(new JsonObject()));
+        // The first save answers a message that is not text: it comes back as sent.
+        world.Server.Script(saveEndpoint, Reply.Data(World.Json("""{"message": {"warning": 1}}""")));
         world.Server.Reply(setDefaultEndpoint, Reply.Data(new JsonObject()));
         world.Server.Reply(deleteEndpoint, Reply.Data(new JsonObject()));
         world.Server.Reply(sendEndpoint, Reply.Data(World.Json("""{"requestSerial": "RUN1"}""")));
@@ -594,6 +609,7 @@ public sealed class ClientTests(ITestOutputHelper output)
                 Zone = "Europe/Madrid",
             });
         Assert.Equal("101", saved.Plans[0].Id);
+        Assert.Equal(1, saved.Message?.GetProperty("warning").GetInt32());
         var saveInner = world.Server.Requests(saveEndpoint)[0].Inner;
         Assert.Equal("1", saveInner.GetProperty("executeType").GetString());
         Assert.True(saveInner.GetProperty("executeTime").GetInt64() > 0);
@@ -685,5 +701,40 @@ public sealed class ClientTests(ITestOutputHelper output)
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
+    }
+
+    [Fact]
+    public async Task TheOtaVersionTheNightAutoUpgradeAndAGuestsGrant()
+    {
+        using var world = new World();
+        world.Server.Reply("/control/otaUpgrade/getOtaVersion", Reply.Data(World.Json(
+            """{"currentVersion": "V1.3.0", "updateVersion": "V1.4.0", "upgradeStatus": 1, "autoUpgradeSwitch": "1"}""")));
+        world.Server.Reply("/control/otaUpgrade/syncAutoUpgrade", Reply.Data(World.Json("{}")));
+        world.Server.Reply("/vehicle/empower/query/empowerDetailByVin", Reply.Data(World.Json(
+            """{"empowerControlPwdStatus": true, "data": {"empowerId": 7, "detailList": [{"code": "21"}]}}""")));
+        var client = world.Client();
+        var ota = await client.GetOtaVersionAsync(Vin);
+        Assert.Equal("V1.3.0", ota.CurrentVersion);
+        Assert.Equal(OtaStatus.UpgradeAvailable, ota.UpgradeStatus);
+
+        // The night auto-upgrade needs command access and the PIN, as a command does.
+        await Assert.ThrowsAsync<BydControlPasswordException>(() => client.SetOtaAutoUpgradeAsync(Vin, true));
+        await client.VerifyCommandAccessAsync(Vin);
+        Assert.Equal(Vin, (await client.SetOtaAutoUpgradeAsync(Vin, false, autoUpgradeTime: "03:30")).Vin);
+        var sent = world.Server.Requests("/control/otaUpgrade/syncAutoUpgrade")[0].Inner;
+        Assert.Equal("0", sent.GetProperty("autoUpgradeSwitch").GetString());
+        Assert.Equal("3:30", sent.GetProperty("autoUpgradeTime").GetString());
+
+        // An owner's car has no grant; with an explicit ID it is fetched.
+        var notShared = await Assert.ThrowsAsync<BydEndpointNotSupportedException>(() => client.GetEmpowerDetailAsync(Vin));
+        Assert.Equal("not_shared_vehicle", notShared.Code);
+        var detail = await client.GetEmpowerDetailAsync(Vin, empowerId: 7);
+        Assert.Equal((long?)7, detail.EmpowerId);
+        Assert.True(detail.EmpowerControlPwdStatus);
+
+        var car = await client.GetCarAsync(Vin);
+        Assert.Equal("V1.3.0", (await car.GetOtaVersionAsync()).CurrentVersion);
+        await car.SetOtaAutoUpgradeAsync(true);
+        Assert.Equal(2, world.Server.Requests("/control/otaUpgrade/syncAutoUpgrade").Count);
     }
 }

@@ -10,6 +10,7 @@ with the session handling around it.
 from __future__ import annotations
 
 from parity.api_support import (
+    LIVE_SESSION,
     OLD_SESSION,
     VIN,
     client_case,
@@ -25,6 +26,7 @@ from parity.api_support import (
     transport_error,
 )
 from parity.flow_cases import corpus, keep_representable
+from parity.groups.models_ota import CAPTURED_IDLE
 from parity.framework import Group
 from parity.groups.config import SAMPLE_CONFIG, SAMPLE_SESSION
 
@@ -40,7 +42,10 @@ SIMPLE = [
     "get_push_state",
     "get_booking_list",
 ]
-OTHERS = ["get_ac_current_limit", "set_push_state", "get_notifications", "get_all_notifications", "rename_vehicle"]
+OTHERS = [
+    "get_ac_current_limit", "set_push_state", "get_notifications", "get_all_notifications", "rename_vehicle",
+    "get_ota_version", "set_ota_auto_upgrade", "get_empower_detail",
+]
 METHODS = POLLED + SIMPLE + OTHERS
 for name in METHODS:
     client_oracle(group, name)
@@ -230,6 +235,76 @@ def recorded():
     for name, reply in [("Seal 🚗", ok_reply(SAMPLE_SESSION, {"result": "ok"})), ("", error_reply("1001"))]:
         yield "client.rename_vehicle", client_case(state=logged_in(), replies=[reply], vin=VIN, name=name)
     yield "client.get_hvac_status", client_case(config={**SAMPLE_CONFIG, "mqtt_enabled": False}, replies=[login_replies()[0], ok_reply(SAMPLE_SESSION, {})], vin=VIN)
+    yield from upstream_109_cases()
+    yield from guest_and_ota_cases()
+
+
+def upstream_109_cases():
+    """pyBYD #109: every read-only vehicle endpoint probes a 1008; writes never do."""
+    vehicles = ok_reply(SAMPLE_SESSION, [VEHICLE])
+    dead = [error_reply("1008"), error_reply("1002"), *login_replies()]
+    for method in SIMPLE + ["get_ac_current_limit", "get_ota_version"]:
+        yield f"client.{method}", client_case(state=logged_in(vehicles=[VEHICLE]), replies=[*dead, ok_reply(SAMPLE_SESSION, {})],
+                                              vin=VIN)
+        yield f"client.{method}", client_case(state=logged_in(vehicles=[VEHICLE]), replies=[error_reply("1008"), vehicles],
+                                              vin=VIN)
+    for method, data in [("get_vehicle_realtime", REALTIME), ("get_gps_info", GPS)]:
+        yield f"client.{method}", client_case(state=logged_in(vehicles=[VEHICLE]), replies=[*dead, ready(data)], vin=VIN,
+                                              **FAST)
+    for method, args in [("set_push_state", {"enable": True}), ("rename_vehicle", {"name": "x"}),
+                         ("set_ota_auto_upgrade", {"enabled": True, "command_pwd": "123456"})]:
+        yield f"client.{method}", client_case(state=logged_in(commands_enabled=True), replies=[error_reply("1008"), vehicles],
+                                              vin=VIN, **args)
+
+
+#: A guest's grant (pyBYD #103): basic control and charging, no location.
+RANGE_TREE = [
+    {"code": "2", "name": "Keys & Control", "childList": [{"code": "21", "name": "Basic control", "childList": []}]},
+    {"code": "4", "name": "More control", "childList": [{"code": "41", "name": "Scheduled charging", "childList": []}]},
+]
+GUEST_VEHICLE = {**VEHICLE, "empowerType": -1, "empowerId": 114149, "rangeDetailList": RANGE_TREE}
+EMPOWER = {"empowerControlPwdStatus": False, "data": {"empowerId": 114149, "detailList": RANGE_TREE}}
+
+
+def guest_and_ota_cases():
+    # GPS is refused before anything is sent when the grant lacks "31"; an
+    # unknown car or an empty grant fails open (and the cloud says 8002).
+    yield "client.get_gps_info", client_case(state=logged_in(vehicles=[GUEST_VEHICLE]), vin=VIN)
+    for vehicles in [[], [{**GUEST_VEHICLE, "rangeDetailList": []}], [{**GUEST_VEHICLE, "rangeDetailList": [{"code": "31"}]}]]:
+        yield "client.get_gps_info", client_case(
+            state=logged_in(vehicles=vehicles, guest_vins={VIN: True}), replies=[error_reply("8002")], vin=VIN, **FAST
+        )
+    # get_empower_detail: the cached grant id, the vehicle list on a miss, an owner, an explicit id.
+    yield "client.get_empower_detail", client_case(state=logged_in(vehicles=[GUEST_VEHICLE]),
+                                                   replies=[ok_reply(SAMPLE_SESSION, EMPOWER)], vin=VIN)
+    yield "client.get_empower_detail", client_case(state=logged_in(),
+                                                   replies=[ok_reply(SAMPLE_SESSION, [GUEST_VEHICLE]),
+                                                            ok_reply(SAMPLE_SESSION, EMPOWER)], vin=VIN)
+    yield "client.get_empower_detail", client_case(state=logged_in(vehicles=[{**VEHICLE, "empowerType": 2}]), vin=VIN)
+    yield "client.get_empower_detail", client_case(state=logged_in(), replies=[ok_reply(SAMPLE_SESSION, [])], vin=VIN)
+    yield "client.get_empower_detail", client_case(state=logged_in(), replies=[error_reply("9999")], vin=VIN)
+    yield "client.get_empower_detail", client_case(state=logged_in(), replies=[ok_reply(SAMPLE_SESSION, EMPOWER)],
+                                                   vin=VIN, empower_id=7)
+    yield "client.get_empower_detail", client_case(state=logged_in(vehicles=[GUEST_VEHICLE]),
+                                                   replies=[error_reply("1008"), ok_reply(SAMPLE_SESSION, [])], vin=VIN)
+    # OTA (pyBYD #99): the version, and the night auto-upgrade behind the PIN.
+    yield "client.get_ota_version", client_case(state=logged_in(), replies=[ok_reply(SAMPLE_SESSION, CAPTURED_IDLE)], vin=VIN)
+    yield "client.get_ota_version", client_case(state=logged_in(), replies=[error_reply("1001")], vin=VIN)
+    for kwargs, replies in [
+        ({"enabled": True, "command_pwd": "123456"}, [ok_reply(SAMPLE_SESSION, {})]),
+        ({"enabled": False, "auto_upgrade_time": "03:30", "command_pwd": "0123456789abcdef0123456789ABCDEF"},
+         [ok_reply(SAMPLE_SESSION, {"result": "ok"})]),
+        ({"enabled": True, "auto_upgrade_time": "25:00", "command_pwd": "123456"}, []),
+        ({"enabled": True}, []),
+        ({"enabled": True, "command_pwd": "123456"}, [error_reply("5005")]),
+        ({"enabled": True, "command_pwd": "123456"}, [error_reply("1002"), *login_replies(), ok_reply(SAMPLE_SESSION, {})]),
+    ]:
+        yield "client.set_ota_auto_upgrade", client_case(state=logged_in(commands_enabled=True), replies=replies,
+                                                         vin=VIN, **kwargs)
+    yield "client.set_ota_auto_upgrade", client_case(state=logged_in(), vin=VIN, enabled=True, command_pwd="123456")
+    yield "client.set_ota_auto_upgrade", client_case(state=logged_in(commands_enabled=True),
+                                                     config={**SAMPLE_CONFIG, "control_pin": "9999"},
+                                                     replies=[ok_reply(SAMPLE_SESSION, {})], vin=VIN, enabled=True)
 
 
 WEIGHTED = POLLED * 6 + SIMPLE + OTHERS

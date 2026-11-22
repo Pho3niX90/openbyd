@@ -7,7 +7,6 @@ import {
   BydControlPasswordError,
   BydEndpointNotSupportedError,
   BydError,
-  CancelledError,
   Car,
   DataError,
   LockState,
@@ -105,17 +104,20 @@ test("a command is acknowledged by push", async () => {
   assert.deepEqual([diagnostics.matched, diagnostics.pending], [1, 0]);
 });
 
-test("closing cancels a wait for a push", async () => {
+test("closing ends a wait for a push like a timeout", async () => {
+  // pyBYD #98: the read goes on to poll over HTTP instead of being cancelled.
   using world = new World();
   world.server.reply("/control/getGpsInfo", { data: { requestSerial: "G1" } });
+  world.server.reply("/control/getGpsInfoResult", { data: { requestSerial: "G1", latitude: 52.0, longitude: 4.0 } });
   const client = world.client({ mqttEnabled: true });
   await client.login();
   await world.untilSubscribed(client);
-  const waiting = thrown(() => client.getGpsInfo(VIN, { mqttTimeout: 30 }));
+  const waiting = client.getGpsInfo(VIN, { mqttTimeout: 30, pollAttempts: 1, pollInterval: 0 });
   await until("the trigger", () => world.server.requests("/control/getGpsInfo").length === 1);
   await sleep(50);
   client.close();
-  assert.ok((await waiting) instanceof CancelledError);
+  assert.equal((await waiting).latitude, 52.0);
+  assert.equal(world.server.requests("/control/getGpsInfoResult").length, 1);
 });
 
 test("a car merges, projects and rolls back", async () => {

@@ -267,6 +267,130 @@ pub fn known_command_function_nos() -> BTreeSet<&'static str> {
         .collect()
 }
 
+/// The guest permission (level 2 of the "Family and friends" grant tree)
+/// that allows basic control: climate, locks, windows, trunk, finding the car.
+pub const GUEST_PERMISSION_BASIC_CONTROL: &str = "21";
+/// The guest permission that allows reading the car's location.
+pub const GUEST_PERMISSION_GPS: &str = "31";
+/// The guest permission that allows charging commands.
+pub const GUEST_PERMISSION_CHARGING: &str = "41";
+/// The guest permission that allows battery heating.
+pub const GUEST_PERMISSION_BATTERY_HEAT: &str = "43";
+
+/// The guest permission a command needs (pyBYD's `_COMMAND_GUEST_PERMISSION`).
+pub fn command_guest_permission(command: RemoteCommand) -> Option<&'static str> {
+    use RemoteCommand::*;
+    Some(match command {
+        StartClimate | StopClimate | ScheduleClimate | SeatClimate | Lock | Unlock | OpenTrunk
+        | CloseTrunk | OpenWindows | CloseWindows | FindCar | FlashLights => {
+            GUEST_PERMISSION_BASIC_CONTROL
+        }
+        BatteryHeat => GUEST_PERMISSION_BATTERY_HEAT,
+        StartCharge | StopCharge => GUEST_PERMISSION_CHARGING,
+    })
+}
+
+/// `functionNo`s a guest's level 3/4 allow-list never takes away.
+const GUEST_ALWAYS_ALLOWED_FUNCTION_NOS: [&str; 6] = [
+    "1004", "10020001", "10020002", "10020003", "10020005", "10020006",
+];
+
+/// Who is asking: an owner, or a shared guest and the permission codes its
+/// grant holds (pyBYD's `is_shared` and `guest_permissions` arguments).
+///
+/// The guest rules apply only to a shared account with a non-empty set of
+/// codes; anything else fails open, as an owner.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct GuestScope<'a> {
+    /// Whether the car is shared with this account.
+    pub is_shared: bool,
+    /// The permission codes granted, when known.
+    pub guest_permissions: Option<&'a BTreeSet<String>>,
+}
+
+impl<'a> GuestScope<'a> {
+    /// An owner (or a guest whose grant is unknown): no guest rules.
+    pub const OWNER: GuestScope<'static> = GuestScope {
+        is_shared: false,
+        guest_permissions: None,
+    };
+
+    /// A scope from pyBYD's two arguments.
+    pub fn new(is_shared: bool, guest_permissions: Option<&'a BTreeSet<String>>) -> Self {
+        Self {
+            is_shared,
+            guest_permissions,
+        }
+    }
+
+    /// Whether the guest rules apply: a shared account with a known grant.
+    pub fn is_active(&self) -> bool {
+        self.active().is_some()
+    }
+
+    /// The granted codes when the guest rules apply.
+    fn active(&self) -> Option<&'a BTreeSet<String>> {
+        self.guest_permissions
+            .filter(|codes| self.is_shared && !codes.is_empty())
+    }
+
+    /// `_filter_guest_function_nos`: a guest's grant that names command
+    /// `functionNo`s (level 3/4) is an allow-list, plus the ones always
+    /// allowed. Deeper tree codes that are not command `functionNo`s (such
+    /// as `"2101"`) do not count.
+    fn filter_function_nos<'s>(&self, function_nos: &BTreeSet<&'s str>) -> BTreeSet<&'s str> {
+        let Some(granted) = self.active() else {
+            return function_nos.clone();
+        };
+        let known = known_command_function_nos();
+        let level34: BTreeSet<&str> = granted
+            .iter()
+            .map(String::as_str)
+            .filter(|code| known.contains(code))
+            .collect();
+        if level34.is_empty() {
+            return function_nos.clone();
+        }
+        function_nos
+            .iter()
+            .copied()
+            .filter(|function_no| {
+                level34.contains(function_no)
+                    || GUEST_ALWAYS_ALLOWED_FUNCTION_NOS.contains(function_no)
+            })
+            .collect()
+    }
+
+    /// `_guest_permission_ok`: the level 2 permission `command` needs is granted.
+    pub fn permits(&self, command: RemoteCommand) -> bool {
+        match (self.active(), command_guest_permission(command)) {
+            (Some(granted), Some(required)) => granted.contains(required),
+            _ => true,
+        }
+    }
+
+    /// Whether the grant itself excludes `command`, whatever the car
+    /// advertises: it lacks the command's level 2 permission, or its level
+    /// 3/4 allow-list (when it has one) admits none of
+    /// `required_function_nos`, the gate rule's own set (a verdict's
+    /// `required_function_nos`). Always `false` for an owner.
+    ///
+    /// Not a pyBYD function: openbyd uses it so that no gate policy can send
+    /// what a guest was not granted, also when the car's capabilities are
+    /// unknown or the verdict was decided before the grant was looked at
+    /// (`"seat_target_unknown"`).
+    pub fn refuses(&self, command: RemoteCommand, required_function_nos: &[String]) -> bool {
+        if !self.is_active() {
+            return false;
+        }
+        if !self.permits(command) {
+            return true;
+        }
+        let required: BTreeSet<&str> = required_function_nos.iter().map(String::as_str).collect();
+        !required.is_empty() && self.filter_function_nos(&required).is_empty()
+    }
+}
+
 /// `(learn_info.get(key) or 0) > 0` for one learn-info value.
 ///
 /// Missing, `0`, `-1` and other non-positive numbers count as not present.
@@ -310,12 +434,16 @@ fn learn_info_match(
 ///
 /// The learn-info gate applies only when the rule declares keys *and* the
 /// caller passed learn info; without learn info such a rule passes on its
-/// `functionNo` alone.
+/// `functionNo` alone. A guest's grant narrows the `functionNo`s first and
+/// can refuse the command outright (`"guest_permission_denied"`).
 pub fn evaluate_rule(
     rule: &CommandGateRule,
     function_nos: &BTreeSet<&str>,
     learn_info: Option<&Map<String, Value>>,
+    guest: GuestScope<'_>,
 ) -> Result<CommandGateVerdict, ValidationError> {
+    let effective = guest.filter_function_nos(function_nos);
+    let function_nos = &effective;
     let required = &rule.required_function_nos;
     let mut matched: Vec<&String> = required
         .iter()
@@ -332,7 +460,10 @@ pub fn evaluate_rule(
     let learn_info_supported = rule.required_learn_info_keys.is_empty()
         || learn_info.is_none()
         || !matched_learn_info_keys.is_empty();
-    let reason = if !function_no_supported {
+    let guest_supported = guest.permits(rule.command);
+    let reason = if !guest_supported {
+        "guest_permission_denied"
+    } else if !function_no_supported {
         "function_no_missing"
     } else if !learn_info_supported {
         "learn_info_missing"
@@ -342,7 +473,7 @@ pub fn evaluate_rule(
     let values = json!({
         "command": rule.command.as_str(),
         "gateId": rule.gate_id,
-        "supported": function_no_supported && learn_info_supported,
+        "supported": function_no_supported && learn_info_supported && guest_supported,
         "reason": reason,
         "requiredFunctionNos": required,
         "matchedFunctionNos": matched,
@@ -365,11 +496,12 @@ fn function_no_set(capabilities: &VehicleCapabilities) -> BTreeSet<&str> {
 pub fn evaluate_all_command_gates(
     capabilities: &VehicleCapabilities,
     learn_info: Option<&Map<String, Value>>,
+    guest: GuestScope<'_>,
 ) -> Result<Vec<CommandGateVerdict>, ValidationError> {
     let function_nos = function_no_set(capabilities);
     command_gate_rules()
         .iter()
-        .map(|rule| evaluate_rule(rule, &function_nos, learn_info))
+        .map(|rule| evaluate_rule(rule, &function_nos, learn_info, guest))
         .collect()
 }
 
@@ -380,7 +512,8 @@ pub fn evaluate_all_command_gates(
 /// passenger, `"3"`/`"4"` rear left/right, `"5"` steering wheel; a
 /// non-string value is compared as Python's `str()` of it); without a known
 /// seat it is refused with `"seat_target_unknown"`. `learn_info` is the
-/// vehicle's `vehicleFunLearnInfo`, or `None` when unknown.
+/// vehicle's `vehicleFunLearnInfo`, or `None` when unknown. `guest` is the
+/// account's grant when the car is shared with it.
 ///
 /// Fails only when a learn-info value the gate reads is a non-empty string,
 /// list or dict (pyBYD raises `TypeError` comparing it with 0).
@@ -389,6 +522,7 @@ pub fn evaluate_command_gate(
     capabilities: &VehicleCapabilities,
     control_params: Option<&Map<String, Value>>,
     learn_info: Option<&Map<String, Value>>,
+    guest: GuestScope<'_>,
 ) -> Result<CommandGateVerdict, ValidationError> {
     let function_nos = function_no_set(capabilities);
     let mut command_rules = command_gate_rules()
@@ -419,11 +553,11 @@ pub fn evaluate_command_gate(
         let rule = command_rules
             .find(|rule| rule.gate_id == gate_id)
             .expect("every seat gate has a rule");
-        return evaluate_rule(rule, &function_nos, learn_info);
+        return evaluate_rule(rule, &function_nos, learn_info, guest);
     }
 
     let rule = command_rules.next().expect("every command has a rule");
-    evaluate_rule(rule, &function_nos, learn_info)
+    evaluate_rule(rule, &function_nos, learn_info, guest)
 }
 
 // ---------------------------------------------------------------------------
@@ -456,6 +590,35 @@ fn capabilities_arg(args: &Args<'_>) -> Result<VehicleCapabilities, ParityError>
     VehicleCapabilities::parse(args.value("capabilities"), &Value::Null).map_err(ParityError::from)
 }
 
+/// The optional `is_shared` and `guest_permissions` arguments (a list of
+/// codes or null).
+fn guest_args(args: &Args<'_>) -> Result<(bool, Option<BTreeSet<String>>), ParityError> {
+    let is_shared = match args.0.get("is_shared") {
+        None | Some(Value::Null) => false,
+        Some(Value::Bool(flag)) => *flag,
+        Some(_) => return Err(ParityError::bad_arguments("is_shared must be a bool")),
+    };
+    let permissions = match args.0.get("guest_permissions") {
+        None | Some(Value::Null) => None,
+        Some(Value::Array(items)) => Some(
+            items
+                .iter()
+                .map(|item| {
+                    item.as_str().map(str::to_owned).ok_or_else(|| {
+                        ParityError::bad_arguments("guest_permissions must be strings")
+                    })
+                })
+                .collect::<Result<_, _>>()?,
+        ),
+        Some(_) => {
+            return Err(ParityError::bad_arguments(
+                "guest_permissions must be a list",
+            ));
+        }
+    };
+    Ok((is_shared, permissions))
+}
+
 fn dump_all(verdicts: Vec<CommandGateVerdict>) -> Value {
     Value::Array(verdicts.iter().map(BydModel::dump).collect())
 }
@@ -478,16 +641,21 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
             let capabilities = capabilities_arg(&args)?;
             let control_params = mapping_arg(&args, "control_params")?;
             let learn_info = mapping_arg(&args, "learn_info")?;
+            let (is_shared, permissions) = guest_args(&args)?;
+            let guest = GuestScope::new(is_shared, permissions.as_ref());
             let verdict =
-                evaluate_command_gate(command, &capabilities, control_params, learn_info)?;
+                evaluate_command_gate(command, &capabilities, control_params, learn_info, guest)?;
             Ok(verdict.dump())
         })(),
         "models.command_gating.evaluate_all_command_gates" => (|| {
             let capabilities = capabilities_arg(&args)?;
             let learn_info = mapping_arg(&args, "learn_info")?;
+            let (is_shared, permissions) = guest_args(&args)?;
+            let guest = GuestScope::new(is_shared, permissions.as_ref());
             Ok(dump_all(evaluate_all_command_gates(
                 &capabilities,
                 learn_info,
+                guest,
             )?))
         })(),
         "models.command_gating.evaluate_rule" => (|| {
@@ -504,7 +672,9 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
                 _ => return Err(ParityError::bad_arguments("function_nos must be a list")),
             };
             let learn_info = mapping_arg(&args, "learn_info")?;
-            Ok(evaluate_rule(&rule, &function_nos, learn_info)?.dump())
+            let (is_shared, permissions) = guest_args(&args)?;
+            let guest = GuestScope::new(is_shared, permissions.as_ref());
+            Ok(evaluate_rule(&rule, &function_nos, learn_info, guest)?.dump())
         })(),
         _ => return None,
     })
@@ -522,20 +692,95 @@ mod tests {
     fn every_command_has_a_gate() {
         let empty = capabilities(&[]);
         for command in RemoteCommand::ALL {
-            let verdict = evaluate_command_gate(command, &empty, None, None).unwrap();
+            let verdict =
+                evaluate_command_gate(command, &empty, None, None, GuestScope::OWNER).unwrap();
             assert!(!verdict.supported, "{command:?}");
         }
         let all: Vec<&str> = known_command_function_nos().into_iter().collect();
         let full = capabilities(&all);
         let seat = json!({"chairType": 5});
         for command in RemoteCommand::ALL {
-            let verdict = evaluate_command_gate(command, &full, seat.as_object(), None).unwrap();
+            let verdict =
+                evaluate_command_gate(command, &full, seat.as_object(), None, GuestScope::OWNER)
+                    .unwrap();
             assert!(verdict.supported, "{command:?}");
         }
         assert_eq!(
-            evaluate_all_command_gates(&full, None).unwrap().len(),
+            evaluate_all_command_gates(&full, None, GuestScope::OWNER)
+                .unwrap()
+                .len(),
             RULE_ROWS.len()
         );
+    }
+
+    #[test]
+    fn guest_grants_narrow_the_gates() {
+        let caps = capabilities(&[
+            "1001", "1005", "1026", "10020004", "10020001", "10100001", "1012",
+        ]);
+        let codes = |list: &[&str]| {
+            list.iter()
+                .map(|code| (*code).to_owned())
+                .collect::<BTreeSet<_>>()
+        };
+        let verdict = |command, granted: &BTreeSet<String>| {
+            evaluate_command_gate(
+                command,
+                &caps,
+                None,
+                None,
+                GuestScope::new(true, Some(granted)),
+            )
+            .unwrap()
+        };
+        let level2 = codes(&["2", "21", "4", "41"]);
+        assert!(verdict(RemoteCommand::StartClimate, &level2).supported);
+        assert!(verdict(RemoteCommand::StartCharge, &level2).supported);
+        let heat = verdict(RemoteCommand::BatteryHeat, &level2);
+        assert!(!heat.supported);
+        assert_eq!(heat.reason, "guest_permission_denied");
+        // Level 3/4 functionNos are an allow-list.
+        let level34 = codes(&["2", "21", "1001", "1005"]);
+        assert!(verdict(RemoteCommand::Lock, &level34).supported);
+        let windows = verdict(RemoteCommand::CloseWindows, &level34);
+        assert!(!windows.supported);
+        assert_eq!(windows.reason, "function_no_missing");
+        // A deep tree code that is no functionNo is not an allow-list.
+        assert!(verdict(RemoteCommand::Lock, &codes(&["2", "21", "2101"])).supported);
+        // An owner, or a guest with no known grant, fails open.
+        let none = codes(&[]);
+        assert!(verdict(RemoteCommand::BatteryHeat, &none).supported);
+        let owner = evaluate_command_gate(
+            RemoteCommand::BatteryHeat,
+            &caps,
+            None,
+            None,
+            GuestScope::new(false, Some(&level2)),
+        )
+        .unwrap();
+        assert!(owner.supported);
+        assert_eq!(
+            command_guest_permission(RemoteCommand::StopCharge),
+            Some("41")
+        );
+        assert!(GuestScope::new(true, Some(&level2)).is_active());
+        // The grant alone decides `refuses`: the level 2 code, then the
+        // allow-list against the rule's own functionNos.
+        let windows = vec!["1026".to_owned()];
+        let lock_only: BTreeSet<String> = ["2", "21", "1005"].map(String::from).into();
+        let lock_guest = GuestScope::new(true, Some(&lock_only));
+        assert!(lock_guest.refuses(RemoteCommand::CloseWindows, &windows));
+        assert!(!lock_guest.refuses(RemoteCommand::Lock, &["1005".to_owned(), "1006".to_owned()]));
+        assert!(lock_guest.refuses(RemoteCommand::BatteryHeat, &[]));
+        assert!(!lock_guest.refuses(RemoteCommand::SeatClimate, &[]));
+        assert!(!GuestScope::OWNER.refuses(RemoteCommand::BatteryHeat, &windows));
+        let no_list: BTreeSet<String> = ["2", "21"].map(String::from).into();
+        assert!(
+            !GuestScope::new(true, Some(&no_list)).refuses(RemoteCommand::CloseWindows, &windows)
+        );
+        assert!(GuestScope::new(true, Some(&no_list)).refuses(RemoteCommand::StartCharge, &[]));
+        assert!(!GuestScope::new(true, Some(&none)).is_active());
+        assert!(!GuestScope::new(false, Some(&level2)).is_active());
     }
 
     #[test]
@@ -547,6 +792,7 @@ mod tests {
                 &caps,
                 None,
                 learn_info.as_object(),
+                GuestScope::OWNER,
             )
             .map(|verdict| verdict.reason)
         };

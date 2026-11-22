@@ -51,6 +51,15 @@ pub trait Env: Send + Sync {
         endpoint: &str,
         outer: &Map<String, Value>,
     ) -> impl Future<Output = Result<Value, Error>> + Send;
+
+    /// How far BYD's clock is ahead of ours, in milliseconds, as the last
+    /// reply's `Date` header showed (pyBYD's
+    /// `SecureTransport.server_time_offset_ms`): 0 until a drift beyond
+    /// [`openbyd_protocol::constants::SERVER_TIME_DRIFT_THRESHOLD_MS`] is
+    /// seen. Requests are stamped with our clock plus this. Every
+    /// environment must report it: a wrapper that forgot to forward it would
+    /// sign with the local clock again.
+    fn server_time_offset_ms(&self) -> i64;
 }
 
 /// A boxed future, as [`ClientEnv`] passes them around.
@@ -144,6 +153,10 @@ impl<T: Env + ?Sized> Env for Arc<T> {
         outer: &Map<String, Value>,
     ) -> impl Future<Output = Result<Value, Error>> + Send {
         (**self).post_secure(endpoint, outer)
+    }
+
+    fn server_time_offset_ms(&self) -> i64 {
+        (**self).server_time_offset_ms()
     }
 }
 

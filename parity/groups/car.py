@@ -92,7 +92,8 @@ DRAIN = 20
 CALLS = [
     "car.BydCar", "car.vin", "car.state", "car.capabilities", "car.update_realtime", "car.update_hvac",
     "car.update_gps", "car.update_charging", "car.start_charging", "car.stop_charging", "car.update_energy",
-    "car.get_ac_current_limit", "car.save_charging_schedule", "car.handle_mqtt_realtime",
+    "car.get_ac_current_limit", "car.save_charging_schedule", "car.get_ota_version", "car.set_ota_auto_upgrade",
+    "car.handle_mqtt_realtime",
     "car.handle_mqtt_status_push", "car.handle_mqtt_charging", "car.handle_mqtt_energy", "car.close",
 ]
 
@@ -227,6 +228,19 @@ class FakeClient:
     async def get_ac_current_limit(self, vin: str, **_: Any) -> Any:
         return await self._model(AcCurrentLimit, {"method": "get_ac_current_limit", "vin": vin})
 
+    async def get_ota_version(self, vin: str) -> Any:
+        from pybyd.models.ota import OtaUpgradeInfo
+
+        return await self._model(OtaUpgradeInfo, {"method": "get_ota_version", "vin": vin})
+
+    async def set_ota_auto_upgrade(self, vin: str, *, enabled: bool, auto_upgrade_time: str = "2:00",
+                                   command_pwd: str | None = None) -> Any:
+        from pybyd.models.control import CommandAck
+
+        return await self._model(CommandAck, {
+            "method": "set_ota_auto_upgrade", "vin": vin, "enabled": enabled, "auto_upgrade_time": auto_upgrade_time,
+            "command_pwd": command_pwd})
+
     async def save_charging_schedule(self, vin: str, *, start_charge_time: str, end_charge_time: str,
                                      charge_way: str, enabled: bool = True, **_: Any) -> Any:
         return await self._model(ChargeChangeResult, {
@@ -270,6 +284,10 @@ async def _call(car: BydCar, target: str, method: str, args: dict[str, Any]) -> 
             return car.close()
         if method.startswith("handle_mqtt_"):
             return deliver(car, {**args, "kind": method[len("handle_mqtt_"):]})
+        if method == "set_ota_auto_upgrade":
+            time = "2:00" if args.get("auto_upgrade_time") is None else args["auto_upgrade_time"]
+            return await car.set_ota_auto_upgrade(enabled=args["enabled"], auto_upgrade_time=time,
+                                                  command_pwd=args.get("command_pwd"))
         if method == "save_charging_schedule":
             enabled = True if args.get("enabled") is None else args["enabled"]
             return _dump(await car.save_charging_schedule(
@@ -414,6 +432,22 @@ VEHICLE_CORPUS = _corpus("Vehicle")
 AC_LIMIT_CORPUS = _corpus("AcCurrentLimit")
 
 
+#: Guest grants: basic control and charging (pyBYD's test tree), location
+#: only, everything, a deep code, and none.
+GUEST_GRANTS: list[Any] = [
+    [{"code": "2", "childList": [{"code": "21"}]}, {"code": "4", "childList": [{"code": "41"}]}],
+    [{"code": "31"}],
+    [{"code": "21"}, {"code": "31"}, {"code": "41"}, {"code": "43"}],
+    [{"code": "2101"}],
+    [],
+]
+OTA_SAMPLES: list[Any] = [
+    {"vin": VIN, "currentVersion": "V1.3.0", "updateVersion": "", "upgradeStatus": 0, "autoUpgradeSwitch": "1"},
+    {"vin": VIN, "updateVersion": "V1.4.0", "upgradeStatus": 1, "upgradeResult": {"statusCode": "200"}},
+    {"upgradeStatus": 999},
+]
+
+
 def sequence(name: str, ops: list[dict[str, Any]], *, vehicle: Any = None, capabilities: Any = None,
              latest_config: Any = None, ttl: float = 30.0, start: float = 1000.0) -> tuple[str, dict[str, Any]]:
     args: dict[str, Any] = {"vin": VIN, "vehicle": VEHICLE if vehicle is None else vehicle,
@@ -515,6 +549,12 @@ def _construction() -> Iterator[tuple[str, dict[str, Any]]]:
                    capabilities=CAPS_FIXTURE)
     for name in ("vin", "state", "capabilities", "close"):
         yield sequence(name, [call("car", name), update("hvac", ok(HVAC_CORPUS[2])), call("car", name)])
+    # pyBYD #103: a shared guest's grant masks the capabilities and the window gate.
+    for grant in GUEST_GRANTS:
+        for empower in [-1, 2, None]:
+            guest = {**LEARN_OPEN, "empowerType": empower, "rangeDetailList": grant}
+            for capabilities in (CAPS_ALL, CAPS_FIXTURE, None):
+                yield sequence("BydCar", [READ, call("car", "capabilities")], vehicle=guest, capabilities=capabilities)
 
 
 def _features() -> Iterator[tuple[str, dict[str, Any]]]:
@@ -629,6 +669,17 @@ def _reads() -> Iterator[tuple[str, dict[str, Any]]]:
     yield sequence("stop_charging", [call("car", "stop_charging", {}, err(
         {"class": "BydEndpointNotSupportedError", "code": "cloud_stop_unsupported",
          "endpoint": "/control/smartCharge/changeChargeStatue"}))])
+    # pyBYD #99: the OTA version and the night auto-upgrade go to the client.
+    yield sequence("get_ota_version", [call("car", "get_ota_version", {}, ok(raw)) for raw in OTA_SAMPLES]
+                   + [call("car", "get_ota_version", {}, err({"class": "BydEndpointNotSupportedError", "code": "1001"}))])
+    yield sequence("set_ota_auto_upgrade", [
+        call("car", "set_ota_auto_upgrade", {"enabled": True}, ok({})),
+        call("car", "set_ota_auto_upgrade", {"enabled": False, "auto_upgrade_time": "03:30", "command_pwd": "123456"},
+             ok({"result": "ok"})),
+        call("car", "set_ota_auto_upgrade", {"enabled": True}, err({"class": "BydControlPasswordError",
+                                                                    "code": "commands_disabled"})),
+        call("car", "set_ota_auto_upgrade", {"enabled": True}, ok([1])),
+    ])
     yield sequence("get_ac_current_limit", [call("car", "get_ac_current_limit", {}, ok(raw)) for raw in AC_LIMIT_CORPUS]
                    + [call("car", "get_ac_current_limit", {}, err({"class": "BydApiError", "code": "1001"}))])
     save = {"start_charge_time": "22:00", "end_charge_time": "06:00", "charge_way": "1"}
@@ -780,6 +831,13 @@ def random_op(rng: random.Random) -> dict[str, Any]:
         method = rng.choice(["start_charging", "stop_charging", "get_ac_current_limit"])
         result = rng.choice(AC_LIMIT_CORPUS) if method == "get_ac_current_limit" else CHARGE_OK
         return call("car", method, {}, _random_reply(rng, result))
+    if roll < 0.81:
+        if rng.random() < 0.5:
+            return call("car", "get_ota_version", {}, _random_reply(rng, rng.choice(OTA_SAMPLES)))
+        return call("car", "set_ota_auto_upgrade", {"enabled": rng.random() < 0.5,
+                                                    "auto_upgrade_time": rng.choice([None, "2:00", "23:59"]),
+                                                    "command_pwd": rng.choice([None, "123456"])},
+                    _random_reply(rng, rng.choice([{}, {"result": "ok"}])))
     if roll < 0.82:
         return call("car", "save_charging_schedule",
                     {"start_charge_time": "22:00", "end_charge_time": "full", "charge_way": rng.choice(["1", "2"])},
@@ -800,6 +858,8 @@ def random_sequence(rng: random.Random, max_steps: int = 25) -> tuple[str, dict[
     elif roll < 0.75:
         kwargs["latest_config"] = rng.choice(LATEST_SAMPLES)
     vehicle = rng.choice([VEHICLE, VEHICLE, LEARN_OPEN, LEARN_CLOSED, *VEHICLE_CORPUS])
+    if rng.random() < 0.15 and isinstance(vehicle, dict):
+        vehicle = {**vehicle, "empowerType": rng.choice([-1, -1, 2]), "rangeDetailList": rng.choice(GUEST_GRANTS)}
     case = sequence(rng.choice(CALLS)[len("car."):], ops, vehicle=vehicle, ttl=rng.choice([30.0, 30.0, 5.0, 0.0, 60.0]),
                     start=rng.choice([1000.0, 0.0, 12345.678]), **kwargs)
     return case if json_safe(case[1]) else sequence("BydCar", [READ])

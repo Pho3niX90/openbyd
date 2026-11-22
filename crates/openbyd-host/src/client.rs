@@ -61,7 +61,7 @@ pub const EVENTS: [&str; 6] = [
 ];
 
 /// The methods [`Client::call`] runs.
-pub const ASYNC_METHODS: [&str; 71] = [
+pub const ASYNC_METHODS: [&str; 76] = [
     "login",
     "ensure_session",
     "import_session",
@@ -85,6 +85,9 @@ pub const ASYNC_METHODS: [&str; 71] = [
     "get_all_notifications",
     "rename_vehicle",
     "get_booking_list",
+    "get_ota_version",
+    "set_ota_auto_upgrade",
+    "get_empower_detail",
     "get_standby_plans",
     "save_standby_plan",
     "create_standby_plan",
@@ -118,6 +121,8 @@ pub const ASYNC_METHODS: [&str; 71] = [
     "car.stop_charging",
     "car.get_ac_current_limit",
     "car.save_charging_schedule",
+    "car.get_ota_version",
+    "car.set_ota_auto_upgrade",
     "car.lock.lock",
     "car.lock.unlock",
     "car.hvac.start",
@@ -199,6 +204,7 @@ fn tokens_to_json(tokens: &SessionTokens) -> Value {
         "user_id": tokens.user_id,
         "sign_token": tokens.sign_token,
         "encry_token": tokens.encry_token,
+        "refresh_token": tokens.refresh_token,
         "ttl_remaining": tokens.ttl_remaining,
         "guest_vins": guests,
     })
@@ -219,6 +225,12 @@ fn tokens_from_json(value: &Map<String, Value>) -> Result<SessionTokens, String>
                 .ok_or("session[\"ttl_remaining\"] must be a number or null")?,
         ),
     };
+    // Optional: records saved before openbyd kept it have none.
+    let refresh_token = match value.get("refresh_token") {
+        None | Some(Value::Null) => String::new(),
+        Some(Value::String(token)) => token.clone(),
+        Some(_) => return Err("session[\"refresh_token\"] must be a string or null".into()),
+    };
     let mut guest_vins = HashMap::new();
     match value.get("guest_vins") {
         None | Some(Value::Null) => {}
@@ -236,6 +248,7 @@ fn tokens_from_json(value: &Map<String, Value>) -> Result<SessionTokens, String>
         user_id: text("user_id")?,
         sign_token: text("sign_token")?,
         encry_token: text("encry_token")?,
+        refresh_token,
         ttl_remaining,
         guest_vins,
     })
@@ -273,7 +286,8 @@ fn charge_settings(args: &Args) -> Result<ChargePollSettings, HostError> {
     Ok(ChargePollSettings {
         mqtt_timeout: args.opt_float("mqtt_timeout")?,
         poll_attempts: args.int_or("poll_attempts", defaults.poll_attempts)?,
-        poll_interval: args.float_or("poll_interval", defaults.poll_interval)?,
+        // null or missing: the official 33 s ladder.
+        poll_interval: args.opt_float("poll_interval")?,
     })
 }
 
@@ -535,7 +549,7 @@ impl Client {
     /// `options` is an object or `null`:
     ///
     /// - `events`: the names of the events to send (see [`EVENTS`]); none by default.
-    /// - `command_ack_ttl_seconds` (300), `command_retries` (3): as pyBYD's.
+    /// - `command_ack_ttl_seconds` (300), `command_retries` (1): as pyBYD's.
     /// - `gate_policy`: `"strict"`, `"allow_missing_data"` or `"host"` (ask
     ///   with a `gate_policy` event).
     /// - `pin_resolver`: `"default"` or `"host"` (ask with a `pin_resolver` event).
@@ -834,6 +848,21 @@ impl Client {
             }
             "rename_vehicle" => dump(&client.rename_vehicle(vin, &args.str("name")?).await?)?,
             "get_booking_list" => dump(&client.get_booking_list(vin).await?)?,
+            "get_ota_version" => dump(&client.get_ota_version(vin).await?)?,
+            "set_ota_auto_upgrade" => {
+                let time = args
+                    .opt_str("auto_upgrade_time")?
+                    .unwrap_or_else(|| "2:00".to_owned());
+                dump(
+                    &client
+                        .set_ota_auto_upgrade(vin, args.bool("enabled")?, &time, pwd)
+                        .await?,
+                )?
+            }
+            "get_empower_detail" => {
+                let empower_id = args.opt_int("empower_id")?;
+                dump(&client.get_empower_detail(vin, empower_id).await?)?
+            }
             "get_standby_plans" => dump(&client.get_standby_plans(vin).await?)?,
             "save_standby_plan" => {
                 let plan =
@@ -955,6 +984,16 @@ impl Client {
             "start_charging" => dump(&car.start_charging().await?)?,
             "stop_charging" => dump(&car.stop_charging().await?)?,
             "get_ac_current_limit" => dump(&car.get_ac_current_limit().await?)?,
+            "get_ota_version" => dump(&car.get_ota_version().await?)?,
+            "set_ota_auto_upgrade" => {
+                let time = args
+                    .opt_str("auto_upgrade_time")?
+                    .unwrap_or_else(|| "2:00".to_owned());
+                let pwd = args.opt_str("command_pwd")?;
+                car.set_ota_auto_upgrade(args.bool("enabled")?, &time, pwd.as_deref())
+                    .await?;
+                Value::Null
+            }
             "save_charging_schedule" => {
                 let result = car
                     .save_charging_schedule(
@@ -1045,18 +1084,23 @@ mod tests {
     #[test]
     fn sessions_are_checked() {
         let good = fields(
-            json!({"user_id": "1", "sign_token": "s", "encry_token": "e",
+            json!({"user_id": "1", "sign_token": "s", "encry_token": "e", "refresh_token": "r",
             "ttl_remaining": 5.0, "guest_vins": {"V": true}}),
         );
         let tokens = tokens_from_json(&good).unwrap();
         assert_eq!(tokens.ttl_remaining, Some(5.0));
+        assert_eq!(tokens.refresh_token, "r");
         assert!(tokens.guest_vins["V"]);
         assert_eq!(tokens_to_json(&tokens), Value::Object(good));
+        // A record saved before the refresh token was kept still imports.
+        let old = fields(json!({"user_id": "1", "sign_token": "s", "encry_token": "e"}));
+        assert_eq!(tokens_from_json(&old).unwrap().refresh_token, "");
         for bad in [
             json!({"user_id": "", "sign_token": "s", "encry_token": "e"}),
             json!({"user_id": "1", "sign_token": "s", "encry_token": "e", "ttl_remaining": "x"}),
             json!({"user_id": "1", "sign_token": "s", "encry_token": "e", "guest_vins": []}),
             json!({"user_id": "1", "sign_token": "s", "encry_token": "e", "guest_vins": {"V": 1}}),
+            json!({"user_id": "1", "sign_token": "s", "encry_token": "e", "refresh_token": 5}),
         ] {
             assert!(tokens_from_json(&fields(bad.clone())).is_err(), "{bad}");
         }

@@ -709,3 +709,66 @@ fn a_standalone_server_runs_without_a_runtime() {
     runtime.block_on(server.shutdown());
     drop(FakeBydServer::start_standalone([]).unwrap());
 }
+
+/// A server that answers each connection with the next of `responses`
+/// (status line and headers; the body is `down`), reading the request first.
+fn header_server(responses: Vec<String>) -> std::net::SocketAddr {
+    use std::io::{BufRead, BufReader, Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    std::thread::spawn(move || {
+        for head in responses {
+            let Ok((stream, _)) = listener.accept() else {
+                return;
+            };
+            let mut reader = BufReader::new(stream);
+            let mut length = 0;
+            loop {
+                let mut line = String::new();
+                reader.read_line(&mut line).unwrap();
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = value.trim().parse().unwrap();
+                }
+                if line.trim().is_empty() {
+                    break;
+                }
+            }
+            let mut body = vec![0; length];
+            reader.read_exact(&mut body).unwrap();
+            let mut stream = reader.into_inner();
+            let reply = format!("{head}\r\ncontent-length: 4\r\nconnection: close\r\n\r\ndown");
+            stream.write_all(reply.as_bytes()).unwrap();
+        }
+    });
+    addr
+}
+
+#[tokio::test]
+async fn the_date_header_sets_the_server_clock_offset() {
+    // pyBYD #102: a reply's Date header beyond 30 s from our clock becomes
+    // the offset requests are stamped with; one close to it resets it. It
+    // counts on a failed reply too, before its status is looked at.
+    let now = httpdate::fmt_http_date(std::time::SystemTime::now());
+    let addr = header_server(vec![
+        "HTTP/1.1 500 Internal Server Error\r\ndate: Sat, 01 Jan 2000 00:00:00 GMT".to_owned(),
+        "HTTP/1.1 500 Internal Server Error".to_owned(),
+        format!("HTTP/1.1 500 Internal Server Error\r\ndate: {now}"),
+        "HTTP/1.1 500 Internal Server Error\r\ndate: 1 Jan 2000 00:00:00 +99999999999999"
+            .to_owned(),
+    ]);
+    let env = HttpEnv::new(&HttpPool::new(), format!("http://{addr}"));
+    assert_eq!(env.server_time_offset_ms(), 0);
+    let error = env.post_secure("/x", &Map::new()).await.unwrap_err();
+    assert_transport(&error, "/x", Some(500));
+    let behind = env.server_time_offset_ms();
+    assert!(behind < -800_000_000_000, "{behind}");
+    // No Date header: the offset stays.
+    env.post_secure("/x", &Map::new()).await.unwrap_err();
+    assert_eq!(env.server_time_offset_ms(), behind);
+    env.post_secure("/x", &Map::new()).await.unwrap_err();
+    assert_eq!(env.server_time_offset_ms(), 0);
+    // A number Python's datetime cannot hold fails the request.
+    let error = env.post_secure("/x", &Map::new()).await.unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::ValueError);
+    assert!(error.message().starts_with("OverflowError"));
+}

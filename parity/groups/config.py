@@ -185,6 +185,8 @@ def random_session_kwargs(rng, *, valid: bool = True) -> dict:
     }
     if rng.random() < 0.5:
         kwargs["ttl"] = rng.choice([0, 0.0, 43200.0, rng.uniform(0, 1e5)])
+    if rng.random() < 0.3:
+        kwargs["refresh_token"] = awkward_text(rng)
     if not valid:
         roll = rng.random()
         if roll < 0.2:

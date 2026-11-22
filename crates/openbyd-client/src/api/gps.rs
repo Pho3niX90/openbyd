@@ -18,6 +18,10 @@ use crate::scripted::Scenario;
 /// satellite fix while parked in a garage).
 pub const GPS_DATA_UNAVAILABLE_CODES: [&str; 1] = ["6051"];
 
+/// API codes meaning a shared ("Family and friends") guest has no location
+/// permission (code `"31"`) granted.
+pub const GPS_PERMISSION_DENIED_CODES: [&str; 1] = ["8002"];
+
 /// Whether a GPS reply has meaningful content: not empty, and more than a
 /// bare `requestSerial`.
 pub fn is_gps_info_ready(gps_info: &Map<String, Value>) -> bool {
@@ -27,7 +31,7 @@ pub fn is_gps_info_ready(gps_info: &Map<String, Value>) -> bool {
 /// Fetches one GPS endpoint and returns the reply's data with the serial to
 /// poll with next: the reply's `requestSerial` when it is a string, else
 /// `request_serial`. A reply whose data is not an object gives an empty
-/// object. Code 1001 is `BydEndpointNotSupportedError` and 6051
+/// object. Codes 1001 and 8002 are `BydEndpointNotSupportedError`, 6051
 /// `BydDataUnavailableError`.
 pub async fn fetch_gps_endpoint<E: Env>(
     cx: Context<'_, E>,
@@ -44,10 +48,16 @@ pub async fn fetch_gps_endpoint<E: Env>(
     );
     let codes = ErrorCodes {
         not_supported_codes: Some(&ENDPOINT_NOT_SUPPORTED_CODES),
-        extra_code_map: &[(
-            &GPS_DATA_UNAVAILABLE_CODES,
-            ErrorKind::BydDataUnavailableError,
-        )],
+        extra_code_map: &[
+            (
+                &GPS_DATA_UNAVAILABLE_CODES,
+                ErrorKind::BydDataUnavailableError,
+            ),
+            (
+                &GPS_PERMISSION_DENIED_CODES,
+                ErrorKind::BydEndpointNotSupportedError,
+            ),
+        ],
     };
     let decoded = post_vehicle_json(cx, endpoint, &inner, vin, None, codes).await?;
     let request_serial = request_serial.map(str::to_owned);

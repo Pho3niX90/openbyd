@@ -222,7 +222,7 @@ fn options(args: &Args<'_>, env: &Arc<ScriptedEnv>) -> Result<ClientOptions, Par
     }
     let given = Args(args.value("options"));
     options.command_ack_ttl_seconds = float_or(&given, "command_ack_ttl_seconds", 300.0)?;
-    options.command_retries = int_or(&given, "command_retries", 3)?;
+    options.command_retries = int_or(&given, "command_retries", 1)?;
     let bypass = strings(given.value("gate_bypass"))?;
     if !bypass.is_empty() {
         options.gate_policy = Some(Arc::new(move |_vin, verdict| {
@@ -317,6 +317,7 @@ fn state_trace(client: &Client) -> Value {
             session.encry_token(),
             number(session.created_at()),
             number(session.ttl()),
+            session.refresh_token(),
         ])
     });
     let mut settled: Vec<(String, String)> = state
@@ -348,6 +349,7 @@ fn state_trace(client: &Client) -> Value {
         "data_poll_serials": state.data_poll_serials.len(),
         "reauth": [number(state.reauth_at), state.decrypt_reauths],
         "recovery": [state.recovery_attempts, number(state.recovery_last_at)],
+        "busy": [state.busy_probe_last_at.map(number), state.busy_reauth_last_at.map(number)],
         "closed": state.closed,
     })
 }
@@ -367,7 +369,10 @@ fn charge_settings(args: &Args<'_>) -> Result<ChargePollSettings, ParityError> {
     Ok(ChargePollSettings {
         mqtt_timeout: opt_float(args, "mqtt_timeout")?,
         poll_attempts: int_or(args, "poll_attempts", defaults.poll_attempts)?,
-        poll_interval: float_or(args, "poll_interval", defaults.poll_interval)?,
+        poll_interval: match args.value("poll_interval") {
+            Value::Null => defaults.poll_interval,
+            _ => opt_float(args, "poll_interval")?,
+        },
     })
 }
 
@@ -501,6 +506,26 @@ async fn run_method(
         }),
         "rename_vehicle" => model!(client.rename_vehicle(vin()?, args.str("name")?)),
         "get_booking_list" => model!(client.get_booking_list(vin()?)),
+        "get_ota_version" => model!(client.get_ota_version(vin()?)),
+        "set_ota_auto_upgrade" => {
+            let time = match args.value("auto_upgrade_time") {
+                Value::Null => "2:00",
+                _ => args.str("auto_upgrade_time")?,
+            };
+            model!(client.set_ota_auto_upgrade(
+                vin()?,
+                bool_or(args, "enabled", false)?,
+                time,
+                pwd()?
+            ))
+        }
+        "get_empower_detail" => {
+            let empower_id = match args.value("empower_id") {
+                Value::Null => None,
+                _ => Some(args.i64("empower_id")?),
+            };
+            model!(client.get_empower_detail(vin()?, empower_id))
+        }
         "verify_command_access" => model!(client.verify_command_access(vin()?, pwd()?)),
         "lock" => model!(client.lock(vin()?, pwd()?)),
         "unlock" => model!(client.unlock(vin()?, pwd()?)),
@@ -567,10 +592,11 @@ fn stalled() -> ParityError {
 /// Runs the parity call `client.<method>`.
 fn client_call(method: &str, raw: &Value) -> Outcome {
     let args = Args(raw);
-    let replies = args
+    let entries = args
         .value("replies")
         .as_array()
-        .ok_or_else(|| ParityError::bad_arguments("replies must be a list"))?
+        .ok_or_else(|| ParityError::bad_arguments("replies must be a list"))?;
+    let replies = entries
         .iter()
         .map(Reply::from_json)
         .collect::<Result<Vec<_>, _>>()?;
@@ -586,7 +612,9 @@ fn client_call(method: &str, raw: &Value) -> Outcome {
         })
         .unwrap_or_default();
     let env = Arc::new(
-        ScriptedEnv::new(args.i64("now_ms")?, args.str("seed")?, replies).with_mqtt(mqtt, starts),
+        ScriptedEnv::new(args.i64("now_ms")?, args.str("seed")?, replies)
+            .with_dates(crate::scripted::dates_from_json(entries))
+            .with_mqtt(mqtt, starts),
     );
     let config = BydConfig::from_kwargs(
         object(&args, "config")?.ok_or_else(|| ParityError::bad_arguments("config is required"))?,

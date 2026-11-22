@@ -503,11 +503,11 @@ async fn posted(world: &World, client: &BydClient<ProductionEnv>, command: Remot
     let outcome = client
         .remote_control(VIN, command, None, Some("123456"), 1, Some(0.0))
         .await;
-    if let Err(error) = &outcome {
-        if error.code() == "command_gate_blocked" {
-            assert_eq!(world.server.requests_to(REMOTE_CONTROL).len(), before);
-            return false;
-        }
+    if let Err(error) = &outcome
+        && error.code() == "command_gate_blocked"
+    {
+        assert_eq!(world.server.requests_to(REMOTE_CONTROL).len(), before);
+        return false;
     }
     world.server.requests_to(REMOTE_CONTROL).len() > before
 }

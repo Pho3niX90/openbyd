@@ -499,11 +499,11 @@ fn posted(world: &World, policy: &str, method: &str, args: Value) -> bool {
     full.as_object_mut()
         .unwrap()
         .extend(args.as_object().unwrap().clone());
-    if let Err(error) = call(&client, method, full) {
-        if error.code.as_deref() == Some("command_gate_blocked") {
-            assert_eq!(world.requests(REMOTE).len(), before);
-            return false;
-        }
+    if let Err(error) = call(&client, method, full)
+        && error.code.as_deref() == Some("command_gate_blocked")
+    {
+        assert_eq!(world.requests(REMOTE).len(), before);
+        return false;
     }
     world.requests(REMOTE).len() > before
 }

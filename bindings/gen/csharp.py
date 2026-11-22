@@ -423,7 +423,13 @@ class CSharp:
             writer.line(f'case "{entry.name}":')
             writer.indent()
             writer.line(f"Wire.Mark(seen, {index}, name);")
-            writer.line(f"{self.local(entry)} = {self.read(entry.type)};")
+            fallback = entry.read_back_default()
+            if fallback is None:
+                writer.line(f"{self.local(entry)} = {self.read(entry.type)};")
+            else:
+                # Absent or null in an older record: the default, as every other layer reads it.
+                read = f"Wire.Opt<{self.type(entry.type)}>(ref reader, {self.reader(entry.type)})"
+                writer.line(f"{self.local(entry)} = {read} ?? {json.dumps(fallback)};")
             writer.line("break;")
             writer.dedent()
         writer.line("default:")

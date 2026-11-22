@@ -47,6 +47,9 @@ RESERVED = frozenset(
 )
 
 #: Imports a file may need, by the name its code uses.
+#: Fields whose value a printed record leaves out (as C#'s ToString does).
+SECRETS = {"sign_token", "encry_token", "refresh_token"}
+
 IMPORTS = {
     "JacksonInject": "com.fasterxml.jackson.annotation.JacksonInject",
     "OptBoolean": "com.fasterxml.jackson.annotation.OptBoolean",
@@ -375,8 +378,12 @@ class Java:
                 continue
             writer.line(f'@JsonProperty("{entry.name}") {self.type(entry.type)} {name(entry.name)}{end}')
         writer.dedent()
-        required = [entry for entry in item.fields if not self.nullable(entry.type) and self.type(entry.type)[0].isupper()]
         defaulted = [entry for entry in item.fields if entry.read_back_default() is not None]
+        required = [
+            entry
+            for entry in item.fields
+            if not self.nullable(entry.type) and self.type(entry.type)[0].isupper() and entry not in defaulted
+        ]
         if required or defaulted:
             writer.line()
             what = "Fills in what an older record lacks and refuses" if defaulted else "Refuses"
@@ -391,6 +398,30 @@ class Java:
                 writer.line("}")
             for entry in required:
                 writer.line(f'Objects.requireNonNull({name(entry.name)}, "{entry.name}");')
+            writer.dedent()
+            writer.line("}")
+        if any(entry.name in SECRETS for entry in item.fields):
+            # The record's own toString, with the secrets left out.
+            writer.line()
+            self.doc(writer, "The record's fields, with the tokens left out.")
+            writer.line("@Override")
+            writer.line("public String toString() {")
+            writer.indent()
+            parts = []
+            for index, entry in enumerate(item.fields):
+                label = f"{', ' if index else ''}{name(entry.name)}="
+                if entry.name in SECRETS:
+                    parts.append(f'"{label}***"')
+                else:
+                    parts.append(f'"{label}" + {name(entry.name)}')
+            writer.line(f'return "{item.name}["')
+            writer.indent()
+            writer.indent()
+            for part in parts:
+                writer.line(f"+ {part}")
+            writer.line('+ "]";')
+            writer.dedent()
+            writer.dedent()
             writer.dedent()
             writer.line("}")
         writer.dedent()

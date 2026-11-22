@@ -345,7 +345,8 @@ pub struct RequestRecord {
 
 /// A session as an application stores it, to build a client from later
 /// without logging in ([`BydClient::import_session`], [`BydClient::export_session`]).
-#[derive(Debug, Clone, PartialEq)]
+/// Its `Debug` output leaves the three tokens out.
+#[derive(Clone, PartialEq)]
 pub struct SessionTokens {
     /// The account's user ID.
     pub user_id: String,
@@ -360,6 +361,19 @@ pub struct SessionTokens {
     pub ttl_remaining: Option<f64>,
     /// Whether the account reaches each VIN as a guest.
     pub guest_vins: HashMap<String, bool>,
+}
+
+impl std::fmt::Debug for SessionTokens {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SessionTokens")
+            .field("user_id", &self.user_id)
+            .field("sign_token", &"<redacted>")
+            .field("encry_token", &"<redacted>")
+            .field("refresh_token", &"<redacted>")
+            .field("ttl_remaining", &self.ttl_remaining)
+            .field("guest_vins", &self.guest_vins)
+            .finish()
+    }
 }
 
 /// Everything a client is built with besides its config: pyBYD's
@@ -2059,6 +2073,20 @@ mod tests {
         assert!(
             session.refresh_token().is_empty(),
             "the handler's session, not the refreshed one"
+        );
+    }
+
+    #[test]
+    fn session_tokens_debug_leaves_the_tokens_out() {
+        let mut saved = tokens(Some(5.0));
+        saved.refresh_token = "R-secret".into();
+        let shown = format!("{saved:?}");
+        for secret in ["sign", "encry", "R-secret"] {
+            assert!(!shown.contains(&format!("\"{secret}\"")), "{shown}");
+        }
+        assert!(
+            shown.contains("user_id: \"1\"") && shown.contains("Some(5.0)"),
+            "{shown}"
         );
     }
 

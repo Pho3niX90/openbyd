@@ -61,6 +61,13 @@ class RuntimeTest {
         String kept = "{\"user_id\": \"1\", \"sign_token\": \"s\", \"encry_token\": \"e\","
                 + " \"refresh_token\": \"r\", \"ttl_remaining\": null, \"guest_vins\": {}}";
         assertEquals("r", read(kept, SessionTokens.class).refreshToken());
+        // null reads as none too, and printing never shows a token.
+        assertEquals("", read(kept.replace("\"r\"", "null"), SessionTokens.class).refreshToken());
+        SessionTokens secret = new SessionTokens("1", "S-secret", "E-secret", "R-secret", null, Map.of());
+        for (String token : List.of("S-secret", "E-secret", "R-secret")) {
+            assertFalse(secret.toString().contains(token), secret.toString());
+        }
+        assertTrue(secret.toString().contains("userId=1"), secret.toString());
         assertThrows(JsonProcessingException.class, () -> read(tokens.formatted("\"5\"", "{}"), SessionTokens.class));
         // Null where the type has no room for it.
         assertThrows(JsonProcessingException.class, () -> read(tokens.formatted("5.0", "null"), SessionTokens.class));

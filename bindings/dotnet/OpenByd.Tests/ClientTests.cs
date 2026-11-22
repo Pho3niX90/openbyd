@@ -437,6 +437,13 @@ public sealed class ClientTests(ITestOutputHelper output)
         var old = JsonSerializer.Deserialize<SessionTokens>(
             "{\"user_id\":\"1\",\"sign_token\":\"s\",\"encry_token\":\"e\",\"ttl_remaining\":null,\"guest_vins\":{}}");
         Assert.Equal("", old?.RefreshToken);
+        // null too, as every other layer reads it.
+        var nulled = JsonSerializer.Deserialize<SessionTokens>(
+            "{\"user_id\":\"1\",\"sign_token\":\"s\",\"encry_token\":\"e\",\"refresh_token\":null,\"ttl_remaining\":null,\"guest_vins\":{}}");
+        Assert.Equal("", nulled?.RefreshToken);
+        // Printing never shows a token, the refresh token included.
+        var secret = saved with { RefreshToken = "R-secret" };
+        Assert.DoesNotContain("R-secret", secret.ToString());
 
         var withoutPassword = world.Config(password: "");
         var options = new ClientOptions { TestTls = true };

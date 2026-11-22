@@ -29,4 +29,16 @@ public record SessionInfo(
         Objects.requireNonNull(signToken, "sign_token");
         Objects.requireNonNull(encryToken, "encry_token");
     }
+
+    /** The record's fields, with the tokens left out. */
+    @Override
+    public String toString() {
+        return "SessionInfo["
+                + "userId=" + userId
+                + ", signToken=***"
+                + ", encryToken=***"
+                + ", createdAt=" + createdAt
+                + ", ttl=" + ttl
+                + "]";
+    }
 }

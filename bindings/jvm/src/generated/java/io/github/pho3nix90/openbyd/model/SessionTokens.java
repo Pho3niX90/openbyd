@@ -47,7 +47,19 @@ public record SessionTokens(
         Objects.requireNonNull(userId, "user_id");
         Objects.requireNonNull(signToken, "sign_token");
         Objects.requireNonNull(encryToken, "encry_token");
-        Objects.requireNonNull(refreshToken, "refresh_token");
         Objects.requireNonNull(guestVins, "guest_vins");
+    }
+
+    /** The record's fields, with the tokens left out. */
+    @Override
+    public String toString() {
+        return "SessionTokens["
+                + "userId=" + userId
+                + ", signToken=***"
+                + ", encryToken=***"
+                + ", refreshToken=***"
+                + ", ttlRemaining=" + ttlRemaining
+                + ", guestVins=" + guestVins
+                + "]";
     }
 }

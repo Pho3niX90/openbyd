@@ -6634,7 +6634,7 @@ internal sealed class SessionTokensJson() : WireConverter<SessionTokens>(ReadVal
                     break;
                 case "refresh_token":
                     Wire.Mark(seen, 3, name);
-                    _refreshToken = Wire.Str(ref reader);
+                    _refreshToken = Wire.Opt<string>(ref reader, Wire.Str) ?? "";
                     break;
                 case "ttl_remaining":
                     Wire.Mark(seen, 4, name);

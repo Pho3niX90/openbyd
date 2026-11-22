@@ -58,6 +58,7 @@ pub fn save(path: &Path, session: &SavedSession) -> std::io::Result<()> {
         "user_id": session.tokens.user_id,
         "sign_token": session.tokens.sign_token,
         "encry_token": session.tokens.encry_token,
+        "refresh_token": session.tokens.refresh_token,
         "ttl_remaining": session.tokens.ttl_remaining,
         "saved_at": session.saved_at,
         "guest_vins": guest,
@@ -124,6 +125,11 @@ pub fn load(path: &Path, now: u64) -> Result<SavedSession, LoadError> {
             user_id: text_field("user_id")?,
             sign_token: text_field("sign_token")?,
             encry_token: text_field("encry_token")?,
+            // Files saved before openbyd kept the refresh token have none.
+            refresh_token: document["refresh_token"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned(),
             ttl_remaining,
             guest_vins,
         },
@@ -142,6 +148,7 @@ mod tests {
                 user_id: "u1".into(),
                 sign_token: "sign-token-value".into(),
                 encry_token: "encry-token-value".into(),
+                refresh_token: "refresh-token-value".into(),
                 ttl_remaining: ttl,
                 guest_vins: HashMap::from([("TESTVIN0000000001".to_owned(), true)]),
             },

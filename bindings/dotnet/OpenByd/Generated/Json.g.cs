@@ -6600,6 +6600,7 @@ internal sealed class SessionTokensJson() : WireConverter<SessionTokens>(ReadVal
         "user_id",
         "sign_token",
         "encry_token",
+        "refresh_token",
         "ttl_remaining",
         "guest_vins",
     ];
@@ -6607,11 +6608,12 @@ internal sealed class SessionTokensJson() : WireConverter<SessionTokens>(ReadVal
     internal static SessionTokens ReadValue(ref Utf8JsonReader reader)
     {
         Wire.BeginObject(ref reader, "SessionTokens");
-        Span<bool> seen = stackalloc bool[5];
+        Span<bool> seen = stackalloc bool[6];
         seen.Clear();
         string _userId = null!;
         string _signToken = null!;
         string _encryToken = null!;
+        string _refreshToken = null!;
         double? _ttlRemaining = default;
         IReadOnlyDictionary<string, bool> _guestVins = null!;
         while (Wire.NextName(ref reader, out var name))
@@ -6630,12 +6632,16 @@ internal sealed class SessionTokensJson() : WireConverter<SessionTokens>(ReadVal
                     Wire.Mark(seen, 2, name);
                     _encryToken = Wire.Str(ref reader);
                     break;
-                case "ttl_remaining":
+                case "refresh_token":
                     Wire.Mark(seen, 3, name);
+                    _refreshToken = Wire.Str(ref reader);
+                    break;
+                case "ttl_remaining":
+                    Wire.Mark(seen, 4, name);
                     _ttlRemaining = Wire.OptValue<double>(ref reader, Wire.Float);
                     break;
                 case "guest_vins":
-                    Wire.Mark(seen, 4, name);
+                    Wire.Mark(seen, 5, name);
                     _guestVins = Wire.Map<bool>(ref reader, Wire.Bool);
                     break;
                 default:
@@ -6648,6 +6654,7 @@ internal sealed class SessionTokensJson() : WireConverter<SessionTokens>(ReadVal
             UserId = _userId,
             SignToken = _signToken,
             EncryToken = _encryToken,
+            RefreshToken = _refreshToken,
             TtlRemaining = _ttlRemaining,
             GuestVins = _guestVins,
         };
@@ -6662,6 +6669,8 @@ internal sealed class SessionTokensJson() : WireConverter<SessionTokens>(ReadVal
         Wire.WriteStr(writer, value.SignToken);
         writer.WritePropertyName("encry_token"u8);
         Wire.WriteStr(writer, value.EncryToken);
+        writer.WritePropertyName("refresh_token"u8);
+        Wire.WriteStr(writer, value.RefreshToken);
         writer.WritePropertyName("ttl_remaining"u8);
         Wire.WriteOptValue<double>(writer, value.TtlRemaining, Wire.WriteFloat);
         writer.WritePropertyName("guest_vins"u8);

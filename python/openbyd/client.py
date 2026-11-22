@@ -341,8 +341,9 @@ class Client:
     def export_session(self) -> dict[str, Any] | None:
         """The session as an application stores it, or ``None`` when logged out.
 
-        ``user_id``, ``sign_token``, ``encry_token`` (secrets),
-        ``ttl_remaining`` (seconds, ``None`` for no expiry) and
+        ``user_id``, ``sign_token``, ``encry_token``, ``refresh_token``
+        (secrets; the last may be empty, and a record without it still
+        imports), ``ttl_remaining`` (seconds, ``None`` for no expiry) and
         ``guest_vins`` (``{vin: bool}``). Give it to :meth:`import_session`,
         :meth:`from_session` or ``Client(session=...)`` to resume without a
         password login.

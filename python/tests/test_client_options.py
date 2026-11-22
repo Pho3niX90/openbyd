@@ -286,8 +286,20 @@ def test_export_and_restore_without_a_password_login(world) -> None:
             return client.export_session()
 
     saved = run(first())
-    assert set(saved) == {"user_id", "sign_token", "encry_token", "ttl_remaining", "guest_vins"}
+    assert set(saved) == {"user_id", "sign_token", "encry_token", "refresh_token", "ttl_remaining", "guest_vins"}
     assert 0 < saved["ttl_remaining"] <= 12 * 3600
+
+    # The refresh token goes round; a record saved before openbyd kept it still imports.
+    async def round_trip(record: dict) -> dict:
+        async with world.client() as client:
+            await client.import_session(record)
+            return client.export_session()
+
+    assert run(round_trip({**saved, "refresh_token": "R-synthetic"}))["refresh_token"] == "R-synthetic"
+    old = {key: value for key, value in saved.items() if key != "refresh_token"}
+    assert run(round_trip(old))["refresh_token"] == ""
+    with pytest.raises(ValueError, match="refresh_token"):
+        run(round_trip({**saved, "refresh_token": 5}))
 
     async def restored() -> Any:
         client = openbyd.Client.from_session(saved, username=USER, base_url=world.server.url, mqtt_enabled=False)

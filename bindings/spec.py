@@ -157,6 +157,14 @@ def add_openbyd_shapes(surface: Surface) -> None:
             Field("user_id", STR, "The account's user ID."),
             Field("sign_token", STR, "The token requests are signed with. A secret."),
             Field("encry_token", STR, "The token the content key derives from. A secret."),
+            Field(
+                "refresh_token",
+                STR,
+                "The token that buys new tokens when BYD answers 1030; empty when the login gave none. "
+                "A secret. Optional on import: older records without it still import.",
+                required=False,
+                default="",
+            ),
             Field("ttl_remaining", opt(FLOAT), "Seconds the session has left; null for no expiry."),
             Field("guest_vins", map_of(BOOL), "Whether the account reaches each VIN as a guest."),
         )

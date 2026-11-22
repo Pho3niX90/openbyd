@@ -353,6 +353,9 @@ pub struct SessionTokens {
     pub sign_token: String,
     /// The token the content key derives from. A secret.
     pub encry_token: String,
+    /// The token that buys new tokens on 1030; empty when the login gave
+    /// none (and in records saved before openbyd kept it). A secret.
+    pub refresh_token: String,
     /// Seconds the session has left; `None` for no expiry.
     pub ttl_remaining: Option<f64>,
     /// Whether the account reaches each VIN as a guest.
@@ -901,11 +904,27 @@ impl<E: ClientEnv> BydClient<E> {
     /// The refreshed session keeps the guest state but, as in pyBYD, the
     /// client's guest map stays the old session's until the next login.
     pub(crate) async fn refresh_or_relogin(&self) -> Result<(), Error> {
-        let session = {
-            let state = self.state();
-            state.session.clone().filter(|_| !state.closed)
+        let session = self.state().session.clone();
+        self.refresh_or_relogin_from(session).await
+    }
+
+    /// [`Self::refresh_or_relogin`] for the session `current` (read by the
+    /// caller in the same step as its own checks). The refreshed session
+    /// replaces it only if it is still the client's (or there is none), and
+    /// a failed refresh drops it only then: a session another call installed
+    /// meanwhile is kept, and `ensure_session` uses it rather than logging
+    /// in again.
+    async fn refresh_or_relogin_from(&self, current: Option<Arc<Session>>) -> Result<(), Error> {
+        let still_current = |state: &State, session: &Arc<Session>| {
+            state
+                .session
+                .as_ref()
+                .is_none_or(|installed| Arc::ptr_eq(installed, session))
         };
-        if let Some(session) = session.filter(|session| !session.refresh_token().is_empty()) {
+        let Some(session) = current else {
+            return self.ensure_session().await.map(drop);
+        };
+        if !session.refresh_token().is_empty() && !self.state().closed {
             match login::refresh_session_token(self.context(&session)).await {
                 Ok(token) => {
                     let refreshed = Arc::new(session.with_refreshed_tokens(
@@ -916,8 +935,12 @@ impl<E: ClientEnv> BydClient<E> {
                     ));
                     let had_runtime = {
                         let mut state = self.state();
-                        state.session = Some(Arc::clone(&refreshed));
-                        state.mqtt_started
+                        if still_current(&state, &session) {
+                            state.session = Some(Arc::clone(&refreshed));
+                            state.mqtt_started
+                        } else {
+                            false
+                        }
                     };
                     if had_runtime {
                         self.inner.env.update_mqtt_key(refreshed.content_key());
@@ -930,7 +953,12 @@ impl<E: ClientEnv> BydClient<E> {
                 Err(error) => return Err(error),
             }
         }
-        self.invalidate_session();
+        {
+            let mut state = self.state();
+            if still_current(&state, &session) {
+                state.session = None;
+            }
+        }
         self.ensure_session().await.map(drop)
     }
 
@@ -987,23 +1015,36 @@ impl<E: ClientEnv> BydClient<E> {
                 return false;
             }
         };
-        // Another call may have replaced the session meanwhile.
-        let replaced = {
-            let state = self.state();
-            state.session.as_ref().is_some_and(|current| {
-                !Arc::ptr_eq(current, &session) && !current.is_expired(self.inner.env.monotonic())
-            })
+        // One step, as pyBYD's has no await in it: another call may have
+        // replaced the session meanwhile (then use that one); otherwise stamp
+        // the cooldown and, for an expiry, drop the session, but only if it is
+        // still the probed one.
+        let refresh = probe_error.is_a(ErrorKind::BydTokenRefreshError);
+        let current = {
+            let mut state = self.state();
+            let now = self.inner.env.monotonic();
+            if state.session.as_ref().is_some_and(|current| {
+                !Arc::ptr_eq(current, &session) && !current.is_expired(now)
+            }) {
+                return true;
+            }
+            state.busy_reauth_last_at = Some(now);
+            let current = state.session.clone();
+            if !refresh
+                && state
+                    .session
+                    .as_ref()
+                    .is_some_and(|installed| Arc::ptr_eq(installed, &session))
+            {
+                state.session = None;
+            }
+            current
         };
-        if replaced {
-            return true;
-        }
-        self.state().busy_reauth_last_at = Some(self.inner.env.monotonic());
-        let recovered = if probe_error.is_a(ErrorKind::BydTokenRefreshError) {
+        let recovered = if refresh {
             log::info!("1008 reflects a refreshable session; refreshing it");
-            self.refresh_or_relogin().await
+            self.refresh_or_relogin_from(current).await
         } else {
             log::info!("1008 reflects an invalidated session; logging in again");
-            self.invalidate_session();
             self.ensure_session().await.map(drop)
         };
         recovered.is_ok()
@@ -1092,7 +1133,8 @@ impl<E: ClientEnv> BydClient<E> {
             &tokens.encry_token,
             self.inner.env.monotonic(),
             ttl,
-        );
+        )
+        .with_refresh_token(&tokens.refresh_token);
         self.install_session(session).await
     }
 
@@ -1116,6 +1158,7 @@ impl<E: ClientEnv> BydClient<E> {
             user_id: session.user_id().to_owned(),
             sign_token: session.sign_token().to_owned(),
             encry_token: session.encry_token().to_owned(),
+            refresh_token: session.refresh_token().to_owned(),
             ttl_remaining: remaining.is_finite().then_some(remaining.max(0.0)),
             guest_vins,
         })
@@ -1855,6 +1898,7 @@ mod tests {
             user_id: "1".into(),
             sign_token: "sign".into(),
             encry_token: "encry".into(),
+            refresh_token: String::new(),
             ttl_remaining,
             guest_vins: HashMap::from([(VIN.to_owned(), true)]),
         }
@@ -1875,6 +1919,91 @@ mod tests {
             .iter()
             .filter(|step| step.get("post").is_some())
             .count()
+    }
+
+    /// A client whose request observer installs `fresh` as the session when
+    /// a request to `endpoint` completes: another task replacing the session
+    /// while this one awaits it.
+    fn replaced_during(
+        endpoint: &'static str,
+        fresh: &Arc<Session>,
+        replies: Vec<Reply>,
+    ) -> BydClient<Arc<ScriptedEnv>> {
+        let holder: Arc<std::sync::OnceLock<Weak<Inner<Arc<ScriptedEnv>>>>> = Arc::default();
+        let mut options = ClientOptions::default();
+        let (seen, session) = (Arc::clone(&holder), Arc::clone(fresh));
+        options.request_observer = Some(Arc::new(move |record: &RequestRecord| {
+            if record.endpoint == endpoint
+                && let Some(inner) = seen.get().and_then(Weak::upgrade)
+            {
+                BydClient { inner }.state().session = Some(Arc::clone(&session));
+            }
+        }));
+        let client = scripted(replies, options);
+        holder.set(Arc::downgrade(&client.inner)).ok();
+        client
+    }
+
+    fn sealed_for(encry_token: &str, data: Value) -> Reply {
+        let key = openbyd_protocol::hashing::md5_hex(encry_token);
+        Reply::Outer(json!({
+            "code": "0",
+            "respondData": aes_encrypt_hex(&data.to_string(), &key).unwrap(),
+        }))
+    }
+
+    fn logins(client: &BydClient<Arc<ScriptedEnv>>) -> usize {
+        client
+            .env()
+            .steps()
+            .iter()
+            .filter(|step| step["post"] == LOGIN_ENDPOINT)
+            .count()
+    }
+
+    #[test]
+    fn a_session_replaced_during_the_1008_probe_is_used_without_a_login() {
+        // pyBYD's test_busy_1008_concurrent_session_refresh_skips_duplicate_relogin:
+        // the probe says the session is gone, but another task has installed
+        // a new one meanwhile; the call is retried with it, nobody logs in.
+        let fresh = Arc::new(Session::new("1", "sign2", "encry2", 1_000.0, f64::INFINITY));
+        let busy = Reply::Outer(json!({"code": "1008", "message": "busy"}));
+        let expired = Reply::Outer(json!({"code": "1011", "message": "kicked"}));
+        let client = replaced_during(
+            "/app/account/getAllListByUserId",
+            &fresh,
+            vec![busy, expired, sealed_for("encry2", json!({"acSwitch": 1}))],
+        );
+        block_on(client.import_session(tokens(None))).unwrap();
+        let hvac = block_on(client.get_hvac_status(VIN)).unwrap().unwrap();
+        assert_eq!(hvac.ac_switch.map(|state| state.value()), Some(1));
+        assert_eq!(logins(&client), 0);
+        assert!(Arc::ptr_eq(&client.session().unwrap(), &fresh));
+        assert_eq!(client.state().busy_reauth_last_at, None);
+        assert_eq!(client.env().unused_replies(), 0);
+    }
+
+    #[test]
+    fn a_session_replaced_during_a_token_refresh_is_kept() {
+        // The refresh answers, but another task installed a session while it
+        // was on its way: that one stays, the refreshed one is dropped.
+        let fresh = Arc::new(Session::new("1", "sign2", "encry2", 1_000.0, f64::INFINITY));
+        let refresh = sealed(json!({"signToken": "sign3", "encryToken": "encry3"}));
+        let client = replaced_during(
+            "/app/token/refresh",
+            &fresh,
+            vec![
+                Reply::Outer(json!({"code": "1030", "message": "refresh"})),
+                refresh,
+                sealed_for("encry2", json!({"acSwitch": 1})),
+            ],
+        );
+        let mut saved = tokens(None);
+        saved.refresh_token = "R".into();
+        block_on(client.import_session(saved)).unwrap();
+        block_on(client.get_hvac_status(VIN)).unwrap().unwrap();
+        assert!(Arc::ptr_eq(&client.session().unwrap(), &fresh));
+        assert_eq!(logins(&client), 0);
     }
 
     #[test]

@@ -159,6 +159,7 @@ fn tokens_to_dict<'py>(py: Python<'py>, tokens: &SessionTokens) -> PyResult<Boun
     dict.set_item("user_id", &tokens.user_id)?;
     dict.set_item("sign_token", &tokens.sign_token)?;
     dict.set_item("encry_token", &tokens.encry_token)?;
+    dict.set_item("refresh_token", &tokens.refresh_token)?;
     dict.set_item("ttl_remaining", tokens.ttl_remaining)?;
     let guests = PyDict::new(py);
     let mut vins: Vec<_> = tokens.guest_vins.iter().collect();
@@ -188,6 +189,12 @@ fn tokens_from_value(value: &Value) -> Result<SessionTokens, String> {
                 .ok_or("session['ttl_remaining'] must be a number or None")?,
         ),
     };
+    // Optional: records saved before openbyd kept it have none.
+    let refresh_token = match map.get("refresh_token") {
+        None | Some(Value::Null) => String::new(),
+        Some(Value::String(token)) => token.clone(),
+        Some(_) => return Err("session['refresh_token'] must be a str or None".into()),
+    };
     let mut guest_vins = HashMap::new();
     match map.get("guest_vins") {
         None | Some(Value::Null) => {}
@@ -205,6 +212,7 @@ fn tokens_from_value(value: &Value) -> Result<SessionTokens, String> {
         user_id: text("user_id")?,
         sign_token: text("sign_token")?,
         encry_token: text("encry_token")?,
+        refresh_token,
         ttl_remaining,
         guest_vins,
     })

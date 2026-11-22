@@ -4407,6 +4407,12 @@
      "required": true
     },
     {
+     "name": "refresh_token",
+     "type": "str",
+     "required": false,
+     "default": ""
+    },
+    {
      "name": "ttl_remaining",
      "type": {
       "opt": "float"

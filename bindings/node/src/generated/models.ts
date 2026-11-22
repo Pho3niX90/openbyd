@@ -1410,6 +1410,11 @@ export interface SessionTokens {
   readonly sign_token: string;
   /** The token the content key derives from. A secret. */
   readonly encry_token: string;
+  /**
+   * The token that buys new tokens when BYD answers 1030; empty when the login gave none. A
+   * secret. Optional on import: older records without it still import. Default `""`.
+   */
+  readonly refresh_token: string;
   /** Seconds the session has left; null for no expiry. */
   readonly ttl_remaining: number | null;
   /** Whether the account reaches each VIN as a guest. */

@@ -588,6 +588,7 @@ fn session_tokens_compare_by_value() {
         user_id: "1".into(),
         sign_token: "s".into(),
         encry_token: "e".into(),
+        refresh_token: String::new(),
         ttl_remaining: None,
         guest_vins: HashMap::new(),
     };
@@ -641,6 +642,7 @@ fn every_method_is_send(client: &BydClient<ProductionEnv>) {
         user_id: String::new(),
         sign_token: String::new(),
         encry_token: String::new(),
+        refresh_token: String::new(),
         ttl_remaining: None,
         guest_vins: HashMap::new(),
     }));

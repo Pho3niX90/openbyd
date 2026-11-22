@@ -15,14 +15,20 @@ import org.jspecify.annotations.Nullable;
  * @param userId The account's user ID.
  * @param signToken The token requests are signed with. A secret.
  * @param encryToken The token the content key derives from. A secret.
+ * @param refreshToken The token that buys new tokens when BYD answers 1030; empty when the
+ *     login gave none. A secret. Optional on import: older records without it still import.
+ *     Default {@code ""}.
  * @param ttlRemaining Seconds the session has left; null for no expiry.
  * @param guestVins Whether the account reaches each VIN as a guest.
  */
-@JsonPropertyOrder({"user_id", "sign_token", "encry_token", "ttl_remaining", "guest_vins"})
+@JsonPropertyOrder({
+    "user_id", "sign_token", "encry_token", "refresh_token", "ttl_remaining", "guest_vins"
+})
 public record SessionTokens(
         @JsonProperty("user_id") String userId,
         @JsonProperty("sign_token") String signToken,
         @JsonProperty("encry_token") String encryToken,
+        @JsonProperty("refresh_token") String refreshToken,
         @JsonProperty("ttl_remaining") @Nullable Double ttlRemaining,
         @JsonProperty("guest_vins") Map<String, Boolean> guestVins) {
 
@@ -31,6 +37,7 @@ public record SessionTokens(
         Objects.requireNonNull(userId, "user_id");
         Objects.requireNonNull(signToken, "sign_token");
         Objects.requireNonNull(encryToken, "encry_token");
+        Objects.requireNonNull(refreshToken, "refresh_token");
         Objects.requireNonNull(guestVins, "guest_vins");
     }
 }

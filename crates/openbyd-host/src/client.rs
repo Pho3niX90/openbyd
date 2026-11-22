@@ -204,6 +204,7 @@ fn tokens_to_json(tokens: &SessionTokens) -> Value {
         "user_id": tokens.user_id,
         "sign_token": tokens.sign_token,
         "encry_token": tokens.encry_token,
+        "refresh_token": tokens.refresh_token,
         "ttl_remaining": tokens.ttl_remaining,
         "guest_vins": guests,
     })
@@ -224,6 +225,12 @@ fn tokens_from_json(value: &Map<String, Value>) -> Result<SessionTokens, String>
                 .ok_or("session[\"ttl_remaining\"] must be a number or null")?,
         ),
     };
+    // Optional: records saved before openbyd kept it have none.
+    let refresh_token = match value.get("refresh_token") {
+        None | Some(Value::Null) => String::new(),
+        Some(Value::String(token)) => token.clone(),
+        Some(_) => return Err("session[\"refresh_token\"] must be a string or null".into()),
+    };
     let mut guest_vins = HashMap::new();
     match value.get("guest_vins") {
         None | Some(Value::Null) => {}
@@ -241,6 +248,7 @@ fn tokens_from_json(value: &Map<String, Value>) -> Result<SessionTokens, String>
         user_id: text("user_id")?,
         sign_token: text("sign_token")?,
         encry_token: text("encry_token")?,
+        refresh_token,
         ttl_remaining,
         guest_vins,
     })
@@ -1076,18 +1084,23 @@ mod tests {
     #[test]
     fn sessions_are_checked() {
         let good = fields(
-            json!({"user_id": "1", "sign_token": "s", "encry_token": "e",
+            json!({"user_id": "1", "sign_token": "s", "encry_token": "e", "refresh_token": "r",
             "ttl_remaining": 5.0, "guest_vins": {"V": true}}),
         );
         let tokens = tokens_from_json(&good).unwrap();
         assert_eq!(tokens.ttl_remaining, Some(5.0));
+        assert_eq!(tokens.refresh_token, "r");
         assert!(tokens.guest_vins["V"]);
         assert_eq!(tokens_to_json(&tokens), Value::Object(good));
+        // A record saved before the refresh token was kept still imports.
+        let old = fields(json!({"user_id": "1", "sign_token": "s", "encry_token": "e"}));
+        assert_eq!(tokens_from_json(&old).unwrap().refresh_token, "");
         for bad in [
             json!({"user_id": "", "sign_token": "s", "encry_token": "e"}),
             json!({"user_id": "1", "sign_token": "s", "encry_token": "e", "ttl_remaining": "x"}),
             json!({"user_id": "1", "sign_token": "s", "encry_token": "e", "guest_vins": []}),
             json!({"user_id": "1", "sign_token": "s", "encry_token": "e", "guest_vins": {"V": 1}}),
+            json!({"user_id": "1", "sign_token": "s", "encry_token": "e", "refresh_token": 5}),
         ] {
             assert!(tokens_from_json(&fields(bad.clone())).is_err(), "{bad}");
         }

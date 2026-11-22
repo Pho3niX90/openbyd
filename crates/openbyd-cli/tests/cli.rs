@@ -387,6 +387,13 @@ async fn secrets_and_personal_data_stay_out_of_the_output() {
     let (_, sign, encry) = tokens_of(&session);
     let file = session.to_str().unwrap();
 
+    // A refresh token in the session file is a secret too.
+    let refresh = "REFRESH-token-from-a-saved-file";
+    let mut document: Value =
+        serde_json::from_str(&std::fs::read_to_string(&session).unwrap()).unwrap();
+    document["refresh_token"] = json!(refresh);
+    std::fs::write(&session, document.to_string()).unwrap();
+
     // A plain dump shows the car's data but never a secret.
     let plain = run(
         &server.url(),
@@ -396,7 +403,7 @@ async fn secrets_and_personal_data_stay_out_of_the_output() {
     .await;
     assert_eq!(plain.code, 0, "{}", plain.stderr);
     assert!(plain.stdout.contains(VIN) && plain.stdout.contains("4.56789"));
-    assert_no_leaks(&plain, &[&sign, &encry, PASSWORD]);
+    assert_no_leaks(&plain, &[&sign, &encry, refresh, PASSWORD]);
 
     // A password login with debug logs does not print the password or the tokens.
     let login = run(&server.url(), &["dump", "--raw", "-vv"], &[]).await;

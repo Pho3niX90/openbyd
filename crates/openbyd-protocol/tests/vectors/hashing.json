@@ -1,4 +1,4 @@
-{"group": "hashing", "upstream_commit": "c1e88052f4f724343507bd8bda0ef990129071ba", "cases": [
+{"group": "hashing", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
 {"call":"hashing.md5_hex","args":{"value":""},"ok":"D41D8CD98F00B204E9800998ECF8427E"},
 {"call":"hashing.pwd_login_key","args":{"password":""},"ok":"80404D0C6D24E87F650FF7D1985CD762"},
 {"call":"hashing.sha1_mixed","args":{"value":""},"ok":"DA39A3ee5E6b4Bd3255BFef95601890AFd879"},

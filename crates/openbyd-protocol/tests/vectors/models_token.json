@@ -1,6 +1,6 @@
-{"group": "models_token", "upstream_commit": "c1e88052f4f724343507bd8bda0ef990129071ba", "cases": [
-{"call":"models.token.AuthToken","args":{"raw":{"user_id":"1","sign_token":" s ","encry_token":"e","raw":{"userId":1,"extra":[1]}},"context":null},"ok":{"dump":{"user_id":"1","sign_token":" s ","encry_token":"e","raw":{"userId":1,"extra":[1]}},"properties":{}}},
-{"call":"models.token.AuthToken","args":{"raw":{"user_id":"1","sign_token":" s ","encry_token":"e","raw":{"userId":1,"extra":[1]},"unknown":1},"context":null},"ok":{"dump":{"user_id":"1","sign_token":" s ","encry_token":"e","raw":{"userId":1,"extra":[1]}},"properties":{}}},
+{"group": "models_token", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
+{"call":"models.token.AuthToken","args":{"raw":{"user_id":"1","sign_token":" s ","encry_token":"e","raw":{"userId":1,"extra":[1]}},"context":null},"ok":{"dump":{"user_id":"1","sign_token":" s ","encry_token":"e","refresh_token":"","raw":{"userId":1,"extra":[1]}},"properties":{}}},
+{"call":"models.token.AuthToken","args":{"raw":{"user_id":"1","sign_token":" s ","encry_token":"e","raw":{"userId":1,"extra":[1]},"unknown":1},"context":null},"ok":{"dump":{"user_id":"1","sign_token":" s ","encry_token":"e","refresh_token":"","raw":{"userId":1,"extra":[1]}},"properties":{}}},
 {"call":"models.token.AuthToken","args":{"raw":{"user_id":1,"sign_token":" s ","encry_token":"e","raw":{"userId":1,"extra":[1]}},"context":null},"error":"ValidationError"},
 {"call":"models.token.AuthToken","args":{"raw":{"user_id":"1","sign_token":" s ","encry_token":"e","raw":[]},"context":null},"error":"ValidationError"},
 {"call":"models.token.AuthToken","args":{"raw":{"user_id":"1"},"context":null},"error":"ValidationError"},

@@ -1,4 +1,4 @@
-{"group": "pyjson", "upstream_commit": "c1e88052f4f724343507bd8bda0ef990129071ba", "cases": [
+{"group": "pyjson", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
 {"call":"pyjson.dumps","args":{"value":0.0,"ensure_ascii":true,"separators":"compact","sort_keys":false},"ok":"0.0"},
 {"call":"pyjson.dumps","args":{"value":-0.0,"ensure_ascii":true,"separators":"compact","sort_keys":false},"ok":"-0.0"},
 {"call":"pyjson.dumps","args":{"value":1.0,"ensure_ascii":true,"separators":"compact","sort_keys":false},"ok":"1.0"},

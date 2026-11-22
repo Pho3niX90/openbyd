@@ -1,4 +1,4 @@
-{"group": "models_push_notification", "upstream_commit": "c1e88052f4f724343507bd8bda0ef990129071ba", "cases": [
+{"group": "models_push_notification", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
 {"call":"models.push_notification.PushSwitch","args":{"raw":{"type":701,"state":1},"context":null},"ok":{"dump":{"raw":{"type":701,"state":1},"type":701,"state":1},"properties":{}}},
 {"call":"models.push_notification.PushSwitch","args":{"raw":{"type":"1","state":"0"},"context":null},"ok":{"dump":{"raw":{"type":"1","state":"0"},"type":1,"state":0},"properties":{}}},
 {"call":"models.push_notification.PushSwitch","args":{"raw":{"type":5,"state":"--"},"context":null},"ok":{"dump":{"raw":{"type":5,"state":"--"},"type":5,"state":null},"properties":{}}},

@@ -1,4 +1,4 @@
-{"group": "api_smart_charging", "upstream_commit": "c1e88052f4f724343507bd8bda0ef990129071ba", "cases": [
+{"group": "api_smart_charging", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
 {"call":"api.smart_charging.constants","args":{},"ok":{"_TOGGLE_ENDPOINT":"/control/smartCharge/changeChargeStatue","_RESULT_ENDPOINT":"/control/smartCharge/changeResult","_SAVE_ENDPOINT":"/control/smartCharge/saveOrUpdate","_GET_AC_LIMIT_ENDPOINT":"/control/smartCharge/getAcCurrentLimit","VEHICLE_UNREACHABLE_CODES":["6002"]}},
 {"call":"api.smart_charging.is_charge_change_ready","args":{"payload":{}},"ok":false},
 {"call":"api.smart_charging.is_charge_change_ready","args":{"payload":{"res":1}},"ok":false},

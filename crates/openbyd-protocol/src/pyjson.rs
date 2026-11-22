@@ -1389,7 +1389,7 @@ fn decimal_value(ch: char) -> Option<u8> {
 /// What `float()` and `int()` parse: CPython maps non-ASCII digits to ASCII
 /// and non-ASCII whitespace to spaces, rejects any other non-ASCII
 /// character, then strips ASCII whitespace (not `\x1c`-`\x1f`).
-fn python_number_text(text: &str) -> Option<String> {
+pub(crate) fn python_number_text(text: &str) -> Option<String> {
     let mapped: String = text
         .chars()
         .map(|ch| {

@@ -10,7 +10,7 @@ use std::fmt;
 use serde_json::{Value, json};
 
 use crate::api::common::{SERVICE_BUSY_CODES, VEHICLE_UNREACHABLE_CODES};
-use crate::constants::SESSION_EXPIRED_CODES;
+use crate::constants::{SERVER_TIME_DIFF_CODES, SESSION_EXPIRED_CODES, TOKEN_REFRESH_CODES};
 use crate::parity::{Args, Outcome, ParityError};
 
 /// The Python exception class an [`Error`] stands for.
@@ -41,6 +41,10 @@ pub enum ErrorKind {
     BydAuthenticationError,
     /// The server rejected the session token.
     BydSessionExpiredError,
+    /// The session token needs a refresh or a new login (code 1030).
+    BydTokenRefreshError,
+    /// The client's clock differs from BYD's beyond the threshold (code 1003).
+    BydServerTimeError,
     /// A remote control command failed after the cloud accepted it.
     BydRemoteControlError,
     /// A remote control command was rejected for its operation password.
@@ -53,6 +57,8 @@ pub enum ErrorKind {
     BydRateLimitError,
     /// The backend is busy (code 1008); back off.
     BydServiceBusyError,
+    /// A plan's run time was refused (code 6111).
+    BydStandbyScheduleError,
     /// Python's `ValueError`.
     ValueError,
     /// Python's `json.JSONDecodeError`, a `ValueError`.
@@ -70,15 +76,17 @@ pub enum ErrorKind {
     AssertionError,
     /// A scripted test environment ran out of replies (`parity/api_support.py`).
     ScriptExhausted,
-    /// Python's `asyncio.CancelledError`: a wait for an MQTT event was cut
-    /// short because the client stopped its MQTT channel (pyBYD cancels the
-    /// waiting futures), for example during a re-login.
+    /// Python's `asyncio.CancelledError`. pyBYD let it out of a wait for an
+    /// MQTT event when the client stopped its MQTT channel; since pyBYD #98
+    /// such a wait ends as if it timed out, so openbyd no longer raises it.
+    /// The other languages' bindings use the class for a call cut short by
+    /// freeing its client.
     CancelledError,
 }
 
 impl ErrorKind {
     /// Every kind, parents before children.
-    pub const ALL: [ErrorKind; 23] = [
+    pub const ALL: [ErrorKind; 26] = [
         ErrorKind::BydError,
         ErrorKind::BydCryptoError,
         ErrorKind::BangcleError,
@@ -87,12 +95,15 @@ impl ErrorKind {
         ErrorKind::BydApiError,
         ErrorKind::BydAuthenticationError,
         ErrorKind::BydSessionExpiredError,
+        ErrorKind::BydTokenRefreshError,
+        ErrorKind::BydServerTimeError,
         ErrorKind::BydRemoteControlError,
         ErrorKind::BydControlPasswordError,
         ErrorKind::BydEndpointNotSupportedError,
         ErrorKind::BydDataUnavailableError,
         ErrorKind::BydRateLimitError,
         ErrorKind::BydServiceBusyError,
+        ErrorKind::BydStandbyScheduleError,
         ErrorKind::ValueError,
         ErrorKind::JsonDecodeError,
         ErrorKind::UnicodeDecodeError,
@@ -115,12 +126,15 @@ impl ErrorKind {
             ErrorKind::BydApiError => "BydApiError",
             ErrorKind::BydAuthenticationError => "BydAuthenticationError",
             ErrorKind::BydSessionExpiredError => "BydSessionExpiredError",
+            ErrorKind::BydTokenRefreshError => "BydTokenRefreshError",
+            ErrorKind::BydServerTimeError => "BydServerTimeError",
             ErrorKind::BydRemoteControlError => "BydRemoteControlError",
             ErrorKind::BydControlPasswordError => "BydControlPasswordError",
             ErrorKind::BydEndpointNotSupportedError => "BydEndpointNotSupportedError",
             ErrorKind::BydDataUnavailableError => "BydDataUnavailableError",
             ErrorKind::BydRateLimitError => "BydRateLimitError",
             ErrorKind::BydServiceBusyError => "BydServiceBusyError",
+            ErrorKind::BydStandbyScheduleError => "BydStandbyScheduleError",
             ErrorKind::ValueError => "ValueError",
             ErrorKind::JsonDecodeError => "JSONDecodeError",
             ErrorKind::UnicodeDecodeError => "UnicodeDecodeError",
@@ -148,7 +162,10 @@ impl ErrorKind {
             BangcleError => Some(BydCryptoError),
             BangcleTableLoadError => Some(BangcleError),
             BydSessionExpiredError => Some(BydAuthenticationError),
+            BydTokenRefreshError => Some(BydSessionExpiredError),
             BydAuthenticationError
+            | BydServerTimeError
+            | BydStandbyScheduleError
             | BydRemoteControlError
             | BydControlPasswordError
             | BydEndpointNotSupportedError
@@ -290,7 +307,8 @@ impl From<openbyd_crypto::Error> for Error {
 
 /// The error pyBYD's `_common._raise_for_code` raises for a non-zero API code.
 ///
-/// The checks run in pyBYD's order: session expired, then
+/// The checks run in pyBYD's order: token refresh (1030), server clock
+/// (1003), session expired, then
 /// `not_supported_codes`, then each entry of `extra_code_map` in order, then
 /// the defaults every endpoint shares (1008 busy, 6002 unreachable), then a
 /// plain `BydApiError`. The map's kinds should be `BydApiError` or a
@@ -304,6 +322,12 @@ pub fn raise_for_code(
     extra_code_map: &[(&[&str], ErrorKind)],
 ) -> Error {
     let failed = || format!("{endpoint} failed: code={code} message={message}");
+    if TOKEN_REFRESH_CODES.contains(&code) {
+        return Error::api(ErrorKind::BydTokenRefreshError, failed(), code, endpoint);
+    }
+    if SERVER_TIME_DIFF_CODES.contains(&code) {
+        return Error::api(ErrorKind::BydServerTimeError, failed(), code, endpoint);
+    }
     if SESSION_EXPIRED_CODES.contains(&code) {
         return Error::api(ErrorKind::BydSessionExpiredError, failed(), code, endpoint);
     }
@@ -425,6 +449,15 @@ mod tests {
         );
         assert_eq!(kind("1001", None), ErrorKind::BydControlPasswordError);
         assert_eq!(kind("1008", None), ErrorKind::BydServiceBusyError);
+        assert_eq!(
+            kind("1030", Some(&["1030"])),
+            ErrorKind::BydTokenRefreshError
+        );
+        assert_eq!(kind("1003", Some(&["1003"])), ErrorKind::BydServerTimeError);
+        assert!(ErrorKind::BydTokenRefreshError.is_a(ErrorKind::BydSessionExpiredError));
+        assert!(ErrorKind::BydServerTimeError.is_a(ErrorKind::BydApiError));
+        assert!(!ErrorKind::BydServerTimeError.is_a(ErrorKind::BydAuthenticationError));
+        assert!(ErrorKind::BydStandbyScheduleError.is_a(ErrorKind::BydApiError));
         assert_eq!(kind("6002", None), ErrorKind::BydDataUnavailableError);
         assert_eq!(kind("9", None), ErrorKind::BydApiError);
         let error = raise_for_code("/e", "1001", "m", Some(""), Some(&["1001"]), &[]);

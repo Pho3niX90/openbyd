@@ -1223,6 +1223,11 @@ pub struct StandbyPlanList {
     pub vin: String,
     /// The vehicle's plans.
     pub plans: Vec<StandbyPlan>,
+    /// The cloud's reply to the save that returned this list, if any.
+    ///
+    /// Worth showing: a daily or weekly run less than 20 min ahead is saved
+    /// but skips today, and this is the only place that says so (#91).
+    pub message: Option<String>,
 }
 
 impl BydModel for StandbyPlanList {
@@ -1239,6 +1244,7 @@ impl BydModel for StandbyPlanList {
             plans: fields.get("plans", Vec::new(), |value| {
                 coerce::list(value, |item| StandbyPlan::parse(item, context))
             }),
+            message: fields.opt("message", coerce::string),
         };
         fields.finish()?;
         Ok(model)

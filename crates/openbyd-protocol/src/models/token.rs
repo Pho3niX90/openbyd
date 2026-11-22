@@ -18,6 +18,8 @@ pub struct AuthToken {
     pub sign_token: String,
     /// The token the content key is derived from. A secret.
     pub encry_token: String,
+    /// The token `/app/token/refresh` takes; empty when the login gave none. A secret.
+    pub refresh_token: String,
     /// The whole decoded token object, for fields not listed here.
     pub raw: Map<String, Value>,
 }
@@ -28,6 +30,7 @@ impl fmt::Debug for AuthToken {
             .field("user_id", &self.user_id)
             .field("sign_token", &"<redacted>")
             .field("encry_token", &"<redacted>")
+            .field("refresh_token", &"<redacted>")
             .field("raw", &format_args!("<{} fields>", self.raw.len()))
             .finish()
     }
@@ -35,8 +38,8 @@ impl fmt::Debug for AuthToken {
 
 impl AuthToken {
     /// Validates loose values as pydantic's `AuthToken.model_validate` does:
-    /// the three tokens must be strings (kept as given), `raw` an object,
-    /// and other keys are ignored.
+    /// the three tokens must be strings (kept as given), `refresh_token` a
+    /// string when given, `raw` an object, and other keys are ignored.
     pub fn from_raw(raw: &Value) -> Result<Self, Error> {
         let fields = raw
             .as_object()
@@ -51,6 +54,10 @@ impl AuthToken {
         let user_id = text("user_id");
         let sign_token = text("sign_token");
         let encry_token = text("encry_token");
+        let refresh_token = match fields.get("refresh_token") {
+            None => Ok(String::new()),
+            Some(_) => text("refresh_token"),
+        };
         let raw = match fields.get("raw") {
             Some(Value::Object(raw)) => Ok(raw.clone()),
             Some(_) => Err(validation_error("raw: input should be a valid dictionary")),
@@ -60,6 +67,7 @@ impl AuthToken {
             user_id: user_id?,
             sign_token: sign_token?,
             encry_token: encry_token?,
+            refresh_token: refresh_token?,
             raw: raw?,
         })
     }
@@ -70,6 +78,7 @@ impl AuthToken {
             "user_id": self.user_id,
             "sign_token": self.sign_token,
             "encry_token": self.encry_token,
+            "refresh_token": self.refresh_token,
             "raw": self.raw,
         })
     }
@@ -84,6 +93,7 @@ impl AuthToken {
             created_at,
             ttl,
         )
+        .with_refresh_token(&self.refresh_token)
     }
 }
 
@@ -107,6 +117,17 @@ mod tests {
         let token = AuthToken::from_raw(&raw).unwrap();
         assert!(!format!("{token:?}").contains("S3CRET"));
         assert_eq!(token.to_session(0.0, 1.0).sign_token(), "S3CRET");
+        assert_eq!(token.refresh_token, "");
+        let raw = json!({"user_id": "1", "sign_token": "S", "encry_token": "E", "refresh_token": "R", "raw": {}});
+        assert_eq!(
+            AuthToken::from_raw(&raw)
+                .unwrap()
+                .to_session(0.0, 1.0)
+                .refresh_token(),
+            "R"
+        );
+        let raw = json!({"user_id": "1", "sign_token": "S", "encry_token": "E", "refresh_token": 5, "raw": {}});
+        assert!(AuthToken::from_raw(&raw).is_err());
         assert!(AuthToken::from_raw(&json!([])).is_err());
         assert!(
             AuthToken::from_raw(

@@ -107,6 +107,18 @@ def unknown(vin: str, reason: str) -> Any:
     return jsonable(VehicleCapabilities.unknown(vin, reason=reason).model_dump(mode="json"))
 
 
+@group.oracle("models.latest_config.VehicleCapabilities.with_guest_permissions")
+def with_guest_permissions(raw: Any, context: Any, is_shared: bool, granted_codes: list[str] | None) -> Any:
+    capabilities = VehicleCapabilities.model_validate(raw, context=context)
+    codes = None if granted_codes is None else frozenset(granted_codes)
+    return jsonable(capabilities.with_guest_permissions(is_shared=is_shared, granted_codes=codes).model_dump(mode="json"))
+
+
+#: Grants that switch each group of flags off, or none.
+GRANTED_CODES: list[Any] = [None, [], ["21"], ["31"], ["41"], ["43"], ["2", "21", "4", "41"], ["21", "31", "41", "43"],
+                            ["1001"], ["2101"]]
+
+
 @group.oracle("models.latest_config.VehicleCapabilities.feature_report")
 def feature_report(raw: Any, context: Any = None) -> dict[str, Any]:
     return _report(VehicleCapabilities.model_validate(raw, context=context))
@@ -149,6 +161,12 @@ def recorded() -> Iterator[Case]:
     for raw in [{}, {"lock": True, "unlock": False}, {key: True for key in [spec.key for spec in FEATURE_REGISTRY]},
                 {"lock": "yes", "unlock": 0, "carOn": "--"}, {"lock": 2}]:
         yield "models.latest_config.VehicleCapabilities.feature_report", {"raw": raw, "context": None}
+    every = {key: True for key in [spec.key for spec in FEATURE_REGISTRY]}
+    for raw in [every, {}, {"vin": VIN, "lock": None, "location": True, "raw": {"a": 1}}]:
+        for codes in GRANTED_CODES:
+            for shared in [True, False]:
+                yield "models.latest_config.VehicleCapabilities.with_guest_permissions", {
+                    "raw": raw, "context": None, "is_shared": shared, "granted_codes": codes}
 
 
 def _random_latest(rng: random.Random) -> Any:
@@ -181,6 +199,10 @@ def fuzz(rng: random.Random) -> Iterator[Case]:
         elif roll < 0.8:
             call, args = "models.latest_config.VehicleCapabilities.feature_report", {"raw": CAPS_CASES.fuzz(rng),
                                                                                      "context": None}
+        elif roll < 0.85:
+            call = "models.latest_config.VehicleCapabilities.with_guest_permissions"
+            args = {"raw": CAPS_CASES.fuzz(rng), "context": None, "is_shared": rng.random() < 0.8,
+                    "granted_codes": rng.choice(GRANTED_CODES)}
         elif roll < 0.9:
             call, args = "models.latest_config.LatestConfigFunction.iter_flat", {"raw": FUNCTION_CASES.fuzz(rng),
                                                                                  "context": None}

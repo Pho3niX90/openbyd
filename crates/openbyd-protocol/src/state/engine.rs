@@ -103,7 +103,6 @@ impl SectionModel for VehicleRealtimeData {
     ];
     const INT_FIELDS: &'static [&'static str] = &[
         "main_setting_temp",
-        "air_run_state",
         "repair_mode_switch",
         "wait_status",
         "full_hour",
@@ -113,6 +112,8 @@ impl SectionModel for VehicleRealtimeData {
         "booking_charge_state",
         "booking_charging_hour",
         "booking_charging_minute",
+        "charge_start_time_hour",
+        "charge_start_time_min",
         "left_front_window_pct",
         "right_front_window_pct",
         "left_rear_window_pct",
@@ -163,7 +164,6 @@ impl SectionModel for HvacStatus {
         "pm25_state_out_car",
     ];
     const INT_FIELDS: &'static [&'static str] = &[
-        "air_run_state",
         "whether_support_adjust_temp",
         "front_defrost_status",
         "electric_defrost_status",

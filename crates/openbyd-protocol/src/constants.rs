@@ -14,6 +14,52 @@ pub const USER_AGENT: &str = "okhttp/4.12.0";
 /// API codes that mean the session token is no longer valid.
 pub const SESSION_EXPIRED_CODES: [&str; 4] = ["1002", "1011", "3001", "3003"];
 
+/// API codes that mean the session token needs a refresh (or a new login).
+pub const TOKEN_REFRESH_CODES: [&str; 1] = ["1030"];
+
+/// API codes that mean the client's clock is too far from BYD's.
+pub const SERVER_TIME_DIFF_CODES: [&str; 1] = ["1003"];
+
+/// How far BYD's clock (from the HTTP `Date` header) may drift from ours, in
+/// milliseconds, before requests are stamped with BYD's time instead.
+pub const SERVER_TIME_DRIFT_THRESHOLD_MS: i64 = 30_000;
+
+/// The official app's 10-step command polling ladder (33 s in all), in seconds.
+pub const COMMAND_POLL_DELAYS_S: [f64; 10] = [1.0, 0.5, 0.5, 2.0, 2.0, 2.0, 5.0, 5.0, 5.0, 10.0];
+
+/// The sleep before each poll attempt (pyBYD's `resolve_poll_delays`).
+///
+/// With a fixed `poll_interval`, that interval `poll_attempts` times;
+/// without one, the first `poll_attempts` steps of `default_ladder`,
+/// repeating its last step when there are more attempts than steps.
+///
+/// # Panics
+///
+/// When `default_ladder` is empty and a positive number of attempts needs
+/// it (pyBYD raises `IndexError` there).
+pub fn resolve_poll_delays(
+    poll_attempts: i64,
+    poll_interval: Option<f64>,
+    default_ladder: &[f64],
+) -> Vec<f64> {
+    if poll_attempts <= 0 {
+        return Vec::new();
+    }
+    let attempts = poll_attempts as usize;
+    if let Some(interval) = poll_interval {
+        return vec![interval; attempts];
+    }
+    if attempts <= default_ladder.len() {
+        return default_ladder[..attempts].to_vec();
+    }
+    let last = *default_ladder
+        .last()
+        .expect("an empty ladder has no last step");
+    let mut delays = default_ladder.to_vec();
+    delays.resize(attempts, last);
+    delays
+}
+
 const SCALE_MIN: i64 = 1;
 const SCALE_MAX: i64 = 17;
 
@@ -205,6 +251,10 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
         "constants.values" => Ok(json!({
             "USER_AGENT": USER_AGENT,
             "SESSION_EXPIRED_CODES": SESSION_EXPIRED_CODES,
+            "TOKEN_REFRESH_CODES": TOKEN_REFRESH_CODES,
+            "SERVER_TIME_DIFF_CODES": SERVER_TIME_DIFF_CODES,
+            "SERVER_TIME_DRIFT_THRESHOLD_MS": SERVER_TIME_DRIFT_THRESHOLD_MS,
+            "COMMAND_POLL_DELAYS_S": COMMAND_POLL_DELAYS_S,
             "DEFAULT_TEMP_OFFSET_C": DEFAULT_TEMP_OFFSET_C,
             "VALID_CLIMATE_DURATIONS": VALID_CLIMATE_DURATIONS,
         })),
@@ -249,8 +299,66 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
             });
             Ok(json!(found.and_then(time_span_to_minutes)))
         }
+        "constants.resolve_poll_delays" => poll_delays_call(&args),
         _ => return None,
     })
+}
+
+/// pyBYD's `resolve_poll_delays` on JSON arguments: `poll_attempts` is
+/// Python's operand of `n <= 0`, `[x] * n` and `ladder[:n]` (an int or a
+/// bool; a float only gets past the comparison), and the interval and the
+/// ladder's steps come back as given.
+fn poll_delays_call(args: &Args<'_>) -> Outcome {
+    let attempts = args.value("poll_attempts");
+    let interval = args.value("poll_interval");
+    let ladder: Vec<Value> = match args.0.get("default_ladder") {
+        None => COMMAND_POLL_DELAYS_S
+            .iter()
+            .map(|step| json!(step))
+            .collect(),
+        Some(Value::Array(steps)) => steps.clone(),
+        Some(_) => return Err(type_error("the ladder must be a list")),
+    };
+    let count = match attempts {
+        Value::Bool(flag) => i128::from(*flag),
+        Value::Number(number) => match number.as_i64() {
+            Some(whole) => whole.into(),
+            None => {
+                // A float passes `<= 0`, then fails at `[x] * n`, at
+                // `ladder[:n]` or, past an empty ladder, at `ladder[-1]`.
+                let float = number.as_f64().unwrap_or(f64::NAN);
+                if float <= 0.0 {
+                    return Ok(json!([]));
+                }
+                if interval.is_null() && ladder.is_empty() {
+                    return Err(ParityError::new("IndexError", "tuple index out of range"));
+                }
+                return Err(type_error(
+                    "can't multiply sequence by non-int of type 'float'",
+                ));
+            }
+        },
+        _ => return Err(type_error("'<=' not supported")),
+    };
+    if count <= 0 {
+        return Ok(json!([]));
+    }
+    let count = usize::try_from(count).map_err(|_| type_error("too many attempts"))?;
+    if count > 100_000 {
+        return Err(type_error("too many attempts for a parity call"));
+    }
+    if !interval.is_null() {
+        return Ok(Value::Array(vec![interval.clone(); count]));
+    }
+    if count <= ladder.len() {
+        return Ok(Value::Array(ladder[..count].to_vec()));
+    }
+    let Some(last) = ladder.last().cloned() else {
+        return Err(ParityError::new("IndexError", "tuple index out of range"));
+    };
+    let mut delays = ladder;
+    delays.resize(count, last);
+    Ok(Value::Array(delays))
 }
 
 #[cfg(test)]
@@ -278,6 +386,55 @@ mod tests {
         assert_eq!(time_span_to_minutes(0), None);
         assert_eq!(time_span_to_minutes(6), None);
         assert_eq!(time_span_to_minutes(i64::MIN), None);
+    }
+
+    #[test]
+    fn poll_delays_follow_the_ladder() {
+        let ladder = COMMAND_POLL_DELAYS_S;
+        assert_eq!(resolve_poll_delays(0, None, &ladder), Vec::<f64>::new());
+        assert_eq!(
+            resolve_poll_delays(-3, Some(1.5), &ladder),
+            Vec::<f64>::new()
+        );
+        assert_eq!(resolve_poll_delays(3, None, &ladder), vec![1.0, 0.5, 0.5]);
+        assert_eq!(resolve_poll_delays(2, Some(1.5), &ladder), vec![1.5, 1.5]);
+        assert_eq!(
+            resolve_poll_delays(10, None, &ladder).iter().sum::<f64>(),
+            33.0
+        );
+        assert_eq!(resolve_poll_delays(12, None, &ladder)[10..], [10.0, 10.0]);
+        let call = |args: Value| poll_delays_call(&Args(&args));
+        let kind = |args: Value| call(args).unwrap_err().kind;
+        assert_eq!(
+            kind(json!({"poll_attempts": 2.5, "poll_interval": null})),
+            "TypeError"
+        );
+        assert_eq!(
+            call(json!({"poll_attempts": -2.5, "poll_interval": null})).unwrap(),
+            json!([])
+        );
+        assert_eq!(
+            kind(json!({"poll_attempts": "2", "poll_interval": null})),
+            "TypeError"
+        );
+        assert_eq!(
+            kind(json!({"poll_attempts": 2, "poll_interval": null, "default_ladder": []})),
+            "IndexError"
+        );
+        assert_eq!(
+            kind(json!({"poll_attempts": 2, "poll_interval": null, "default_ladder": 5})),
+            "TypeError"
+        );
+        assert_eq!(
+            kind(json!({"poll_attempts": 1_000_000, "poll_interval": 1})),
+            "TypeError"
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "no last step")]
+    fn an_empty_ladder_panics_like_pybyd_raises() {
+        resolve_poll_delays(1, None, &[]);
     }
 
     #[test]

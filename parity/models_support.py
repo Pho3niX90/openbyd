@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import copy
 import enum
+import json
 import math
 import random
 import types
@@ -73,6 +74,9 @@ def jsonable(value: Any) -> Any:
         return {str(key): jsonable(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [jsonable(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        # A set has no order of its own (and str hashing changes per run).
+        return sorted((jsonable(item) for item in value), key=lambda item: json.dumps(item, sort_keys=True))
     if isinstance(value, BaseModel):
         return jsonable(value.model_dump(mode="json"))
     return jsonable(pydantic_core.to_jsonable_python(value))

@@ -16,6 +16,7 @@ from typing import Any
 
 from pybyd.models.realtime import (
     AirCirculationMode,
+    AirRunState,
     ChargingState,
     ConnectState,
     DoorOpenState,
@@ -49,7 +50,7 @@ from parity.models_support import (
 group = Group("models_realtime")
 
 for _cls in (OnlineState, ConnectState, VehicleState, ChargingState, SentryStatus, TirePressureUnit, DoorOpenState,
-             LockState, WindowState, PowerGear, AirCirculationMode):
+             LockState, WindowState, PowerGear, AirCirculationMode, AirRunState):
     register_enum(group, f"models.realtime.{_cls.__name__}", _cls)
 register_enum(group, "models.realtime.StearingWheelHeat", StearingWheelHeat, ("to_command_level",))
 register_enum(group, "models.realtime.SeatHeatVentState", SeatHeatVentState, ("to_command_level",))

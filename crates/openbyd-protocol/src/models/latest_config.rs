@@ -743,6 +743,61 @@ impl VehicleCapabilities {
         Self::parse(&Value::Object(values), &Value::Null).expect("built from valid values")
     }
 
+    /// This map with what a shared guest's grant does not allow switched off
+    /// (pyBYD's `with_guest_permissions`): basic control without code
+    /// `"21"`, the location without `"31"`, charging without `"41"` and
+    /// battery heating without `"43"`. An owner, or a guest with no known
+    /// codes, keeps the map as it is.
+    pub fn with_guest_permissions(
+        &self,
+        is_shared: bool,
+        granted_codes: Option<&BTreeSet<String>>,
+    ) -> Self {
+        let mut masked = self.clone();
+        let Some(granted) = granted_codes.filter(|codes| is_shared && !codes.is_empty()) else {
+            return masked;
+        };
+        let off = Some(false);
+        if !granted.contains("21") {
+            for flag in [
+                &mut masked.lock,
+                &mut masked.unlock,
+                &mut masked.climate,
+                &mut masked.car_on,
+                &mut masked.steering_wheel_heat,
+                &mut masked.driver_seat_heat,
+                &mut masked.driver_seat_ventilation,
+                &mut masked.passenger_seat_heat,
+                &mut masked.passenger_seat_ventilation,
+                &mut masked.rear_left_seat_heat,
+                &mut masked.rear_right_seat_heat,
+                &mut masked.rear_left_seat_ventilation,
+                &mut masked.rear_right_seat_ventilation,
+                &mut masked.find_car,
+                &mut masked.flash_lights,
+                &mut masked.close_windows,
+                &mut masked.open_windows,
+                &mut masked.open_trunk,
+                &mut masked.close_trunk,
+                &mut masked.one_click_shutdown,
+                &mut masked.scheduled_departure,
+            ] {
+                *flag = off;
+            }
+        }
+        if !granted.contains("31") {
+            masked.location = off;
+        }
+        if !granted.contains("41") {
+            masked.start_charge = off;
+            masked.stop_charge = off;
+        }
+        if !granted.contains("43") {
+            masked.battery_heat = off;
+        }
+        masked
+    }
+
     /// An unknown capability map (every flag `None`; strict consumers treat it as unavailable).
     pub fn unknown(vin: &str, reason: &str) -> Self {
         let values = json!({"vin": vin, "source": format!("unknown:{reason}")});
@@ -898,6 +953,23 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
                 (Err(error), _) | (_, Err(error)) => Err(error),
             }
         }
+        "models.latest_config.VehicleCapabilities.with_guest_permissions" => (|| {
+            let capabilities = VehicleCapabilities::parse(args.value("raw"), context)?;
+            let is_shared = args.value("is_shared").as_bool().unwrap_or(false);
+            let granted: Option<BTreeSet<String>> = match args.value("granted_codes") {
+                Value::Null => None,
+                Value::Array(items) => Some(
+                    items
+                        .iter()
+                        .filter_map(|item| item.as_str().map(str::to_owned))
+                        .collect(),
+                ),
+                _ => return Err(ParityError::bad_arguments("granted_codes must be a list")),
+            };
+            Ok(capabilities
+                .with_guest_permissions(is_shared, granted.as_ref())
+                .dump())
+        })(),
         "models.latest_config.VehicleCapabilities.feature_report" => {
             VehicleCapabilities::parse(args.value("raw"), context)
                 .map(|capabilities| {

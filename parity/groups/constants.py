@@ -18,6 +18,10 @@ def values() -> dict:
     return {
         "USER_AGENT": _constants.USER_AGENT,
         "SESSION_EXPIRED_CODES": sorted(_constants.SESSION_EXPIRED_CODES),
+        "TOKEN_REFRESH_CODES": sorted(_constants.TOKEN_REFRESH_CODES),
+        "SERVER_TIME_DIFF_CODES": sorted(_constants.SERVER_TIME_DIFF_CODES),
+        "SERVER_TIME_DRIFT_THRESHOLD_MS": _constants.SERVER_TIME_DRIFT_THRESHOLD_MS,
+        "COMMAND_POLL_DELAYS_S": list(_constants.COMMAND_POLL_DELAYS_S),
         "DEFAULT_TEMP_OFFSET_C": _constants.DEFAULT_TEMP_OFFSET_C,
         "VALID_CLIMATE_DURATIONS": list(_constants.VALID_CLIMATE_DURATIONS),
     }
@@ -43,6 +47,28 @@ def time_span_to_minutes(code) -> int | None:
     return _constants.time_span_to_minutes(code)
 
 
+@group.oracle("constants.resolve_poll_delays", errors=(TypeError, IndexError))
+def resolve_poll_delays(poll_attempts, poll_interval, **ladder) -> list:
+    if "default_ladder" in ladder:
+        if not isinstance(ladder["default_ladder"], list):
+            raise TypeError("the ladder must be a list")
+        ladder["default_ladder"] = tuple(ladder["default_ladder"])
+    return _constants.resolve_poll_delays(poll_attempts, poll_interval, **ladder)
+
+
+#: Attempt counts worth trying: none, the ladder's edges, past its end and odd types.
+POLL_ATTEMPTS = [0, 1, 2, 3, 9, 10, 11, 12, 25, -1, -10, True, False, 2.5, 3.0, -1.0, 0.0, "3", None, [3]]
+POLL_INTERVALS = [None, 1.5, 2.0, 0, 0.0, 2, -1.0, 1e-9, "x", True]
+LADDERS = [None, [], [1.0], [2, 4], [0.0, 0.5], [1.0, 0.5, 0.5, 2.0, 2.0, 2.0, 5.0, 5.0, 5.0, 10.0]]
+
+
+def poll_delays_args(attempts, interval, ladder) -> dict:
+    args = {"poll_attempts": attempts, "poll_interval": interval}
+    if ladder is not None:
+        args["default_ladder"] = ladder
+    return args
+
+
 NUMBERS = [0, 1, 14, 15, 15.0, 16.5, 17, 17.0, 21, 21.5, 22.5, 31, 31.0, 31.5, 33, 33.0, 14.999, -1, 1e300, -0.0, True]
 
 
@@ -61,6 +87,12 @@ def recorded():
     # Codes are compared with ==, so 1.0 and True find a duration and "1" does not.
     for code in [1, 2, 3, 4, 5, 0, 6, -1, 1.0, 5.0, 2.5, True, False, "1", "", None, [1], {}, 2**63, 2**64 - 1, 1e300]:
         yield "constants.time_span_to_minutes", {"code": code}
+    for attempts in POLL_ATTEMPTS:
+        for interval in POLL_INTERVALS:
+            yield "constants.resolve_poll_delays", poll_delays_args(attempts, interval, None)
+        for ladder in LADDERS[1:]:
+            yield "constants.resolve_poll_delays", poll_delays_args(attempts, None, ladder)
+    yield "constants.resolve_poll_delays", poll_delays_args(3, None, 5)
 
 
 def random_number(rng):
@@ -90,3 +122,8 @@ def fuzz(rng):
         yield "constants.celsius_to_scale", args
         yield "constants.minutes_to_time_span", {"minutes": rng.choice([10, 15, 20, 25, 30, random_number(rng)])}
         yield "constants.time_span_to_minutes", {"code": rng.choice([1, 2, 3, 4, 5, random_number(rng)])}
+        attempts = rng.choice([rng.randint(-5, 40), rng.choice(POLL_ATTEMPTS)])
+        interval = rng.choice([None, None, round(rng.uniform(0, 10), rng.randint(0, 3)), rng.choice(POLL_INTERVALS)])
+        steps = [round(rng.uniform(0, 10), 1) for _ in range(rng.randint(0, 12))]
+        ladder = rng.choice([None, None, rng.choice(LADDERS), steps])
+        yield "constants.resolve_poll_delays", poll_delays_args(attempts, interval, ladder)

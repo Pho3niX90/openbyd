@@ -428,19 +428,22 @@ def test_closing_with_calls_in_flight(world) -> None:
     assert run(main())["ac_switch"] == 1
 
 
-def test_closing_cancels_mqtt_waits(world) -> None:
+def test_closing_ends_mqtt_waits_like_a_timeout(world) -> None:
+    # pyBYD #98: stopping MQTT ends a pending wait as if it timed out, so the
+    # read goes on to poll over HTTP instead of failing with CancelledError.
     world.server.reply("/control/getGpsInfo", world.Reply.data({"requestSerial": "G1"}))
 
     async def main() -> None:
         async with world.client(mqtt_enabled=True) as client:
             await client.login()
             await world.until_subscribed(client)
-            waiting = asyncio.create_task(client.get_gps_info(VIN, mqtt_timeout=30))
+            waiting = asyncio.create_task(client.get_gps_info(VIN, mqtt_timeout=30, poll_interval=0.0))
             await until(lambda: len(world.requests("/control/getGpsInfo")) == 1, "the trigger")
             await asyncio.sleep(0.05)
             await client.close()
-            with pytest.raises(asyncio.CancelledError):
-                await asyncio.wait_for(waiting, 5)
+            (outcome,) = await asyncio.wait_for(asyncio.gather(waiting, return_exceptions=True), 5)
+            assert not isinstance(outcome, asyncio.CancelledError), outcome
+            assert world.requests("/control/getGpsInfoResult"), "the read polled after the wait ended"
 
     run(main())
 

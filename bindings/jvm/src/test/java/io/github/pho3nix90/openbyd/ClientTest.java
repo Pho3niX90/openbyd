@@ -675,4 +675,50 @@ class ClientTest {
             assertEquals(VIN, run.vin());
         }
     }
+
+    @Test
+    void theOtaVersionTheNightAutoUpgradeAndAGuestsGrant() throws Exception {
+        try (World world = new World()) {
+            world.server.reply(
+                    "/control/otaUpgrade/getOtaVersion",
+                    Reply.data(Map.of(
+                            "currentVersion", "V1.3.0",
+                            "updateVersion", "V1.4.0",
+                            "upgradeStatus", 1,
+                            "autoUpgradeSwitch", "1")));
+            world.server.reply("/control/otaUpgrade/syncAutoUpgrade", Reply.data(Map.of()));
+            world.server.reply(
+                    "/vehicle/empower/query/empowerDetailByVin",
+                    Reply.data(Map.of(
+                            "empowerControlPwdStatus", true,
+                            "data", Map.of("empowerId", 7, "detailList", List.of(Map.of("code", "21"))))));
+            Client client = world.client();
+            var ota = await(client.getOtaVersion(VIN));
+            assertEquals("V1.3.0", ota.currentVersion());
+            assertEquals(io.github.pho3nix90.openbyd.model.OtaStatus.UPGRADE_AVAILABLE, ota.upgradeStatus());
+
+            // The night auto-upgrade needs command access and the PIN, as a command does.
+            assertInstanceOf(BydControlPasswordException.class, thrown(() -> client.setOtaAutoUpgrade(VIN, true)));
+            await(client.verifyCommandAccess(VIN));
+            var options = new io.github.pho3nix90.openbyd.model.OtaUpgradeOptions().autoUpgradeTime("03:30");
+            assertEquals(VIN, await(client.setOtaAutoUpgrade(VIN, false, options)).vin());
+            Map<?, ?> sent = assertInstanceOf(Map.class, world.server.requests("/control/otaUpgrade/syncAutoUpgrade").get(0).inner());
+            assertEquals("0", sent.get("autoUpgradeSwitch"));
+            assertEquals("3:30", sent.get("autoUpgradeTime"));
+
+            // An owner's car has no grant; with an explicit ID it is fetched.
+            BydEndpointNotSupportedException notShared = assertInstanceOf(
+                    BydEndpointNotSupportedException.class, thrown(() -> client.getEmpowerDetail(VIN)));
+            assertEquals("not_shared_vehicle", notShared.code());
+            var detail = await(client.getEmpowerDetail(
+                    VIN, new io.github.pho3nix90.openbyd.model.EmpowerDetailOptions().empowerId(7)));
+            assertEquals(7L, detail.empowerId());
+            assertTrue(detail.empowerControlPwdStatus());
+
+            Car car = await(client.getCar(VIN));
+            assertEquals("V1.3.0", await(car.getOtaVersion()).currentVersion());
+            await(car.setOtaAutoUpgrade(true));
+            assertEquals(2, world.server.requests("/control/otaUpgrade/syncAutoUpgrade").size());
+        }
+    }
 }

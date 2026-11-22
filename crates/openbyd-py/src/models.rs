@@ -12,7 +12,7 @@ use openbyd_protocol::error::Error;
 use openbyd_protocol::models::base::{BydBaseModel, BydModel};
 use openbyd_protocol::models::{
     booking, charging, command_gating, control, energy, gps, hvac, latest_config, message_center,
-    push_notification, realtime, smart_charging, standby, token, vehicle,
+    ota, push_notification, realtime, smart_charging, standby, token, vehicle,
 };
 use openbyd_protocol::mqtt;
 use pyo3::exceptions::PyKeyError;
@@ -214,6 +214,7 @@ const MODELS: &[(&str, Run, Raw)] = &[
         run::<energy::CumulativeEnergyConsumption>,
         MayBeReply,
     ),
+    ("EmpowerDetail", run::<vehicle::EmpowerDetail>, MayBeReply),
     ("EmpowerRange", run::<vehicle::EmpowerRange>, MayBeReply),
     (
         "EnergyConsumption",
@@ -239,6 +240,8 @@ const MODELS: &[(&str, Run, Raw)] = &[
         run::<energy::NearestEnergyConsumption>,
         MayBeReply,
     ),
+    ("OtaUpgradeInfo", run::<ota::OtaUpgradeInfo>, MayBeReply),
+    ("OtaUpgradeResult", run::<ota::OtaUpgradeResult>, MayBeReply),
     (
         "PushNotificationState",
         run::<push_notification::PushNotificationState>,

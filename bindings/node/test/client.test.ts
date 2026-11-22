@@ -475,3 +475,38 @@ test("standby plans round-trip, including daily schedules with zone", async () =
   assert.equal(run.res, 2);
   assert.equal(run.vin, VIN);
 });
+
+test("the OTA version, the night auto-upgrade and a guest's grant", async () => {
+  using world = new World();
+  world.server.reply("/control/otaUpgrade/getOtaVersion", {
+    data: { currentVersion: "V1.3.0", updateVersion: "V1.4.0", upgradeStatus: 1, autoUpgradeSwitch: "1", autoUpgradeTime: "3:00" },
+  });
+  world.server.reply("/control/otaUpgrade/syncAutoUpgrade", { data: {} });
+  world.server.reply("/vehicle/empower/query/empowerDetailByVin", {
+    data: { empowerControlPwdStatus: true, data: { empowerId: 7, detailList: [{ code: "2", childList: [{ code: "21" }] }] } },
+  });
+  const client = world.client();
+  const ota = await client.getOtaVersion(VIN);
+  assert.deepEqual([ota.current_version, ota.update_version, ota.upgrade_status], ["V1.3.0", "V1.4.0", 1]);
+  assert.equal(typeof (world.server.requests("/control/otaUpgrade/getOtaVersion")[0]?.inner as { language: unknown }).language, "string");
+
+  // The night auto-upgrade needs command access and the PIN, as a command does.
+  assert.ok((await thrown(() => client.setOtaAutoUpgrade(VIN, true))) instanceof BydControlPasswordError);
+  await client.verifyCommandAccess(VIN);
+  assert.equal((await client.setOtaAutoUpgrade(VIN, false, { autoUpgradeTime: "03:30" })).vin, VIN);
+  const sync = world.server.requests("/control/otaUpgrade/syncAutoUpgrade")[0]?.inner as { autoUpgradeSwitch: string; autoUpgradeTime: string };
+  assert.deepEqual([sync.autoUpgradeSwitch, sync.autoUpgradeTime], ["0", "3:30"]);
+  assert.ok((await thrown(() => client.setOtaAutoUpgrade(VIN, true, { autoUpgradeTime: "25:00" }))) instanceof DataError);
+
+  // An owner's car has no grant; with an explicit ID it is fetched.
+  const notShared = await thrown(() => client.getEmpowerDetail(VIN));
+  assert.ok(notShared instanceof BydEndpointNotSupportedError);
+  assert.equal(notShared.code, "not_shared_vehicle");
+  const detail = await client.getEmpowerDetail(VIN, { empowerId: 7 });
+  assert.deepEqual([detail.empower_id, detail.empower_control_pwd_status, detail.detail_list.length], [7, true, 1]);
+
+  const car = await client.getCar(VIN);
+  assert.equal((await car.getOtaVersion()).current_version, "V1.3.0");
+  await car.setOtaAutoUpgrade(true);
+  assert.equal(world.server.requests("/control/otaUpgrade/syncAutoUpgrade").length, 2);
+});

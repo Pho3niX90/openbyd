@@ -686,4 +686,39 @@ public sealed class ClientTests(ITestOutputHelper output)
         GC.WaitForPendingFinalizers();
         GC.Collect();
     }
+
+    [Fact]
+    public async Task TheOtaVersionTheNightAutoUpgradeAndAGuestsGrant()
+    {
+        using var world = new World();
+        world.Server.Reply("/control/otaUpgrade/getOtaVersion", Reply.Data(World.Json(
+            """{"currentVersion": "V1.3.0", "updateVersion": "V1.4.0", "upgradeStatus": 1, "autoUpgradeSwitch": "1"}""")));
+        world.Server.Reply("/control/otaUpgrade/syncAutoUpgrade", Reply.Data(World.Json("{}")));
+        world.Server.Reply("/vehicle/empower/query/empowerDetailByVin", Reply.Data(World.Json(
+            """{"empowerControlPwdStatus": true, "data": {"empowerId": 7, "detailList": [{"code": "21"}]}}""")));
+        var client = world.Client();
+        var ota = await client.GetOtaVersionAsync(Vin);
+        Assert.Equal("V1.3.0", ota.CurrentVersion);
+        Assert.Equal(OtaStatus.UpgradeAvailable, ota.UpgradeStatus);
+
+        // The night auto-upgrade needs command access and the PIN, as a command does.
+        await Assert.ThrowsAsync<BydControlPasswordException>(() => client.SetOtaAutoUpgradeAsync(Vin, true));
+        await client.VerifyCommandAccessAsync(Vin);
+        Assert.Equal(Vin, (await client.SetOtaAutoUpgradeAsync(Vin, false, autoUpgradeTime: "03:30")).Vin);
+        var sent = world.Server.Requests("/control/otaUpgrade/syncAutoUpgrade")[0].Inner;
+        Assert.Equal("0", sent.GetProperty("autoUpgradeSwitch").GetString());
+        Assert.Equal("3:30", sent.GetProperty("autoUpgradeTime").GetString());
+
+        // An owner's car has no grant; with an explicit ID it is fetched.
+        var notShared = await Assert.ThrowsAsync<BydEndpointNotSupportedException>(() => client.GetEmpowerDetailAsync(Vin));
+        Assert.Equal("not_shared_vehicle", notShared.Code);
+        var detail = await client.GetEmpowerDetailAsync(Vin, empowerId: 7);
+        Assert.Equal((long?)7, detail.EmpowerId);
+        Assert.True(detail.EmpowerControlPwdStatus);
+
+        var car = await client.GetCarAsync(Vin);
+        Assert.Equal("V1.3.0", (await car.GetOtaVersionAsync()).CurrentVersion);
+        await car.SetOtaAutoUpgradeAsync(true);
+        Assert.Equal(2, world.Server.Requests("/control/otaUpgrade/syncAutoUpgrade").Count);
+    }
 }

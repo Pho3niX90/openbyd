@@ -39,7 +39,8 @@ public sealed class ClientOptions
     /// <summary>How long a command waits for its acknowledgement, in seconds. Default <c>300</c>.</summary>
     public double? CommandAckTtlSeconds { get; init; }
 
-    /// <summary>Attempts per remote command. Default <c>3</c>.</summary>
+    /// <summary>Attempts per remote command. Default <c>1</c>; more retry a command the cloud could not
+    /// confirm, never one the car refused.</summary>
     public int? CommandRetries { get; init; }
 
     /// <summary>Whether a command is sent, given the command gate's verdict. Default <see cref="OpenByd.GatePolicy.Strict"/>.</summary>

@@ -316,6 +316,18 @@ class Car:
         """The supported and active AC charging current limits."""
         return await self._native.get_ac_current_limit()
 
+    async def get_ota_version(self) -> dict[str, Any]:
+        """The OTA firmware version and night auto-upgrade settings."""
+        return await self._native.get_ota_version()
+
+    async def set_ota_auto_upgrade(
+        self, *, enabled: bool, auto_upgrade_time: str = "2:00", command_pwd: str | None = None
+    ) -> None:
+        """Turn the night auto-upgrade on or off and set its time (``H:mm``)."""
+        await self._native.set_ota_auto_upgrade(
+            enabled=enabled, auto_upgrade_time=auto_upgrade_time, command_pwd=command_pwd
+        )
+
     async def save_charging_schedule(
         self, *, start_charge_time: str, end_charge_time: str, charge_way: str, enabled: bool = True
     ) -> dict[str, Any]:

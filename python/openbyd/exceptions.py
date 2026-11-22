@@ -10,11 +10,14 @@ Code written against ``pybyd.exceptions`` can catch these the same way::
     └── BydApiError                  .code, .endpoint
         ├── BydAuthenticationError
         │   └── BydSessionExpiredError
+        │       └── BydTokenRefreshError
+        ├── BydServerTimeError
         ├── BydRemoteControlError
         ├── BydControlPasswordError
         ├── BydEndpointNotSupportedError
         ├── BydDataUnavailableError
         ├── BydRateLimitError
+        ├── BydStandbyScheduleError
         └── BydServiceBusyError
 
     ValidationError (ValueError)     .error_type, .loc
@@ -73,6 +76,14 @@ class BydSessionExpiredError(BydAuthenticationError):
     """Session token rejected by the server (for example code ``1002``)."""
 
 
+class BydTokenRefreshError(BydSessionExpiredError):
+    """Session token needs a refresh or a new login (code ``1030``)."""
+
+
+class BydServerTimeError(BydApiError):
+    """Client clock differs from BYD's beyond the threshold (code ``1003``)."""
+
+
 class BydRemoteControlError(BydApiError):
     """Remote control command failed after being accepted by the cloud."""
 
@@ -82,7 +93,8 @@ class BydControlPasswordError(BydApiError):
 
 
 class BydEndpointNotSupportedError(BydApiError):
-    """Endpoint not supported for this vehicle or region (for example code ``1001``)."""
+    """Endpoint not supported or not permitted for this vehicle or account (for example code ``1001``,
+    GPS code ``8002``, or ``guest_permission_denied`` for a shared guest)."""
 
 
 class BydDataUnavailableError(BydApiError):
@@ -91,6 +103,10 @@ class BydDataUnavailableError(BydApiError):
 
 class BydRateLimitError(BydApiError):
     """A previous command is still in progress (code ``6024``)."""
+
+
+class BydStandbyScheduleError(BydApiError):
+    """A plan's run time was refused (code ``6111``): a one-off run must be 20 min to 30 days ahead."""
 
 
 class BydServiceBusyError(BydApiError):
@@ -123,8 +139,11 @@ __all__ = [
     "BydError",
     "BydRateLimitError",
     "BydRemoteControlError",
+    "BydServerTimeError",
     "BydServiceBusyError",
     "BydSessionExpiredError",
+    "BydStandbyScheduleError",
+    "BydTokenRefreshError",
     "BydTransportError",
     "ValidationError",
 ]

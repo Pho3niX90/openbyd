@@ -144,7 +144,8 @@ public final class ClientOptions {
     }
 
     /**
-     * Attempts per remote command. Default {@code 3}.
+     * Attempts per remote command. Default {@code 1}; more retry a command the cloud could not
+     * confirm, never one the car refused.
      *
      * @return this, to chain
      */

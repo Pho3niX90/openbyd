@@ -191,7 +191,9 @@ class Client:
       (also send when the car's capability data is incomplete: the reasons
       ``function_no_missing`` and ``learn_info_missing``), or a callable
       ``(vin, verdict) -> bool`` deciding from the gate's verdict dict.
-    - ``command_retries``: attempts per remote command (pyBYD's 3).
+    - ``command_retries``: attempts per remote command (pyBYD's 1). More
+      attempts retry a command the cloud could not confirm; one the car
+      refused is never sent again.
     - ``pin_resolver``: a callable ``(command_pwd, control_pin) -> str``
       returning the ``commandPwd`` to send (empty for none), in place of
       pyBYD's rule (32 hex digits are a digest, anything else is hashed).
@@ -222,7 +224,7 @@ class Client:
         on_mqtt_connack_refused: Callable[[int], None] | None = None,
         command_ack_ttl_seconds: float = 300.0,
         gate_policy: GatePolicy | None = None,
-        command_retries: int = 3,
+        command_retries: int = 1,
         pin_resolver: Callable[[str | None, str | None], str] | None = None,
         relogin: ReloginPolicy | None = None,
         request_observer: Callable[[dict[str, Any]], None] | None = None,
@@ -300,7 +302,8 @@ class Client:
         """Close the cars, stop MQTT and make later calls fail (pyBYD's ``async_close``).
 
         Calls already in flight finish; one waiting for an MQTT push stops
-        waiting with ``asyncio.CancelledError``, as in pyBYD.
+        waiting and polls over HTTP instead, as when the wait times out
+        (pyBYD #98).
         """
         cars, self._cars = self._cars, {}
         for car in cars.values():
@@ -376,8 +379,8 @@ class Client:
     def stop_mqtt(self) -> None:
         """Stop MQTT (pyBYD's ``_stop_mqtt``); :meth:`start_mqtt` starts it again.
 
-        A call waiting for an MQTT push stops waiting with
-        ``asyncio.CancelledError``, as in pyBYD.
+        A call waiting for an MQTT push stops waiting and polls over HTTP
+        instead, as when the wait times out (pyBYD #98).
         """
         self._native.stop_mqtt()
 
@@ -540,6 +543,27 @@ class Client:
         """The scheduled-climate timers."""
         return await self._native.get_booking_list(vin)
 
+    async def get_ota_version(self, vin: str) -> dict[str, Any]:
+        """The OTA firmware version, release notes and night auto-upgrade settings."""
+        return await self._native.get_ota_version(vin)
+
+    async def set_ota_auto_upgrade(
+        self, vin: str, *, enabled: bool, auto_upgrade_time: str = "2:00", command_pwd: str | None = None
+    ) -> dict[str, Any]:
+        """Turn the night auto-upgrade on or off and set its time (``H:mm``).
+
+        Needs command access (:meth:`verify_command_access`) and the control
+        PIN, as a command does; ``command_pwd`` defaults to the config's
+        ``control_pin``.
+        """
+        return await self._native.set_ota_auto_upgrade(
+            vin, enabled=enabled, auto_upgrade_time=auto_upgrade_time, command_pwd=command_pwd
+        )
+
+    async def get_empower_detail(self, vin: str, *, empower_id: int | None = None) -> dict[str, Any]:
+        """A shared guest's grant in detail; ``empower_id`` defaults to the cached vehicle's."""
+        return await self._native.get_empower_detail(vin, empower_id=empower_id)
+
     # ------------------------------------------------------------------
     # Preconditioning plans
     # ------------------------------------------------------------------
@@ -678,8 +702,8 @@ class Client:
         charge_way: str,
         enabled: bool = True,
         mqtt_timeout: float | None = None,
-        poll_attempts: int = 6,
-        poll_interval: float = 2.0,
+        poll_attempts: int = 10,
+        poll_interval: float | None = None,
     ) -> dict[str, Any]:
         """Save a smart-charging schedule and wait for the change to settle."""
         return await self._native.save_charging_schedule(
@@ -702,8 +726,8 @@ class Client:
         vin: str,
         *,
         mqtt_timeout: float | None = None,
-        poll_attempts: int = 6,
-        poll_interval: float = 2.0,
+        poll_attempts: int = 10,
+        poll_interval: float | None = None,
     ) -> dict[str, Any]:
         """Start charging now and wait for the change to settle."""
         return await self._native.start_charging(
@@ -715,8 +739,8 @@ class Client:
         vin: str,
         *,
         mqtt_timeout: float | None = None,
-        poll_attempts: int = 6,
-        poll_interval: float = 2.0,
+        poll_attempts: int = 10,
+        poll_interval: float | None = None,
     ) -> dict[str, Any]:
         """Always raises ``BydEndpointNotSupportedError``: the cloud cannot stop a charge (as pyBYD)."""
         return await self._native.stop_charging(

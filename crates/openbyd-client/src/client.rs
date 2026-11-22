@@ -2006,6 +2006,48 @@ mod tests {
         assert_eq!(logins(&client), 0);
     }
 
+    /// A client with a session and the MQTT channel running, with `mqtt` on
+    /// its timeline; the re-login a decrypt failure asks for imports a session.
+    fn mqtt_client(mqtt: Vec<ScriptedMqtt>) -> BydClient<Arc<ScriptedEnv>> {
+        let mut options = ClientOptions::default();
+        options.relogin = ReloginPolicy::Handler(Arc::new(|| Box::pin(async { Ok(tokens(None)) })));
+        let env = Arc::new(ScriptedEnv::new(1_000_000, "s", vec![]).with_mqtt(mqtt, vec![]));
+        let client = BydClient::new(config(), env, options);
+        block_on(client.import_session(tokens(None))).unwrap();
+        client.state().mqtt_started = true;
+        let sink: Weak<dyn MqttSink> = client.inner.me.clone();
+        client.env().install_mqtt(sink);
+        client
+    }
+
+    #[test]
+    fn a_wait_after_mqtt_stopped_does_not_wait() {
+        let client = mqtt_client(vec![]);
+        client.stop_mqtt();
+        let waited = block_on(client.mqtt_wait(VIN, None, None, Some(30.0))).unwrap();
+        assert_eq!(waited.unwrap(), None);
+        assert!(client.state().waiters.is_empty());
+        assert!(client.env().steps().iter().all(|step| step.get("mqtt_wait").is_none()));
+    }
+
+    #[test]
+    fn stopping_mqtt_ends_a_wait_registered_before_it() {
+        // A decrypt failure during the wait asks for a re-login, which
+        // restarts MQTT: the wait ends then, not after its 30 seconds.
+        let failure = ScriptedMqtt {
+            index: 0,
+            at: 1.0,
+            delivery: MqttDelivery::DecryptError,
+        };
+        let client = mqtt_client(vec![failure]);
+        let waited = block_on(client.mqtt_wait(VIN, None, None, Some(30.0))).unwrap();
+        assert_eq!(waited.unwrap(), None);
+        assert!(client.state().waiters.is_empty());
+        let steps = client.env().steps();
+        assert!(steps.iter().any(|step| step.get("mqtt_wait").is_some()));
+        assert!(steps.iter().all(|step| step.get("mqtt_timeout").is_none()), "{steps:?}");
+    }
+
     #[test]
     fn a_never_policy_refuses_without_sending() {
         let mut options = ClientOptions::default();

@@ -91,12 +91,17 @@ impl<E: ClientEnv> BydClient<E> {
         timeout: Option<f64>,
     ) -> Result<Option<Map<String, Value>>, Error> {
         let timeout = timeout.unwrap_or(self.inner.config.mqtt_timeout);
-        if !self.mqtt_is_running() || timeout <= 0.0 {
+        if timeout <= 0.0 {
             return Ok(None);
         }
         let (slot, receiver) = tokio::sync::oneshot::channel();
+        // Checked and registered under one lock, which `stop_mqtt` drains
+        // under: a stop either comes first (no wait at all) or ends this one.
         let id = {
             let mut state = self.state();
+            if !(state.mqtt_started && self.inner.env.mqtt_running()) {
+                return Ok(None);
+            }
             state.next_waiter += 1;
             let id = state.next_waiter;
             state.waiters.push(Waiter {

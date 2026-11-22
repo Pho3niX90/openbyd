@@ -599,58 +599,58 @@ impl<E: ClientEnv> BydClient<E> {
         let fetch = make_change_charge_fetch_fn(true);
         let dispatched = AtomicBool::new(false);
         reauth!(
-                    self,
-                    false,
-                    !dispatched.load(Ordering::SeqCst),
-                    async {
-            let raw = self
-                .trigger_and_poll(TriggeredRead {
-                    vin,
-                    trigger_endpoint: TOGGLE_ENDPOINT,
-                    poll_endpoint: RESULT_ENDPOINT,
-                    fetch: ReadFetch::Charge(&fetch),
-                    label: "ChargeStart",
-                    mqtt_event_type: Some("smartCharge"),
-                    mqtt_timeout: settings.mqtt_timeout,
-                    poll_attempts: settings.poll_attempts,
-                    poll_interval: settings.poll_interval,
-                    signal_retries: 2,
-                    dispatched: Some(&dispatched),
-                })
-                .await?;
-            let result: ChargeChangeResult = parse_model(&raw)?;
-            let failed = |message: String, code: String| {
-                Error::api(
-                    ErrorKind::BydRemoteControlError,
-                    message,
-                    code,
-                    RESULT_ENDPOINT,
-                )
-            };
-            match result.res {
-                Some(2) => Ok(result),
-                None => Err(failed(
-                    "smartCharge change_charge_status timed out without a terminal result".into(),
-                    "timeout".into(),
-                )),
-                // Only seen when the car is already in the target state.
-                Some(3) => Err(failed(
-                    format!(
-                        "smartCharge change_charge_status rejected by cloud (res=3, message={:?}) \
-                         - vehicle is likely already in the target state (already charging, at \
-                         maximum SoC, or a duplicate start request)",
-                        result.message
-                    ),
-                    "3".into(),
-                )),
-                Some(res) => Err(failed(
-                    format!(
-                        "smartCharge change_charge_status unexpected res={res} message={:?}",
-                        result.message
-                    ),
-                    res.to_string(),
-                )),
-            }
+            self,
+            false,
+            !dispatched.load(Ordering::SeqCst),
+            async {
+                let raw = self
+                    .trigger_and_poll(TriggeredRead {
+                        vin,
+                        trigger_endpoint: TOGGLE_ENDPOINT,
+                        poll_endpoint: RESULT_ENDPOINT,
+                        fetch: ReadFetch::Charge(&fetch),
+                        label: "ChargeStart",
+                        mqtt_event_type: Some("smartCharge"),
+                        mqtt_timeout: settings.mqtt_timeout,
+                        poll_attempts: settings.poll_attempts,
+                        poll_interval: settings.poll_interval,
+                        signal_retries: 2,
+                        dispatched: Some(&dispatched),
+                    })
+                    .await?;
+                let result: ChargeChangeResult = parse_model(&raw)?;
+                let failed = |message: String, code: String| {
+                    Error::api(
+                        ErrorKind::BydRemoteControlError,
+                        message,
+                        code,
+                        RESULT_ENDPOINT,
+                    )
+                };
+                match result.res {
+                    Some(2) => Ok(result),
+                    None => Err(failed(
+                        "smartCharge change_charge_status timed out without a terminal result".into(),
+                        "timeout".into(),
+                    )),
+                    // Only seen when the car is already in the target state.
+                    Some(3) => Err(failed(
+                        format!(
+                            "smartCharge change_charge_status rejected by cloud (res=3, message={:?}) \
+                             - vehicle is likely already in the target state (already charging, at \
+                             maximum SoC, or a duplicate start request)",
+                            result.message
+                        ),
+                        "3".into(),
+                    )),
+                    Some(res) => Err(failed(
+                        format!(
+                            "smartCharge change_charge_status unexpected res={res} message={:?}",
+                            result.message
+                        ),
+                        res.to_string(),
+                    )),
+                }
             }
             .await
         )

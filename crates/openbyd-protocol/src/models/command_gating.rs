@@ -362,11 +362,32 @@ impl<'a> GuestScope<'a> {
     }
 
     /// `_guest_permission_ok`: the level 2 permission `command` needs is granted.
-    fn permits(&self, command: RemoteCommand) -> bool {
+    pub fn permits(&self, command: RemoteCommand) -> bool {
         match (self.active(), command_guest_permission(command)) {
             (Some(granted), Some(required)) => granted.contains(required),
             _ => true,
         }
+    }
+
+    /// Whether the grant itself excludes `command`, whatever the car
+    /// advertises: it lacks the command's level 2 permission, or its level
+    /// 3/4 allow-list (when it has one) admits none of
+    /// `required_function_nos`, the gate rule's own set (a verdict's
+    /// `required_function_nos`). Always `false` for an owner.
+    ///
+    /// Not a pyBYD function: openbyd uses it so that no gate policy can send
+    /// what a guest was not granted, also when the car's capabilities are
+    /// unknown or the verdict was decided before the grant was looked at
+    /// (`"seat_target_unknown"`).
+    pub fn refuses(&self, command: RemoteCommand, required_function_nos: &[String]) -> bool {
+        if !self.is_active() {
+            return false;
+        }
+        if !self.permits(command) {
+            return true;
+        }
+        let required: BTreeSet<&str> = required_function_nos.iter().map(String::as_str).collect();
+        !required.is_empty() && self.filter_function_nos(&required).is_empty()
     }
 }
 
@@ -743,6 +764,21 @@ mod tests {
             Some("41")
         );
         assert!(GuestScope::new(true, Some(&level2)).is_active());
+        // The grant alone decides `refuses`: the level 2 code, then the
+        // allow-list against the rule's own functionNos.
+        let windows = vec!["1026".to_owned()];
+        let lock_only: BTreeSet<String> = ["2", "21", "1005"].map(String::from).into();
+        let lock_guest = GuestScope::new(true, Some(&lock_only));
+        assert!(lock_guest.refuses(RemoteCommand::CloseWindows, &windows));
+        assert!(!lock_guest.refuses(RemoteCommand::Lock, &["1005".to_owned(), "1006".to_owned()]));
+        assert!(lock_guest.refuses(RemoteCommand::BatteryHeat, &[]));
+        assert!(!lock_guest.refuses(RemoteCommand::SeatClimate, &[]));
+        assert!(!GuestScope::OWNER.refuses(RemoteCommand::BatteryHeat, &windows));
+        let no_list: BTreeSet<String> = ["2", "21"].map(String::from).into();
+        assert!(
+            !GuestScope::new(true, Some(&no_list)).refuses(RemoteCommand::CloseWindows, &windows)
+        );
+        assert!(GuestScope::new(true, Some(&no_list)).refuses(RemoteCommand::StartCharge, &[]));
         assert!(!GuestScope::new(true, Some(&none)).is_active());
         assert!(!GuestScope::new(false, Some(&level2)).is_active());
     }

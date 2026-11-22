@@ -74,6 +74,7 @@ from pybyd import exceptions
 from pybyd._crypto.aes import aes_encrypt_hex
 from pybyd._crypto.hashing import md5_hex
 from pybyd.config import BydConfig
+from pybyd.models import command_gating
 from pybyd.session import Session
 
 from parity.framework import Group, random_hex, random_text
@@ -953,15 +954,23 @@ def run_client(  # noqa: C901, PLR0913, PLR0915
 
             def guest_refused(verdict: Any, positional: tuple, keywords: dict) -> bool:
                 # openbyd's gate policy (which this option stands for) can
-                # never override a refusal the guest grant caused: denied
-                # outright, or the grant's allow-list took away a functionNo
-                # an owner's verdict matches.
-                if not keywords.get("is_shared") or not keywords.get("guest_permissions"):
+                # never override a refusal the guest grant caused
+                # (GuestScope::refuses and guest_refused in openbyd-client):
+                # the grant lacks the level 2 permission, its allow-list admits
+                # none of the rule's functionNos, or an owner's verdict matches
+                # functionNos and the guest's none.
+                scope = {"is_shared": keywords.get("is_shared", False),
+                         "guest_permissions": keywords.get("guest_permissions")}
+                if verdict.supported or not scope["is_shared"] or not scope["guest_permissions"]:
                     return False
-                if verdict.reason == "guest_permission_denied":
+                command = positional[0] if positional else keywords["command"]
+                if not command_gating._guest_permission_ok(command, **scope):
+                    return True
+                required = set(verdict.required_function_nos)
+                if required and not command_gating._filter_guest_function_nos(required, **scope):
                     return True
                 owner = original_gate(*positional, **{**keywords, "is_shared": False, "guest_permissions": None})
-                return len(owner.matched_function_nos) > len(verdict.matched_function_nos)
+                return bool(owner.matched_function_nos) and not verdict.matched_function_nos
 
             def evaluate_command_gate(*positional: Any, **keywords: Any) -> Any:
                 verdict = original_gate(*positional, **keywords)

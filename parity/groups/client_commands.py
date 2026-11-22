@@ -160,6 +160,22 @@ def guest_cases():
             pwd = {} if method == "start_charging" else {"command_pwd": PIN}
             yield f"client.{method}", client_case(state=state, replies=[TRIGGER, POLL_DONE, reply({"res": 2})], vin=VIN,
                                                   **extra, **pwd)
+    # A permissive gate policy never sends what the grant excludes: with the
+    # car's capabilities unknown (an empty list) or the seat unknown
+    # (seat_target_unknown, decided before the grant), and an owner or a
+    # guest whose grant allows the command is let through.
+    bypass = {"gate_bypass": ["function_no_missing", "learn_info_missing", "seat_target_unknown"]}
+    for grant in [[{"code": "2", "childList": [{"code": "21"}, {"code": "1005"}]}],
+                  [{"code": "4", "childList": [{"code": "43"}]}], RANGE_TREE, None]:
+        if grant is None:
+            vehicle, guests = {**VEHICLE, "empowerType": 2}, {}
+        else:
+            vehicle, guests = {**VEHICLE, "empowerType": -1, "empowerId": 114149, "rangeDetailList": grant}, {VIN: True}
+        state = logged_in(vehicles=[vehicle], capabilities={VIN: {"cfFixedList": []}}, commands_enabled=True,
+                          guest_vins=guests)
+        for method, extra in [("lock", {}), ("close_windows", {}), ("set_seat_climate", {"params": {}})]:
+            yield f"client.{method}", client_case(state=state, replies=[TRIGGER, POLL_DONE], options=bypass, vin=VIN,
+                                                  command_pwd=PIN, **extra)
     owner = {**VEHICLE, "empowerType": 2, "rangeDetailList": [{"code": "31"}]}
     yield "client.set_battery_heat", client_case(
         state=logged_in(vehicles=[owner], capabilities={VIN: GUEST_CAPS}, commands_enabled=True),

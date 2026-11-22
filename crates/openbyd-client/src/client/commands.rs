@@ -93,11 +93,18 @@ fn blocked(what: &str, vin: &str, gate: &CommandGateVerdict, endpoint: &str) -> 
     )
 }
 
-/// Whether a refused verdict is the guest grant's doing: the grant denies
-/// the command outright (`"guest_permission_denied"`), or its `functionNo`
-/// allow-list took away what an owner's verdict matches. The verdict itself
-/// stays pyBYD's (which reports the latter as `"function_no_missing"`); this
-/// only keeps a gate policy from sending it anyway.
+/// Whether a refused verdict is the guest grant's doing, so no gate policy
+/// may send it anyway. It is when the guest rules apply and:
+///
+/// - the grant itself excludes the command ([`GuestScope::refuses`]): no
+///   level 2 permission, or an allow-list admitting none of the rule's
+///   `functionNo`s. This holds when the car's capabilities are unknown or
+///   empty (what "allow missing data" exists for) and when the seat is
+///   unknown (`"seat_target_unknown"`, decided before the grant is read);
+/// - or an owner's verdict matches `functionNo`s and the guest's none: the
+///   allow-list took away what the car has.
+///
+/// The verdict itself stays pyBYD's.
 fn guest_refused(
     command: RemoteCommand,
     capabilities: &VehicleCapabilities,
@@ -109,12 +116,12 @@ fn guest_refused(
     if gate.supported || !guest.is_active() {
         return Ok(false);
     }
-    if gate.reason == "guest_permission_denied" {
+    if guest.refuses(command, &gate.required_function_nos) {
         return Ok(true);
     }
     let owner = evaluate_command_gate(command, capabilities, params, learn_info, GuestScope::OWNER)
         .map_err(model_error)?;
-    Ok(owner.matched_function_nos.len() > gate.matched_function_nos.len())
+    Ok(!owner.matched_function_nos.is_empty() && gate.matched_function_nos.is_empty())
 }
 
 /// The client's [`MqttResultWaiter`]: pyBYD's `_mqtt_result_waiter`.

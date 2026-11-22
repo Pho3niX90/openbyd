@@ -17,7 +17,7 @@ use openbyd_client::testing::broker::{TestBroker, runtime_options};
 use openbyd_client::testing::{Account, FakeBydServer, Reply};
 use openbyd_protocol::config::BydConfig;
 use openbyd_protocol::error::ErrorKind;
-use openbyd_protocol::models::control::CommandLifecycleStatus;
+use openbyd_protocol::models::control::{CommandLifecycleStatus, RemoteCommand};
 use serde_json::{Value, json};
 
 const VIN: &str = "TESTVIN0000000001";
@@ -457,6 +457,89 @@ async fn no_gate_policy_sends_what_a_guest_grant_refuses() {
     world.server.shutdown().await;
 }
 
+/// A world whose one car is shared with the account under a grant of these
+/// level 2 child codes (owned when `grant` is `None`), whose
+/// getLatestConfig fails, so the car's capabilities are unknown, and a
+/// client that lets missing data through, or every refusal with `allow_all`.
+async fn guest_world(grant: Option<&[&str]>, allow_all: bool) -> (World, BydClient<ProductionEnv>) {
+    let world = World::start([Account::new(USER, PASSWORD)]).await;
+    let vehicle = match grant {
+        Some(codes) => json!({
+            "vin": VIN, "energyType": "0", "empowerType": -1, "empowerId": 7,
+            "rangeDetailList": [{"code": "2", "childList": codes.iter()
+                .map(|code| json!({"code": code})).collect::<Vec<_>>()}],
+        }),
+        None => json!({"vin": VIN, "energyType": "0"}),
+    };
+    world.server.reply(VEHICLES, Reply::Data(json!([vehicle])));
+    world.server.reply(LATEST_CONFIG, Reply::code("1001"));
+    world
+        .server
+        .reply(VERIFY_PIN, Reply::Data(json!({"ok": true})));
+    world.server.reply(
+        REMOTE_CONTROL,
+        Reply::Data(json!({"controlState": 1, "requestSerial": "S1"})),
+    );
+    world.server.reply(
+        REMOTE_CONTROL_RESULT,
+        Reply::Data(json!({"controlState": 1})),
+    );
+    let mut options = ClientOptions::default();
+    options.gate_policy = Some(Arc::new(move |_vin, verdict| {
+        allow_all
+            || verdict.supported
+            || ["function_no_missing", "learn_info_missing"].contains(&verdict.reason.as_str())
+    }));
+    let client = world.client(world.config(USER, false), options);
+    client.login().await.unwrap();
+    client.get_vehicles().await.unwrap();
+    client.enable_commands();
+    (world, client)
+}
+
+/// Sends `command` (no control parameters) and says whether it was posted.
+async fn posted(world: &World, client: &BydClient<ProductionEnv>, command: RemoteCommand) -> bool {
+    let before = world.server.requests_to(REMOTE_CONTROL).len();
+    let outcome = client
+        .remote_control(VIN, command, None, Some("123456"), 1, Some(0.0))
+        .await;
+    if let Err(error) = &outcome {
+        if error.code() == "command_gate_blocked" {
+            assert_eq!(world.server.requests_to(REMOTE_CONTROL).len(), before);
+            return false;
+        }
+    }
+    world.server.requests_to(REMOTE_CONTROL).len() > before
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_guest_grant_refuses_without_the_cars_capabilities() {
+    // The car's capabilities are unknown, the case "allow missing data" is
+    // for. The grant allows basic control and only the lock functionNo:
+    // closing the windows stays refused, locking goes through.
+    let (world, client) = guest_world(Some(&["21", "1005"]), false).await;
+    assert!(!posted(&world, &client, RemoteCommand::CloseWindows).await);
+    assert!(posted(&world, &client, RemoteCommand::Lock).await);
+    world.server.shutdown().await;
+    // An owner is not narrowed by any grant.
+    let (world, client) = guest_world(None, false).await;
+    assert!(posted(&world, &client, RemoteCommand::CloseWindows).await);
+    world.server.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_guest_grant_refuses_a_seat_command_without_a_seat() {
+    // Without chairType pyBYD answers seat_target_unknown before it reads
+    // the grant. A guest without basic control ("21") is refused even by a
+    // policy that allows everything; one with it is not.
+    let (world, client) = guest_world(Some(&["43"]), true).await;
+    assert!(!posted(&world, &client, RemoteCommand::SeatClimate).await);
+    world.server.shutdown().await;
+    let (world, client) = guest_world(Some(&["21"]), true).await;
+    assert!(posted(&world, &client, RemoteCommand::SeatClimate).await);
+    world.server.shutdown().await;
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn the_request_observer_sees_every_request() {
     let world = World::start([Account::new(USER, PASSWORD)]).await;
@@ -605,7 +688,7 @@ fn send<F: std::future::Future + Send>(_: F) {}
 #[allow(dead_code)]
 fn every_method_is_send(client: &BydClient<ProductionEnv>) {
     use openbyd_client::client::ChargePollSettings;
-    use openbyd_protocol::models::control::{BatteryHeatParams, RemoteCommand};
+    use openbyd_protocol::models::control::BatteryHeatParams;
     use openbyd_protocol::models::message_center::NotificationCategory;
     let vin = VIN;
     send(client.login());

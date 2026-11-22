@@ -134,6 +134,59 @@ def test_no_gate_policy_sends_what_a_guest_grant_refuses(world) -> None:
     assert world.requests(REMOTE) == []
 
 
+def guest_posted(world, grant: list[str] | None, policy: Any, call: Any) -> bool:
+    """Whether ``call(client)`` posts a command on a car shared under ``grant``
+    (owned when ``None``) whose getLatestConfig fails (capabilities unknown)."""
+    if grant is None:
+        vehicle = {"vin": VIN, "energyType": "0"}
+    else:
+        vehicle = {"vin": VIN, "energyType": "0", "empowerType": -1, "empowerId": 7,
+                   "rangeDetailList": [{"code": "2", "childList": [{"code": code} for code in grant]}]}
+    world.server.reply(VEHICLES, world.Reply.data([vehicle]))
+    world.server.reply(LATEST_CONFIG, world.Reply.code("1001"))
+    world.server.reply(REMOTE, world.Reply.data(DONE))
+    before = len(world.requests(REMOTE))
+
+    async def main() -> None:
+        async with world.client(gate_policy=policy) as client:
+            await client.verify_command_access(VIN)
+            await client.get_vehicles()
+            try:
+                await call(client)
+            except exceptions.BydEndpointNotSupportedError as error:
+                assert error.code == "command_gate_blocked"
+
+    run(main())
+    return len(world.requests(REMOTE)) > before
+
+
+def test_a_guest_grant_refuses_without_the_cars_capabilities(world) -> None:
+    # Unknown capabilities are what allow_missing_data lets through; the grant
+    # (basic control, only the lock functionNo) still refuses closing windows.
+    def close(client: Any) -> Any:
+        return client.close_windows(VIN)
+
+    def lock(client: Any) -> Any:
+        return client.lock(VIN)
+
+    for policy in ["allow_missing_data", lambda vin, verdict: True]:
+        assert not guest_posted(world, ["21", "1005"], policy, close)
+        assert guest_posted(world, ["21", "1005"], policy, lock)
+    assert guest_posted(world, None, "allow_missing_data", close)
+
+
+def test_a_guest_grant_refuses_a_seat_command_without_a_seat(world) -> None:
+    # No chair_type: seat_target_unknown is decided before the grant is read.
+    def seat(client: Any) -> Any:
+        return client.set_seat_climate(VIN, params={})
+
+    def allow_all(vin: str, verdict: Any) -> bool:
+        return True
+
+    assert not guest_posted(world, ["43"], allow_all, seat)
+    assert guest_posted(world, ["21"], allow_all, seat)
+
+
 def test_gate_policy(world, caplog) -> None:
     missing = {"cfFixedList": []}
     refused = lock_with(world, functions=missing)

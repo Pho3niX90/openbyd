@@ -464,6 +464,93 @@ fn no_gate_policy_sends_what_a_guest_grant_refuses() {
     assert!(world.requests(REMOTE).is_empty());
 }
 
+/// A world whose car is shared under a grant of these level 2 child codes
+/// (owned when `None`) and whose getLatestConfig fails, so the car's
+/// capabilities are unknown.
+fn guest_world(grant: Option<&[&str]>) -> World {
+    let world = World::new();
+    let vehicle = match grant {
+        Some(codes) => json!({
+            "vin": VIN, "energyType": "0", "empowerType": -1, "empowerId": 7,
+            "rangeDetailList": [{"code": "2", "childList": codes.iter()
+                .map(|code| json!({"code": code})).collect::<Vec<_>>()}],
+        }),
+        None => json!({"vin": VIN, "energyType": "0"}),
+    };
+    world.reply(VEHICLES, json!({"data": [vehicle]}));
+    world.reply(LATEST_CONFIG, json!({"code": "1001"}));
+    world.reply(
+        REMOTE,
+        json!({"data": {"controlState": 1, "requestSerial": "S1"}}),
+    );
+    world
+}
+
+/// Calls `method` with `args` on a client with this gate policy; whether it
+/// was posted (a refused one is checked to be `command_gate_blocked`).
+fn posted(world: &World, policy: &str, method: &str, args: Value) -> bool {
+    let (client, recorder) = world.client(json!({}), json!({"gate_policy": policy}));
+    let allow: Answerer = Box::new(|_, _| Some(json!({"value": true})));
+    recorder.answer.set(allow).ok();
+    ok(&client, "verify_command_access", vin());
+    ok(&client, "get_vehicles", json!({}));
+    let before = world.requests(REMOTE).len();
+    let mut full = vin();
+    full.as_object_mut()
+        .unwrap()
+        .extend(args.as_object().unwrap().clone());
+    if let Err(error) = call(&client, method, full) {
+        if error.code.as_deref() == Some("command_gate_blocked") {
+            assert_eq!(world.requests(REMOTE).len(), before);
+            return false;
+        }
+    }
+    world.requests(REMOTE).len() > before
+}
+
+#[test]
+fn a_guest_grant_refuses_without_the_cars_capabilities() {
+    // Unknown capabilities are what "allow_missing_data" lets through. The
+    // grant allows basic control and only the lock functionNo: closing the
+    // windows stays refused, under the built-in policy and the host's.
+    let world = guest_world(Some(&["21", "1005"]));
+    for policy in ["allow_missing_data", "host"] {
+        assert!(
+            !posted(&world, policy, "close_windows", json!({})),
+            "{policy}"
+        );
+        assert!(posted(&world, policy, "lock", json!({})), "{policy}");
+    }
+    let owner = guest_world(None);
+    assert!(posted(
+        &owner,
+        "allow_missing_data",
+        "close_windows",
+        json!({})
+    ));
+}
+
+#[test]
+fn a_guest_grant_refuses_a_seat_command_without_a_seat() {
+    // No chair_type: pyBYD answers seat_target_unknown before reading the
+    // grant. A host policy that allows everything still cannot send it for
+    // a guest without basic control ("21"), and can for one with it.
+    let without = guest_world(Some(&["43"]));
+    assert!(!posted(
+        &without,
+        "host",
+        "set_seat_climate",
+        json!({"params": {}})
+    ));
+    let with = guest_world(Some(&["21"]));
+    assert!(posted(
+        &with,
+        "host",
+        "set_seat_climate",
+        json!({"params": {}})
+    ));
+}
+
 #[test]
 fn the_gate_policy_is_the_built_in_one_or_the_hosts() {
     let world = World::new();

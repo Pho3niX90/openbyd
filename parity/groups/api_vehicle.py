@@ -11,6 +11,7 @@ from parity.flow_cases import (
     corpus,
     data_source,
     dumped,
+    keep_representable,
     model_cases,
     model_payloads,
     shape_replies,
@@ -19,6 +20,7 @@ from parity.flow_cases import (
 )
 from parity.framework import Group, random_text
 from parity.groups.pyjson import random_json
+from parity.models_support import TIMESTAMP_VALUES, timestamp_safe
 from parity.groups.config import SAMPLE_SESSION
 
 group = Group("api_vehicle", crate="client")
@@ -87,8 +89,13 @@ def vehicles(rng):
 def empower_reply(rng):
     reply = dict(rng.choice(EMPOWER_REPLIES))
     if rng.random() < 0.5:
-        reply["data"] = {**(reply.get("data") if isinstance(reply.get("data"), dict) else {}),
-                         rng.choice(["empowerId", "authPeriod", "email", "expireDate"]): random_json(rng)}
+        data = dict(reply.get("data") if isinstance(reply.get("data"), dict) else {})
+        key = rng.choice(["empowerId", "authPeriod", "email", "expireDate"])
+        # A date Windows cannot convert fails there and parses on Linux; keep to the portable ones.
+        value = random_json(rng) if key != "expireDate" else rng.choice([*TIMESTAMP_VALUES, random_json(rng)])
+        if key != "expireDate" or timestamp_safe(value):
+            data[key] = value
+        reply["data"] = data
     return reply
 
 
@@ -102,3 +109,7 @@ def fuzz(rng):
     while True:
         yield next(lists)
         yield next(details)
+
+
+# A grant id beyond i64 (docs/porting-models.md, "Representation limits").
+keep_representable(group)

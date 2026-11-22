@@ -302,6 +302,13 @@ def recorded():
     for schedule in SCHEDULES:
         yield case("save_standby_plan", {"replies": [SAVED, LIST_PRESET]}, plan=PRESET, schedule=schedule)
         yield case("save_standby_plan", {"replies": [SAVED, LIST_PRESET]}, plan=ms.NEW_PLAN, schedule=schedule)
+    # #91: the save's message comes back with the list; a refused once run is 6111.
+    for saved in [reply({"message": "La hora está a menos de 20 minutos; se omite hoy"}), reply({"message": ""}),
+                  reply({}), reply({"message": None}), reply([])]:
+        yield case("save_standby_plan", {"replies": [saved, LIST_PRESET]}, plan=PRESET, schedule=SCHEDULES[0])
+    yield case("save_standby_plan", {"replies": [error_reply("6111", "Hora no válida")]}, plan=PRESET, schedule=SCHEDULES[0])
+    yield case("create_standby_plan", {"replies": [LIST_PRESET, error_reply("6111")]}, name="Test plan", commands=COMMANDS,
+               schedule=SCHEDULES[0])
 
     # create_standby_plan
     for script in create_scripts():
@@ -327,6 +334,12 @@ def recorded():
     for plan_id in flows.PLAN_IDS[:8]:
         yield case("run_standby_plan", {"replies": [SERIAL, DONE], "config": MADRID}, plan_id=plan_id, poll_interval=0.0)
     yield "client.run_standby_plan", client_case(state=ready, replies=[SERIAL, PENDING, DONE], vin="", plan_id=PLAN_ID)
+    # pyBYD #111: an expiry while the result is polled does not run the plan again.
+    for code in ["1002", "1030", "1003"]:
+        yield case("run_standby_plan", {"replies": [SERIAL, error_reply(code), *login_replies(), SERIAL, DONE]},
+                   plan_id=PLAN_ID, poll_interval=0.0)
+        yield case("run_standby_plan", {"replies": [error_reply(code), *login_replies(), SERIAL, DONE]},
+                   plan_id=PLAN_ID, poll_interval=0.0)
 
 
 def _plans_reply(rng, known: list[dict]) -> dict:

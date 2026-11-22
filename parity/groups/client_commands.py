@@ -11,6 +11,7 @@ error and commands not enabled. The charging commands go through
 from __future__ import annotations
 
 from parity.api_support import (
+    LIVE_SESSION,
     ALL_FUNCTIONS_CONFIG,
     COMMAND_PARAMS,
     DEDICATED_HEAT_CONFIG,
@@ -117,7 +118,53 @@ def outcome_scripts() -> list[dict]:
         {"replies": [TRIGGER, POLL_DONE], "state": ready_state(guest_vins={VIN: True})},
         # MQTT not running: straight to polling
         {"replies": [TRIGGER, POLL_DONE], "state": ready_state(mqtt=False)},
+        # pyBYD #111: before the trigger is dispatched a session, token or
+        # clock error is retried; after it, never (the command is not sent twice)
+        {"replies": [error_reply("1030"), *login_replies(), TRIGGER, POLL_DONE]},
+        {"replies": [error_reply("1003"), TRIGGER, POLL_DONE]},
+        {"replies": [TRIGGER, error_reply("1030"), *login_replies(), TRIGGER, POLL_DONE]},
+        {"replies": [TRIGGER, error_reply("1003"), TRIGGER, POLL_DONE]},
+        {"replies": [TRIGGER, error_reply("1002"), TRIGGER, POLL_DONE], "options": {"command_retries": 3}},
+        {"replies": [error_reply("1030"), ok_reply(SAMPLE_SESSION, REFRESHED), TRIGGER, POLL_DONE],
+         "state": ready_state(session=REFRESHABLE)},
+        # pyBYD #107: a refusal is never sent again, even with retries asked for
+        {"replies": [TRIGGER, POLL_FAILED, TRIGGER, POLL_DONE], "options": {"command_retries": 3}},
+        {"replies": [reply({"controlState": 2})] * 3, "options": {"command_retries": 3}},
+        {"replies": [TRIGGER, POLL_DONE], "mqtt": [ack(1.0, {"res": 3, "message": "Door open"})],
+         "options": {"command_retries": 3}},
+        {"replies": [TRIGGER, *[POLL_PENDING] * 10, TRIGGER, POLL_DONE], "options": {"command_retries": 2}},
     ]
+
+
+REFRESHABLE = {**LIVE_SESSION, "refresh_token": "REFRESH-synthetic"}
+REFRESHED = {"signToken": "SIGN-2", "encryToken": "ENCRY-2"}
+#: Guest grants (pyBYD #103): basic control and charging, no location, no battery heat.
+RANGE_TREE = [
+    {"code": "2", "name": "Keys & Control", "childList": [{"code": "21", "name": "Basic control", "childList": []}]},
+    {"code": "4", "name": "More control", "childList": [{"code": "41", "name": "Scheduled charging", "childList": []}]},
+]
+GUEST_CAPS = {"cfFixedList": [{"functionNo": no} for no in
+                              ["1001", "1005", "1026", "10020004", "10020001", "10100001", "1012"]]}
+
+
+def guest_cases():
+    """A shared guest's grant decides which commands are sent."""
+    grants = [RANGE_TREE, [{"code": "31"}], [{"code": "2", "childList": [{"code": "21"}, {"code": "1005"}]}],
+              [{"code": "21"}, {"code": "2101"}], []]
+    for grant in grants:
+        vehicle = {**VEHICLE, "empowerType": -1, "empowerId": 114149, "rangeDetailList": grant}
+        state = logged_in(vehicles=[vehicle], capabilities={VIN: GUEST_CAPS}, commands_enabled=True,
+                          guest_vins={VIN: True})
+        for method, extra in [("lock", {}), ("close_windows", {}), ("set_battery_heat", {"params": {"on": True}}),
+                              ("start_charging", {}), ("start_climate", {"params": {}})]:
+            pwd = {} if method == "start_charging" else {"command_pwd": PIN}
+            yield f"client.{method}", client_case(state=state, replies=[TRIGGER, POLL_DONE, reply({"res": 2})], vin=VIN,
+                                                  **extra, **pwd)
+    owner = {**VEHICLE, "empowerType": 2, "rangeDetailList": [{"code": "31"}]}
+    yield "client.set_battery_heat", client_case(
+        state=logged_in(vehicles=[owner], capabilities={VIN: GUEST_CAPS}, commands_enabled=True),
+        replies=[TRIGGER, POLL_DONE], vin=VIN, params={"on": True}, command_pwd=PIN,
+    )
 
 
 def gate_and_pin_cases(method: str, base: dict) -> list[dict]:
@@ -277,6 +324,15 @@ def recorded():  # noqa: C901
             {"replies": [error_reply("1001")]},
             {"replies": [charge_trigger, error_reply("6051"), error_reply("6051")]},
             {"replies": [error_reply("1002"), *login_replies(), charge_trigger, reply({"res": 2})]},
+            # dispatched: an expiry while polling is not retried (pyBYD #111)
+            {"replies": [charge_trigger, error_reply("1002"), *login_replies(), charge_trigger, reply({"res": 2})],
+             "mqtt_timeout": 0.0},
+            {"replies": [charge_trigger, error_reply("1030"), charge_trigger], "mqtt_timeout": 0.0},
+            {"replies": [error_reply("1003"), charge_trigger, reply({"res": 2})], "mqtt_timeout": 0.0},
+            # the official ladder by default, a fixed interval when asked
+            {"replies": [charge_trigger, *[charge_pending] * 11, reply({"res": 2})], "mqtt_timeout": 0.0,
+             "poll_attempts": 12},
+            {"replies": [charge_trigger, charge_pending, reply({"res": 2})], "mqtt_timeout": 0.0, "poll_interval": 2.0},
             {"replies": [charge_trigger, reply({"res": 2})], "mqtt_timeout": 0.0, "poll_interval": 1.0, "poll_attempts": 1},
             {"replies": [charge_trigger, reply({"res": 2})], "state": ready_state(mqtt=False)},
             {"replies": [], "state": logged_in(vehicles=[VEHICLE], capabilities={VIN: {"cfFixedList": []}})},
@@ -294,6 +350,7 @@ def recorded():  # noqa: C901
     # stop_charging never sends anything (upstream test_stop_charging)
     yield "client.stop_charging", client_case(state=ready_state(), vin=VIN)
     yield "client.stop_charging", client_case(vin=VIN)
+    yield from guest_cases()
     for enable, replies in [
         (True, [reply({"result": "ok"})]),
         (False, [reply({})]),

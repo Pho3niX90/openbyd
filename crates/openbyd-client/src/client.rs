@@ -53,25 +53,55 @@
 //! [`CarRouter`].
 
 /// pyBYD's `_call_with_reauth`: evaluates `$call` (an expression with
-/// `.await`), and once more after a fresh session when it fails with
-/// `BydSessionExpiredError`; a failing re-login is the error.
+/// `.await`), and once more when it fails with
+///
+/// - `BydTokenRefreshError` (1030), after refreshing the tokens (or, when
+///   that fails, a fresh login);
+/// - `BydServerTimeError` (1003), at once: the transport has taken BYD's
+///   clock from the reply's `Date` header;
+/// - `BydSessionExpiredError`, after a fresh session;
+/// - `BydServiceBusyError` (1008), when `$probe` is true (read-only vehicle
+///   endpoints) and [`BydClient::recover_busy_session`] finds the session
+///   was the problem and recovers it.
+///
+/// `$retry_if` is evaluated before each of the first three retries and can
+/// veto them: a command passes "not dispatched yet", so it is never sent
+/// twice. A failing re-login is the error.
 ///
 /// A macro, not a method taking an async closure: the compiler cannot yet
 /// prove such closures' futures `Send` for every lifetime, and every client
 /// method must be `Send`.
-macro_rules! with_reauth {
-    ($client:expr, $call:expr) => {{
+macro_rules! reauth {
+    ($client:expr, $probe:expr, $retry_if:expr, $call:expr) => {{
+        use openbyd_protocol::error::ErrorKind as Kind;
         let mut retried = false;
         loop {
             match $call {
+                Err(error) if !retried && error.is_a(Kind::BydServiceBusyError) => {
+                    if $probe && $client.recover_busy_session(&error).await {
+                        retried = true;
+                    } else {
+                        break Err(error);
+                    }
+                }
                 Err(error)
                     if !retried
-                        && error
-                            .is_a(openbyd_protocol::error::ErrorKind::BydSessionExpiredError) =>
+                        && (error.is_a(Kind::BydSessionExpiredError)
+                            || error.is_a(Kind::BydServerTimeError)) =>
                 {
+                    if !$retry_if {
+                        break Err(error);
+                    }
                     retried = true;
-                    $client.invalidate_session();
-                    if let Err(relogin) = $client.ensure_session().await {
+                    let renewed = if error.is_a(Kind::BydTokenRefreshError) {
+                        $client.refresh_or_relogin().await
+                    } else if error.is_a(Kind::BydServerTimeError) {
+                        Ok(())
+                    } else {
+                        $client.invalidate_session();
+                        $client.ensure_session().await.map(drop)
+                    };
+                    if let Err(relogin) = renewed {
                         // With re-login disabled, the expiry BYD reported
                         // (its code says why) is more useful than ours.
                         break Err(if relogin.code() == $crate::client::RELOGIN_DISABLED {
@@ -88,11 +118,20 @@ macro_rules! with_reauth {
 }
 
 /// pyBYD's `_authed_call`: runs the flow `$flow` with `$cx`, the context of
-/// the current session, under [`with_reauth`].
+/// the current session, under [`reauth`]; `probe` turns on the 1008
+/// session probe (pyBYD's `probe_busy_session=True`).
 macro_rules! authed {
     ($client:expr, |$cx:ident| $flow:expr) => {
-        with_reauth!(
+        authed!(@run $client, false, |$cx| $flow)
+    };
+    ($client:expr, probe, |$cx:ident| $flow:expr) => {
+        authed!(@run $client, true, |$cx| $flow)
+    };
+    (@run $client:expr, $probe:expr, |$cx:ident| $flow:expr) => {
+        reauth!(
             $client,
+            $probe,
+            true,
             async {
                 let session = $client.ensure_session().await?;
                 $client.require_transport()?;
@@ -111,31 +150,36 @@ mod production;
 pub(crate) mod push;
 mod standby;
 
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::fmt;
 use std::future::Future;
 use std::panic::{AssertUnwindSafe, catch_unwind};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError, Weak};
 use std::time::{Duration, Instant};
 
 use openbyd_protocol::coerce::IntEnum;
 use openbyd_protocol::config::BydConfig;
+use openbyd_protocol::constants::{COMMAND_POLL_DELAYS_S, resolve_poll_delays};
 use openbyd_protocol::envelope::{build_login_request, parse_login_response};
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::models::base::BydModel;
 use openbyd_protocol::models::booking::BookingList;
 use openbyd_protocol::models::charging::ChargingStatus;
 use openbyd_protocol::models::command_gating::CommandGateVerdict;
+use openbyd_protocol::models::command_gating::GUEST_PERMISSION_GPS;
 use openbyd_protocol::models::control::{CommandAck, CommandAckEvent, CommandLifecycleEvent};
 use openbyd_protocol::models::energy::EnergyConsumption;
 use openbyd_protocol::models::gps::GpsInfo;
 use openbyd_protocol::models::hvac::HvacStatus;
 use openbyd_protocol::models::latest_config::{VehicleCapabilities, VehicleLatestConfig};
 use openbyd_protocol::models::message_center::{NotificationCategory, VehicleMsgItemInfo};
+use openbyd_protocol::models::ota::OtaUpgradeInfo;
 use openbyd_protocol::models::push_notification::PushNotificationState;
 use openbyd_protocol::models::realtime::VehicleRealtimeData;
 use openbyd_protocol::models::smart_charging::{AcCurrentLimit, SmartChargingSchedule};
-use openbyd_protocol::models::vehicle::{EnergyType, Vehicle};
+use openbyd_protocol::models::vehicle::{EmpowerDetail, EnergyType, Vehicle};
 use openbyd_protocol::mqtt::{MqttBootstrap, MqttEvent};
 use openbyd_protocol::pyjson::py_str;
 use openbyd_protocol::session::Session;
@@ -150,8 +194,8 @@ use crate::api::smart_charging::{
 use crate::api::standby::{SendFetchFn, is_send_ready};
 use crate::api::vehicle::parse_model;
 use crate::api::{
-    booking, charging, energy, gps, hvac, latest_config, message_center, push_notifications,
-    realtime, smart_charging, vehicle, vehicle_settings,
+    booking, charging, energy, gps, hvac, latest_config, login, message_center, ota,
+    push_notifications, realtime, smart_charging, vehicle, vehicle_settings,
 };
 use crate::env::{BoxFuture, ClientEnv, Env, MqttSink};
 use crate::http::{HttpEnv, HttpPool};
@@ -344,7 +388,8 @@ pub struct ClientOptions {
     /// `"learn_info_missing"` lets commands through for cars whose
     /// capability data is incomplete.
     pub gate_policy: Option<GatePolicy>,
-    /// `command_retries` of every remote command (default 3, pyBYD's).
+    /// `command_retries` of every remote command (default 1, pyBYD's: a
+    /// command is sent once; the car's refusal is never sent again).
     /// 1 sends a refused or unconfirmed command once and never again.
     pub command_retries: i64,
     /// Turns a given PIN into the `commandPwd` sent. `None` (the default)
@@ -372,7 +417,7 @@ impl Default for ClientOptions {
             on_mqtt_connack_refused: None,
             command_ack_ttl_seconds: 300.0,
             gate_policy: None,
-            command_retries: 3,
+            command_retries: 1,
             pin_resolver: None,
             relogin: ReloginPolicy::Password,
             request_observer: None,
@@ -443,21 +488,27 @@ impl Default for PollSettings {
 pub struct ChargePollSettings {
     /// Seconds to wait for the MQTT push; `None` is `config.mqtt_timeout`.
     pub mqtt_timeout: Option<f64>,
-    /// HTTP polls after the MQTT wait (default 6).
+    /// HTTP polls after the MQTT wait (default 10).
     pub poll_attempts: i64,
-    /// Seconds slept before each poll (default 2.0).
-    pub poll_interval: f64,
+    /// Seconds slept before each poll, or `None` (the default) for the
+    /// official app's 33 s ladder ([`COMMAND_POLL_DELAYS_S`]).
+    pub poll_interval: Option<f64>,
 }
 
 impl Default for ChargePollSettings {
     fn default() -> Self {
         Self {
             mqtt_timeout: None,
-            poll_attempts: 6,
-            poll_interval: 2.0,
+            poll_attempts: 10,
+            poll_interval: None,
         }
     }
 }
+
+/// How long after a 1008 session probe another may run (seconds).
+pub const BUSY_PROBE_COOLDOWN_S: f64 = 60.0;
+/// How long after a recovery that a 1008 probe triggered no probe runs (seconds).
+pub const BUSY_REAUTH_COOLDOWN_S: f64 = 600.0;
 
 // ---------------------------------------------------------------------------
 // The observed environment
@@ -496,6 +547,10 @@ impl<E: Env> Env for Observed<E> {
 
     fn sleep(&self, seconds: f64) -> impl Future<Output = ()> + Send {
         self.env.sleep(seconds)
+    }
+
+    fn server_time_offset_ms(&self) -> i64 {
+        self.env.server_time_offset_ms()
     }
 
     async fn post_secure(
@@ -611,6 +666,10 @@ struct State {
     decrypt_reauths: i64,
     recovery_attempts: i64,
     recovery_last_at: f64,
+    /// pyBYD's `_busy_probe_last_at`: the last 1008 session probe.
+    busy_probe_last_at: Option<f64>,
+    /// pyBYD's `_busy_reauth_last_at`: the last recovery a probe started.
+    busy_reauth_last_at: Option<f64>,
     pending: Vec<PendingCommand>,
     matched: i64,
     expired: i64,
@@ -815,19 +874,139 @@ impl<E: ClientEnv> BydClient<E> {
         self.require_transport()?;
         let env = &self.inner.env;
         let config = &self.inner.config;
-        let now_ms = env.now_ms();
-        let random = env.random_bytes();
-        let outer = build_login_request(config, now_ms, &random, env.now_ms());
-        let response = env.post_secure(LOGIN_ENDPOINT, &outer).await?;
-        let token = parse_login_response(&response, &config.password)?;
-        let session = Session::new(
-            &token.user_id,
-            &token.sign_token,
-            &token.encry_token,
-            env.monotonic(),
-            session_ttl(config),
-        );
+        // A login refused for the clock (1003) is tried once more: the
+        // transport has taken BYD's clock from the reply's `Date` header.
+        let mut attempt = 0;
+        let token = loop {
+            let now_ms = env.now_ms() + env.server_time_offset_ms();
+            let random = env.random_bytes();
+            let outer = build_login_request(config, now_ms, &random, env.now_ms());
+            let response = env.post_secure(LOGIN_ENDPOINT, &outer).await?;
+            match parse_login_response(&response, &config.password) {
+                Ok(token) => break token,
+                Err(error) if error.is_a(ErrorKind::BydServerTimeError) && attempt == 0 => {
+                    attempt += 1;
+                }
+                Err(error) => return Err(error),
+            }
+        };
+        let session = token.to_session(env.monotonic(), session_ttl(config));
         Ok(self.install_session(session).await)
+    }
+
+    /// pyBYD's `_refresh_or_relogin`: new tokens from `/app/token/refresh`
+    /// when the session has a refresh token, else (or when that fails with
+    /// a pyBYD error) a fresh session.
+    ///
+    /// The refreshed session keeps the guest state but, as in pyBYD, the
+    /// client's guest map stays the old session's until the next login.
+    pub(crate) async fn refresh_or_relogin(&self) -> Result<(), Error> {
+        let session = {
+            let state = self.state();
+            state.session.clone().filter(|_| !state.closed)
+        };
+        if let Some(session) = session.filter(|session| !session.refresh_token().is_empty()) {
+            match login::refresh_session_token(self.context(&session)).await {
+                Ok(token) => {
+                    let refreshed = Arc::new(session.with_refreshed_tokens(
+                        &token.sign_token,
+                        &token.encry_token,
+                        Some(&token.refresh_token),
+                        self.inner.env.monotonic(),
+                    ));
+                    let had_runtime = {
+                        let mut state = self.state();
+                        state.session = Some(Arc::clone(&refreshed));
+                        state.mqtt_started
+                    };
+                    if had_runtime {
+                        self.inner.env.update_mqtt_key(refreshed.content_key());
+                    }
+                    return Ok(());
+                }
+                Err(error) if error.is_a(ErrorKind::BydError) => {
+                    log::debug!("Token refresh failed; falling back to full re-login: {error}");
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        self.invalidate_session();
+        self.ensure_session().await.map(drop)
+    }
+
+    /// pyBYD's `_recover_busy_session`: whether a 1008 from a read-only
+    /// vehicle endpoint was really an invalidated session (BYD's
+    /// single-session rule answers 1008 on vehicle endpoints while account
+    /// endpoints report the expiry), and the session was recovered so the
+    /// call can be tried once more.
+    ///
+    /// It asks the vehicle list with the current session, at most every
+    /// [`BUSY_PROBE_COOLDOWN_S`] and not within [`BUSY_REAUTH_COOLDOWN_S`] of
+    /// a recovery it started: 1030 refreshes the tokens, an expired session
+    /// logs in again. A session another call already replaced counts as
+    /// recovered. Any other outcome keeps the 1008.
+    pub(crate) async fn recover_busy_session(&self, error: &Error) -> bool {
+        if error.code() != "1008" {
+            return false;
+        }
+        let session = {
+            let state = self.state();
+            match (&state.session, state.closed) {
+                (Some(session), false) => Arc::clone(session),
+                _ => return false,
+            }
+        };
+        let now = self.inner.env.monotonic();
+        {
+            let mut state = self.state();
+            if state
+                .busy_reauth_last_at
+                .is_some_and(|last| now - last < BUSY_REAUTH_COOLDOWN_S)
+            {
+                log::debug!("Skipping 1008 session probe (re-auth cooldown active)");
+                return false;
+            }
+            if state
+                .busy_probe_last_at
+                .is_some_and(|last| now - last < BUSY_PROBE_COOLDOWN_S)
+            {
+                log::debug!("Skipping 1008 session probe (probe cooldown active)");
+                return false;
+            }
+            state.busy_probe_last_at = Some(now);
+        }
+        let probe = vehicle::fetch_vehicle_list(self.context(&session)).await;
+        let probe_error = match probe {
+            Ok(_) => {
+                log::debug!("1008 session probe succeeded: the session is valid");
+                return false;
+            }
+            Err(probe_error) if probe_error.is_a(ErrorKind::BydSessionExpiredError) => probe_error,
+            Err(probe_error) => {
+                log::debug!("1008 session probe failed ({probe_error}); keeping the 1008");
+                return false;
+            }
+        };
+        // Another call may have replaced the session meanwhile.
+        let replaced = {
+            let state = self.state();
+            state.session.as_ref().is_some_and(|current| {
+                !Arc::ptr_eq(current, &session) && !current.is_expired(self.inner.env.monotonic())
+            })
+        };
+        if replaced {
+            return true;
+        }
+        self.state().busy_reauth_last_at = Some(self.inner.env.monotonic());
+        let recovered = if probe_error.is_a(ErrorKind::BydTokenRefreshError) {
+            log::info!("1008 reflects a refreshable session; refreshing it");
+            self.refresh_or_relogin().await
+        } else {
+            log::info!("1008 reflects an invalidated session; logging in again");
+            self.invalidate_session();
+            self.ensure_session().await.map(drop)
+        };
+        recovered.is_ok()
     }
 
     /// The second half of pyBYD's `login`: the new session takes over the
@@ -988,6 +1167,50 @@ impl<E: ClientEnv> BydClient<E> {
         self.state().vehicle(vin).cloned()
     }
 
+    /// pyBYD's `_guest_permissions_for`: whether the cached vehicle is
+    /// shared with this account, and the permission codes its grant holds
+    /// (`(false, None)` for an owner or an unknown car).
+    pub(crate) fn guest_permissions_for(&self, vin: &str) -> (bool, Option<BTreeSet<String>>) {
+        match self.state().vehicle(vin) {
+            Some(cached) if cached.is_shared() => (true, Some(cached.granted_permission_codes())),
+            _ => (false, None),
+        }
+    }
+
+    /// A shared guest's grant in detail (pyBYD's `get_empower_detail`).
+    ///
+    /// Without `empower_id`, the cached vehicle's is used (the vehicle list
+    /// is fetched once on a miss); a car with none fails with
+    /// `BydEndpointNotSupportedError` (code `"not_shared_vehicle"`).
+    pub async fn get_empower_detail(
+        &self,
+        vin: &str,
+        empower_id: Option<i64>,
+    ) -> Result<EmpowerDetail, Error> {
+        let mut resolved = empower_id;
+        if resolved.is_none() {
+            let mut cached = self.vehicle_metadata(vin);
+            if cached.is_none() {
+                self.get_vehicles().await?;
+                cached = self.vehicle_metadata(vin);
+            }
+            resolved = cached.and_then(|vehicle| vehicle.empower_id);
+        }
+        let Some(empower_id) = resolved else {
+            return Err(Error::api(
+                ErrorKind::BydEndpointNotSupportedError,
+                format!(
+                    "get_empower_detail requires empower_id (VIN {vin} is not a shared guest grant)"
+                ),
+                "not_shared_vehicle",
+                vehicle::EMPOWER_DETAIL_ENDPOINT,
+            ));
+        };
+        authed!(self, probe, |cx| vehicle::fetch_empower_detail_by_vin(
+            cx, vin, empower_id
+        ))
+    }
+
     /// pyBYD's `_energy_type_for`: the cached energy type, fetching the
     /// vehicle list once on a miss; EV when unknown.
     async fn energy_type_for(&self, vin: &str) -> Result<EnergyType, Error> {
@@ -1026,7 +1249,9 @@ impl<E: ClientEnv> BydClient<E> {
         &self,
         vins: &[String],
     ) -> Result<Vec<(String, VehicleLatestConfig)>, Error> {
-        authed!(self, |cx| latest_config::fetch_latest_config(cx, vins))
+        authed!(self, probe, |cx| latest_config::fetch_latest_config(
+            cx, vins
+        ))
     }
 
     /// The latest config of one VIN; `BydDataUnavailableError` (code
@@ -1085,6 +1310,9 @@ impl<E: ClientEnv> BydClient<E> {
         let (trigger_info, serial) = fetch
             .fetch(cx, read.trigger_endpoint, read.vin, None)
             .await?;
+        if let Some(dispatched) = read.dispatched {
+            dispatched.store(true, Ordering::SeqCst);
+        }
         let merged = match &trigger_info {
             Value::Object(_) => trigger_info.clone(),
             _ => json!({}),
@@ -1131,9 +1359,14 @@ impl<E: ClientEnv> BydClient<E> {
             }
         }
         let mut unavailable = 0;
-        for _ in 0..read.poll_attempts.max(0) {
-            if read.poll_interval > 0.0 {
-                cx.env.sleep(read.poll_interval).await;
+        let delays = resolve_poll_delays(
+            read.poll_attempts,
+            read.poll_interval,
+            &COMMAND_POLL_DELAYS_S,
+        );
+        for delay in delays {
+            if delay > 0.0 {
+                cx.env.sleep(delay).await;
             }
             match fetch
                 .fetch(cx, read.poll_endpoint, read.vin, Some(&serial))
@@ -1198,8 +1431,10 @@ impl<E: ClientEnv> BydClient<E> {
     ) -> Result<VehicleRealtimeData, Error> {
         let energy_type = self.energy_type_for(vin).await?;
         let context = json!({"energy_type": {"EnergyType": energy_type.value()}});
-        with_reauth!(
+        reauth!(
             self,
+            true,
+            true,
             async {
                 let raw = self
                     .trigger_and_poll(TriggeredRead {
@@ -1211,8 +1446,9 @@ impl<E: ClientEnv> BydClient<E> {
                         mqtt_event_type: Some("vehicleInfo"),
                         mqtt_timeout: settings.mqtt_timeout,
                         poll_attempts: settings.poll_attempts,
-                        poll_interval: settings.poll_interval,
+                        poll_interval: Some(settings.poll_interval),
                         signal_retries: settings.signal_retries,
+                        dispatched: None,
                     })
                     .await?;
                 VehicleRealtimeData::parse_owned(raw, &context)
@@ -1224,9 +1460,29 @@ impl<E: ClientEnv> BydClient<E> {
 
     /// The vehicle's position: triggers a fix, waits for the MQTT push with
     /// its serial, and polls over HTTP if it does not come (pyBYD's `get_gps_info`).
+    ///
+    /// A shared guest whose grant (in the cached vehicle list) lacks the
+    /// location permission fails with `BydEndpointNotSupportedError` (code
+    /// `"guest_permission_denied"`) before anything is sent.
     pub async fn get_gps_info(&self, vin: &str, settings: PollSettings) -> Result<GpsInfo, Error> {
-        with_reauth!(
+        if let Some(cached) = self.vehicle_metadata(vin)
+            && cached.is_shared()
+            && !cached.has_permission(GUEST_PERMISSION_GPS)
+        {
+            return Err(Error::api(
+                ErrorKind::BydEndpointNotSupportedError,
+                format!(
+                    "get_gps_info blocked for shared VIN {vin}: guest permission \
+                     '{GUEST_PERMISSION_GPS}' not granted"
+                ),
+                "guest_permission_denied",
+                "/control/getGpsInfo",
+            ));
+        }
+        reauth!(
             self,
+            true,
+            true,
             async {
                 let raw = self
                     .trigger_and_poll(TriggeredRead {
@@ -1238,8 +1494,9 @@ impl<E: ClientEnv> BydClient<E> {
                         mqtt_event_type: None,
                         mqtt_timeout: settings.mqtt_timeout,
                         poll_attempts: settings.poll_attempts,
-                        poll_interval: settings.poll_interval,
+                        poll_interval: Some(settings.poll_interval),
                         signal_retries: settings.signal_retries,
+                        dispatched: None,
                     })
                     .await?;
                 parse_model(&raw)
@@ -1250,17 +1507,19 @@ impl<E: ClientEnv> BydClient<E> {
 
     /// Climate status (pyBYD's `get_hvac_status`).
     pub async fn get_hvac_status(&self, vin: &str) -> Result<HvacStatus, Error> {
-        authed!(self, |cx| hvac::fetch_hvac_status(cx, vin))
+        authed!(self, probe, |cx| hvac::fetch_hvac_status(cx, vin))
     }
 
     /// Charging status (pyBYD's `get_charging_status`).
     pub async fn get_charging_status(&self, vin: &str) -> Result<ChargingStatus, Error> {
-        authed!(self, |cx| charging::fetch_charging_status(cx, vin))
+        authed!(self, probe, |cx| charging::fetch_charging_status(cx, vin))
     }
 
     /// The smart charging schedule (pyBYD's `get_charging_schedule`).
     pub async fn get_charging_schedule(&self, vin: &str) -> Result<SmartChargingSchedule, Error> {
-        authed!(self, |cx| smart_charging::fetch_charging_schedule(cx, vin))
+        authed!(self, probe, |cx| smart_charging::fetch_charging_schedule(
+            cx, vin
+        ))
     }
 
     /// Live charging state and schedule from one `homePage` call (pyBYD's
@@ -1269,7 +1528,7 @@ impl<E: ClientEnv> BydClient<E> {
         &self,
         vin: &str,
     ) -> Result<(ChargingStatus, SmartChargingSchedule), Error> {
-        let raw = authed!(self, |cx| charging::fetch_charging_homepage(cx, vin))?;
+        let raw = authed!(self, probe, |cx| charging::fetch_charging_homepage(cx, vin))?;
         let status: ChargingStatus = parse_model(&Value::Object(raw.clone()))?;
         let schedule: SmartChargingSchedule =
             parse_model(&crate::api::control::with_vin(vin, &raw, false))?;
@@ -1287,7 +1546,7 @@ impl<E: ClientEnv> BydClient<E> {
             Some(energy_type) => energy_type,
             None => self.energy_type_for(vin).await?.into(),
         };
-        authed!(self, |cx| smart_charging::fetch_ac_current_limit(
+        authed!(self, probe, |cx| smart_charging::fetch_ac_current_limit(
             cx,
             vin,
             energy_type.clone()
@@ -1303,7 +1562,7 @@ impl<E: ClientEnv> BydClient<E> {
                 .into_iter()
                 .find(|name| !name.is_empty())
         });
-        authed!(self, |cx| energy::fetch_energy_consumption(
+        authed!(self, probe, |cx| energy::fetch_energy_consumption(
             cx,
             vin,
             power_type,
@@ -1313,7 +1572,9 @@ impl<E: ClientEnv> BydClient<E> {
 
     /// Push notification state (pyBYD's `get_push_state`).
     pub async fn get_push_state(&self, vin: &str) -> Result<PushNotificationState, Error> {
-        authed!(self, |cx| push_notifications::fetch_push_state(cx, vin))
+        authed!(self, probe, |cx| push_notifications::fetch_push_state(
+            cx, vin
+        ))
     }
 
     /// Turns a push notification type on or off; pyBYD's default type is
@@ -1358,7 +1619,34 @@ impl<E: ClientEnv> BydClient<E> {
 
     /// The scheduled-climate timers (pyBYD's `get_booking_list`).
     pub async fn get_booking_list(&self, vin: &str) -> Result<BookingList, Error> {
-        authed!(self, |cx| booking::fetch_booking_list(cx, vin))
+        authed!(self, probe, |cx| booking::fetch_booking_list(cx, vin))
+    }
+
+    /// The OTA firmware version, release notes and night auto-upgrade
+    /// settings (pyBYD's `get_ota_version`).
+    pub async fn get_ota_version(&self, vin: &str) -> Result<OtaUpgradeInfo, Error> {
+        authed!(self, probe, |cx| ota::fetch_ota_version(cx, vin))
+    }
+
+    /// Turns the night auto-upgrade on or off and sets its time, `H:mm`
+    /// (pyBYD's `set_ota_auto_upgrade`; its default time is `"2:00"`).
+    /// Needs [`commands_enabled`](Self::commands_enabled) and a PIN, as a
+    /// command does; `command_pwd` defaults to the config's `control_pin`.
+    pub async fn set_ota_auto_upgrade(
+        &self,
+        vin: &str,
+        enabled: bool,
+        auto_upgrade_time: &str,
+        command_pwd: Option<&str>,
+    ) -> Result<CommandAck, Error> {
+        let resolved = self.require_command_pwd(command_pwd)?;
+        authed!(self, |cx| ota::sync_auto_upgrade(
+            cx,
+            vin,
+            enabled,
+            auto_upgrade_time,
+            &resolved
+        ))
     }
 
     // -----------------------------------------------------------------------
@@ -1416,7 +1704,8 @@ impl<E: ClientEnv> BydClient<E> {
         self.state().mqtt_started && self.inner.env.mqtt_running()
     }
 
-    /// Stops MQTT and cancels every pending wait (pyBYD's `_stop_mqtt`).
+    /// Stops MQTT and ends every pending wait as if it timed out, so the
+    /// caller polls over HTTP instead (pyBYD's `_stop_mqtt`, since #98).
     pub fn stop_mqtt(&self) {
         let (started, waiters) = {
             let mut state = self.state();
@@ -1442,8 +1731,11 @@ struct TriggeredRead<'a> {
     mqtt_event_type: Option<&'a str>,
     mqtt_timeout: Option<f64>,
     poll_attempts: i64,
-    poll_interval: f64,
+    /// `None` is the official ladder.
+    poll_interval: Option<f64>,
     signal_retries: i64,
+    /// pyBYD's `on_trigger_dispatched`: set once the trigger was accepted.
+    dispatched: Option<&'a AtomicBool>,
 }
 
 /// The `fetch_fn` and `is_ready` of a `_trigger_and_poll`.

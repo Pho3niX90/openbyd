@@ -10,7 +10,11 @@ use openbyd_protocol::coerce::py_strip;
 use openbyd_protocol::config::BydConfig;
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::hashing::md5_hex;
-use openbyd_protocol::models::command_gating::{CommandGateVerdict, evaluate_command_gate};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use openbyd_protocol::models::command_gating::{
+    CommandGateVerdict, GuestScope, evaluate_command_gate,
+};
 use openbyd_protocol::models::control::{
     BatteryHeatParams, ChargeChangeResult, ClimateScheduleParams, ClimateStartParams, CommandAck,
     RemoteCommand, RemoteControlResult, SeatClimateParams, VerifyControlPasswordResponse,
@@ -159,7 +163,7 @@ impl<E: ClientEnv> BydClient<E> {
     }
 
     /// pyBYD's `_require_command_pwd`.
-    fn require_command_pwd(&self, command_pwd: Option<&str>) -> Result<String, Error> {
+    pub(crate) fn require_command_pwd(&self, command_pwd: Option<&str>) -> Result<String, Error> {
         if !self.commands_enabled() {
             return Err(Error::api(
                 ErrorKind::BydControlPasswordError,
@@ -185,9 +189,13 @@ impl<E: ClientEnv> BydClient<E> {
     }
 
     /// Sends a remote command and waits for its result (pyBYD's
-    /// `_remote_control`): the command gate, then `poll_remote_control` with
-    /// the MQTT waiter and the pending-command registry, retried once after
-    /// a fresh session when the session expired.
+    /// `_remote_control`): the command gate (with a shared guest's grant),
+    /// then `poll_remote_control` with the MQTT waiter and the
+    /// pending-command registry. A session expiry, token refresh or clock
+    /// error before the command is dispatched is retried once; after it,
+    /// never, so a command is not sent twice.
+    ///
+    /// `poll_interval` `None` polls on the official 33 s ladder.
     ///
     /// For the car layer and other callers that build their own commands;
     /// the named command methods call it. It does not check
@@ -200,7 +208,7 @@ impl<E: ClientEnv> BydClient<E> {
         control_params: Option<ControlParamsArg<'_>>,
         command_pwd: Option<&str>,
         poll_attempts: i64,
-        poll_interval: f64,
+        poll_interval: Option<f64>,
     ) -> Result<RemoteControlResult, Error> {
         let capabilities = self.get_vehicle_capabilities(vin, false).await;
         let params = control_params.map(|params| match params {
@@ -220,9 +228,15 @@ impl<E: ClientEnv> BydClient<E> {
             ControlParamsArg::Map(map) => map.clone(),
         });
         let learn_info = self.vehicle_fun_learn_info_for(vin).await;
-        let gate =
-            evaluate_command_gate(command, &capabilities, params.as_ref(), learn_info.as_ref())
-                .map_err(model_error)?;
+        let (is_shared, granted) = self.guest_permissions_for(vin);
+        let gate = evaluate_command_gate(
+            command,
+            &capabilities,
+            params.as_ref(),
+            learn_info.as_ref(),
+            GuestScope::new(is_shared, granted.as_ref()),
+        )
+        .map_err(model_error)?;
         if !self.gate_allows(vin, &gate) {
             let what = format!("Remote command {}", command.as_str());
             return Err(blocked(&what, vin, &gate, REMOTE_CONTROL_ENDPOINT));
@@ -236,13 +250,17 @@ impl<E: ClientEnv> BydClient<E> {
             command_retries: self.inner.options.command_retries,
             ..RemoteControlOptions::default()
         };
-        with_reauth!(
+        let trigger_dispatched = AtomicBool::new(false);
+        reauth!(
             self,
+            false,
+            !trigger_dispatched.load(Ordering::SeqCst),
             async {
                 let session = self.ensure_session().await?;
                 self.require_transport()?;
                 let waiter = ResultWaiter { client: self, vin };
                 let dispatched = |serial: &Value| {
+                    trigger_dispatched.store(true, Ordering::SeqCst);
                     if truthy(serial) {
                         self.register_pending_command(vin, serial, command.as_str());
                     }
@@ -274,7 +292,7 @@ impl<E: ClientEnv> BydClient<E> {
         command_pwd: Option<&str>,
     ) -> Result<RemoteControlResult, Error> {
         let pwd = self.require_command_pwd(command_pwd)?;
-        self.remote_control(vin, command, params, Some(&pwd), 10, 1.5)
+        self.remote_control(vin, command, params, Some(&pwd), 10, None)
             .await
     }
 
@@ -421,15 +439,18 @@ impl<E: ClientEnv> BydClient<E> {
             .await
     }
 
-    /// The gate of the charging commands (`START_CHARGE`'s).
+    /// The gate of the charging commands (`START_CHARGE`'s), with a shared
+    /// guest's grant.
     async fn charge_gate(&self, vin: &str, what: &str, endpoint: &str) -> Result<(), Error> {
         let capabilities = self.get_vehicle_capabilities(vin, false).await;
         let learn_info = self.vehicle_fun_learn_info_for(vin).await;
+        let (is_shared, granted) = self.guest_permissions_for(vin);
         let gate = evaluate_command_gate(
             RemoteCommand::StartCharge,
             &capabilities,
             None,
             learn_info.as_ref(),
+            GuestScope::new(is_shared, granted.as_ref()),
         )
         .map_err(model_error)?;
         if !self.gate_allows(vin, &gate) {
@@ -440,7 +461,8 @@ impl<E: ClientEnv> BydClient<E> {
 
     /// Saves a smart charging schedule and waits for the change to settle
     /// (pyBYD's `save_charging_schedule`). Times are `"HH:MM"` (the end may
-    /// be `"full"`); `charge_way` is `"s"`, `"e"` or weekday indices.
+    /// be `"full"`); `charge_way` is `"s"`, `"e"` or weekday indices. Once
+    /// the save is dispatched it is not sent again on a session error.
     #[allow(clippy::too_many_arguments)]
     pub async fn save_charging_schedule(
         &self,
@@ -459,8 +481,11 @@ impl<E: ClientEnv> BydClient<E> {
             charge_way,
             enabled,
         );
-        with_reauth!(
+        let dispatched = AtomicBool::new(false);
+        reauth!(
             self,
+            false,
+            !dispatched.load(Ordering::SeqCst),
             async {
                 let raw = self
                     .trigger_and_poll(TriggeredRead {
@@ -474,6 +499,7 @@ impl<E: ClientEnv> BydClient<E> {
                         poll_attempts: settings.poll_attempts,
                         poll_interval: settings.poll_interval,
                         signal_retries: 2,
+                        dispatched: Some(&dispatched),
                     })
                     .await?;
                 let result: ChargeChangeResult = parse_model(&raw)?;
@@ -511,7 +537,8 @@ impl<E: ClientEnv> BydClient<E> {
 
     /// Starts charging now and waits for the change to settle (pyBYD's
     /// `start_charging`). `res` 3 usually means the car is already charging
-    /// or full.
+    /// or full. Once the start is dispatched it is not sent again on a
+    /// session error.
     pub async fn start_charging(
         &self,
         vin: &str,
@@ -520,8 +547,11 @@ impl<E: ClientEnv> BydClient<E> {
         self.charge_gate(vin, "start_charging", TOGGLE_ENDPOINT)
             .await?;
         let fetch = make_change_charge_fetch_fn(true);
-        with_reauth!(
+        let dispatched = AtomicBool::new(false);
+        reauth!(
                     self,
+                    false,
+                    !dispatched.load(Ordering::SeqCst),
                     async {
             let raw = self
                 .trigger_and_poll(TriggeredRead {
@@ -535,6 +565,7 @@ impl<E: ClientEnv> BydClient<E> {
                     poll_attempts: settings.poll_attempts,
                     poll_interval: settings.poll_interval,
                     signal_retries: 2,
+                    dispatched: Some(&dispatched),
                 })
                 .await?;
             let result: ChargeChangeResult = parse_model(&raw)?;

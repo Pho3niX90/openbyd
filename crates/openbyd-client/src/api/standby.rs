@@ -49,6 +49,10 @@ pub const SEND_ENDPOINT: &str = "/control/standby-vehicles/send";
 /// Where a run's progress is polled.
 pub const SEND_RESULT_ENDPOINT: &str = "/control/standby-vehicles/send-result";
 
+/// Codes meaning a plan's run time was refused: a once plan less than 20
+/// minutes ahead or more than 30 days out (#91).
+pub const SCHEDULE_REFUSED_CODES: [&str; 1] = ["6111"];
+
 const NOT_SUPPORTED: ErrorCodes<'static> = ErrorCodes {
     not_supported_codes: Some(&ENDPOINT_NOT_SUPPORTED_CODES),
     extra_code_map: &[],
@@ -369,7 +373,11 @@ pub async fn save_standby_plan<E: Env>(
     schedule: &StandbySchedule,
 ) -> Result<Map<String, Value>, Error> {
     let inner = build_save_inner(cx.env, cx.config, vin, plan, schedule, None)?;
-    post_for_object(cx, SAVE_ENDPOINT, &inner, vin, NOT_SUPPORTED).await
+    let codes = ErrorCodes {
+        extra_code_map: &[(&SCHEDULE_REFUSED_CODES, ErrorKind::BydStandbyScheduleError)],
+        ..NOT_SUPPORTED
+    };
+    post_for_object(cx, SAVE_ENDPOINT, &inner, vin, codes).await
 }
 
 /// `_post_plan_id`: a request naming one plan by its id.

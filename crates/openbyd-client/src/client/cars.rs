@@ -16,6 +16,7 @@ use std::sync::{Arc, Weak};
 
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::models::charging::ChargingStatus;
+use openbyd_protocol::models::control::CommandAck;
 use openbyd_protocol::models::control::{
     BatteryHeatParams, ChargeChangeResult, ClimateScheduleParams, ClimateStartParams,
     RemoteControlResult, SeatClimateParams,
@@ -23,6 +24,7 @@ use openbyd_protocol::models::control::{
 use openbyd_protocol::models::energy::EnergyConsumption;
 use openbyd_protocol::models::gps::GpsInfo;
 use openbyd_protocol::models::hvac::HvacStatus;
+use openbyd_protocol::models::ota::OtaUpgradeInfo;
 use openbyd_protocol::models::realtime::VehicleRealtimeData;
 use openbyd_protocol::models::smart_charging::{AcCurrentLimit, SmartChargingSchedule};
 use openbyd_protocol::models::vehicle::Vehicle;
@@ -306,6 +308,20 @@ impl<E: ClientEnv> CarBackend for BydClient<E> {
         )
         .await
     }
+
+    async fn get_ota_version(&self, vin: &str) -> Result<OtaUpgradeInfo, Error> {
+        BydClient::get_ota_version(self, vin).await
+    }
+
+    async fn set_ota_auto_upgrade(
+        &self,
+        vin: &str,
+        enabled: bool,
+        auto_upgrade_time: &str,
+        command_pwd: Option<&str>,
+    ) -> Result<CommandAck, Error> {
+        BydClient::set_ota_auto_upgrade(self, vin, enabled, auto_upgrade_time, command_pwd).await
+    }
 }
 
 /// Every method goes to the client while it lives, and fails as a closed
@@ -429,6 +445,27 @@ impl<E: ClientEnv> CarBackend for ClientHandle<E> {
             end_charge_time,
             charge_way,
             enabled,
+        )
+        .await
+    }
+
+    async fn get_ota_version(&self, vin: &str) -> Result<OtaUpgradeInfo, Error> {
+        CarBackend::get_ota_version(&self.live()?, vin).await
+    }
+
+    async fn set_ota_auto_upgrade(
+        &self,
+        vin: &str,
+        enabled: bool,
+        auto_upgrade_time: &str,
+        command_pwd: Option<&str>,
+    ) -> Result<CommandAck, Error> {
+        CarBackend::set_ota_auto_upgrade(
+            &self.live()?,
+            vin,
+            enabled,
+            auto_upgrade_time,
+            command_pwd,
         )
         .await
     }

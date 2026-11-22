@@ -32,12 +32,13 @@ use openbyd_protocol::capabilities::{CommandCall, CommandPlan};
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::models::base::BydModel;
 use openbyd_protocol::models::charging::ChargingStatus;
-use openbyd_protocol::models::command_gating::evaluate_command_gate;
+use openbyd_protocol::models::command_gating::{GuestScope, evaluate_command_gate};
 use openbyd_protocol::models::control::{ChargeChangeResult, RemoteCommand};
 use openbyd_protocol::models::energy::EnergyConsumption;
 use openbyd_protocol::models::gps::GpsInfo;
 use openbyd_protocol::models::hvac::HvacStatus;
 use openbyd_protocol::models::latest_config::VehicleCapabilities;
+use openbyd_protocol::models::ota::OtaUpgradeInfo;
 use openbyd_protocol::models::realtime::VehicleRealtimeData;
 use openbyd_protocol::models::smart_charging::AcCurrentLimit;
 use openbyd_protocol::models::vehicle::Vehicle;
@@ -307,9 +308,14 @@ impl<B: CarBackend> BydCar<B> {
         options: CarOptions,
     ) -> Result<Self, Error> {
         let vin = vin.into();
+        // A shared guest's grant masks what the car offers (pyBYD #103).
+        let guest_permissions = vehicle
+            .is_shared()
+            .then(|| vehicle.granted_permission_codes());
         let capabilities = options
             .capabilities
-            .unwrap_or_else(|| implicit_capabilities(&vin));
+            .unwrap_or_else(|| implicit_capabilities(&vin))
+            .with_guest_permissions(vehicle.is_shared(), guest_permissions.as_ref());
         // Opening the windows also needs openWindowLearnInfo, which the
         // latest config does not see, so the command gate is asked (#20);
         // only when the flag is set, as pyBYD's `and` does.
@@ -324,6 +330,7 @@ impl<B: CarBackend> BydCar<B> {
                 &capabilities,
                 None,
                 (!learn_info.is_empty()).then_some(&learn_info),
+                GuestScope::new(vehicle.is_shared(), guest_permissions.as_ref()),
             )
             .map_err(openbyd_protocol::capabilities::validation_error)?
             .supported
@@ -458,6 +465,25 @@ impl<B: CarBackend> BydCar<B> {
             .backend
             .get_ac_current_limit(&self.inner.vin)
             .await
+    }
+
+    /// Fetches the OTA firmware version and night auto-upgrade settings.
+    pub async fn get_ota_version(&self) -> Result<OtaUpgradeInfo, Error> {
+        self.inner.backend.get_ota_version(&self.inner.vin).await
+    }
+
+    /// Sets the night auto-upgrade (pyBYD's default time is `"2:00"`).
+    pub async fn set_ota_auto_upgrade(
+        &self,
+        enabled: bool,
+        auto_upgrade_time: &str,
+        command_pwd: Option<&str>,
+    ) -> Result<(), Error> {
+        self.inner
+            .backend
+            .set_ota_auto_upgrade(&self.inner.vin, enabled, auto_upgrade_time, command_pwd)
+            .await
+            .map(drop)
     }
 
     /// Saves a smart-charging schedule, waits for the cloud to confirm it,

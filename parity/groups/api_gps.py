@@ -70,7 +70,8 @@ def recorded():
         raw_reply({"code": "0"}),
         raw_reply([]),
         transport_error(502),
-        *(error_reply(code) for code in ["1001", "1002", "1011", "3001", "3003", "1005", "1010", "1008", "6002", "6051", "8003", "9999"]),
+        *(error_reply(code) for code in ["1001", "1002", "1011", "3001", "3003", "1005", "1010", "1008", "6002", "6051", "8003", "9999",
+                                         "8002", "1030", "1003"]),
     ]
     for endpoint in ENDPOINTS:
         for serial in SERIALS:
@@ -85,6 +86,27 @@ def recorded():
         replies=[error_reply("1001"), ok_reply(SAMPLE_SESSION, GPS)],
         endpoint=ENDPOINTS[1],
         vin="",
+        request_serial=None,
+    )
+    # pyBYD #108 (test_guest_permissions): a guest without location permission gets 8002.
+    for endpoint in ENDPOINTS:
+        yield "api.gps.fetch_gps_endpoint", scenario(
+            guest_vins={VIN: True}, replies=[error_reply("8002", "no location permission")],
+            endpoint=endpoint, vin=VIN, request_serial=None,
+        )
+    # A restored session that does not know it is a guest: 1001, then 8002 declared.
+    yield "api.gps.fetch_gps_endpoint", scenario(
+        replies=[error_reply("1001", "service exception"), error_reply("8002", "permission denied")],
+        endpoint=ENDPOINTS[0], vin=VIN, request_serial=None,
+    )
+    # The guest flag it learnt is used the next time, and 6051 still means no fix.
+    yield "api.gps.fetch_gps_endpoint", scenario(
+        guest_vins={VIN: True}, replies=[error_reply("8003"), ok_reply(SAMPLE_SESSION, {"requestSerial": "ser-1",
+                                                                                         "data": GPS})],
+        endpoint=ENDPOINTS[0], vin=VIN, request_serial=None,
+    )
+    yield "api.gps.fetch_gps_endpoint", scenario(
+        guest_vins={VIN: False}, replies=[error_reply("6051", "no fix")], endpoint=ENDPOINTS[0], vin=VIN,
         request_serial=None,
     )
 

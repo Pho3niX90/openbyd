@@ -1,23 +1,28 @@
-//! The vehicle list endpoint (`pybyd/_api/vehicle.py`), and the helpers the
-//! read flows of this crate share.
+//! The vehicle list and guest grant endpoints (`pybyd/_api/vehicle.py`),
+//! and the helpers the read flows of this crate share.
 //!
 //! - `/app/account/getAllListByUserId`
+//! - `/vehicle/empower/query/empowerDetailByVin`
 
 use std::future::Future;
 
 use openbyd_protocol::coerce::{IntEnum, ValidationError};
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::models::base::BydModel;
-use openbyd_protocol::models::vehicle::{EnergyType, Vehicle};
+use openbyd_protocol::models::vehicle::{EmpowerDetail, EnergyType, Vehicle};
 use openbyd_protocol::parity::{Outcome, ParityError};
 use serde_json::{Map, Value, json};
 
 use crate::api::Context;
-use crate::api::common::{ErrorCodes, build_inner_base, post_token_json};
+use crate::api::common::{
+    ENDPOINT_NOT_SUPPORTED_CODES, ErrorCodes, build_inner_base, post_token_json,
+};
 use crate::env::Env;
 use crate::scripted::{Scenario, describe};
 
 const ENDPOINT: &str = "/app/account/getAllListByUserId";
+/// Where a shared guest's grant is read.
+pub const EMPOWER_DETAIL_ENDPOINT: &str = "/vehicle/empower/query/empowerDetailByVin";
 
 /// Exceptions a pyBYD model validator lets escape pydantic. They have no
 /// [`ErrorKind`]; they travel as a `ValueError` whose message starts with
@@ -149,6 +154,53 @@ pub async fn fetch_vehicle_list<E: Env>(cx: Context<'_, E>) -> Result<Vec<Vehicl
     items.iter().map(parse_model).collect()
 }
 
+/// Fetches a shared guest's grant in detail. The reply's `data` object
+/// holds the grant; its `empowerControlPwdStatus` sits beside it.
+pub async fn fetch_empower_detail_by_vin<E: Env>(
+    cx: Context<'_, E>,
+    vin: &str,
+    empower_id: i64,
+) -> Result<EmpowerDetail, Error> {
+    let mut inner = build_inner_base(
+        cx.config,
+        cx.env.now_ms(),
+        &cx.env.random_bytes(),
+        Some(vin),
+        None,
+    );
+    inner.insert("empowerId".into(), json!(empower_id.to_string()));
+    let codes = ErrorCodes {
+        not_supported_codes: Some(&ENDPOINT_NOT_SUPPORTED_CODES),
+        ..ErrorCodes::default()
+    };
+    let decoded = post_token_json(
+        cx,
+        EMPOWER_DETAIL_ENDPOINT,
+        &inner,
+        None,
+        Some(vin),
+        codes,
+        None,
+    )
+    .await?;
+    let payload = match decoded {
+        Value::Object(payload) => payload,
+        _ => Map::new(),
+    };
+    // {"vin": vin, **data, "empowerControlPwdStatus": bool(...), "raw": payload}
+    let mut merged = Map::new();
+    merged.insert("vin".into(), json!(vin));
+    if let Some(Value::Object(data)) = payload.get("data") {
+        merged.extend(data.clone());
+    }
+    let pwd_status = payload
+        .get("empowerControlPwdStatus")
+        .is_some_and(py_truthy);
+    merged.insert("empowerControlPwdStatus".into(), json!(pwd_status));
+    merged.insert("raw".into(), Value::Object(payload));
+    parse_owned_model(Value::Object(merged))
+}
+
 /// The dump of each model, as a JSON list.
 pub(crate) fn dump_all<'a, M: BydModel + 'a>(models: impl IntoIterator<Item = &'a M>) -> Value {
     Value::Array(models.into_iter().map(BydModel::dump).collect())
@@ -175,6 +227,18 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
                 |vehicles| dump_all(&vehicles),
             )
         }),
+        "api.vehicle.fetch_empower_detail_by_vin" => {
+            Scenario::from_args(args).and_then(|scenario| {
+                let args = scenario.args();
+                let vin = args.str("vin")?;
+                let empower_id = args.i64("empower_id")?;
+                run_trace(
+                    &scenario,
+                    fetch_empower_detail_by_vin(scenario.context(), vin, empower_id),
+                    |detail| detail.dump(),
+                )
+            })
+        }
         _ => return None,
     })
 }

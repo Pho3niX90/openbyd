@@ -18,18 +18,20 @@
 mod cookies;
 
 use std::fmt;
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use http_body_util::{BodyExt, Full};
 use hyper::body::Bytes;
-use hyper::header::{COOKIE, SET_COOKIE};
+use hyper::header::{COOKIE, DATE, SET_COOKIE};
 use hyper::{Request, Uri};
 use hyper_rustls::{HttpsConnector, HttpsConnectorBuilder};
 use hyper_util::client::legacy::Client;
 use hyper_util::client::legacy::connect::HttpConnector;
 use hyper_util::rt::{TokioExecutor, TokioTimer};
 use openbyd_protocol::config::BydConfig;
+use openbyd_protocol::envelope::clock::sync_clock_from_header;
 use openbyd_protocol::envelope::{REQUEST_HEADERS, decode_response_body, encode_request_body};
 use openbyd_protocol::error::{Error, ErrorKind};
 use serde_json::{Map, Value};
@@ -144,6 +146,18 @@ struct Inner {
     pool: HttpPool,
     base_url: String,
     cookies: Mutex<CookieJar>,
+    /// pyBYD's `SecureTransport.server_time_offset_ms`.
+    server_time_offset_ms: AtomicI64,
+}
+
+/// The error a `Date` header whose numbers overflow gives: Python raises
+/// `OverflowError` out of `post_secure` (openbyd has no such kind, so it is
+/// the `ValueError` family's).
+pub(crate) fn clock_overflow(endpoint: &str) -> Error {
+    Error::new(
+        ErrorKind::ValueError,
+        format!("OverflowError: a number in the Date header from {endpoint} overflows"),
+    )
 }
 
 /// The production [`Env`]: one account's view of the network.
@@ -192,6 +206,7 @@ impl HttpEnv {
                 pool: pool.clone(),
                 base_url: base_url.into(),
                 cookies: Mutex::new(CookieJar::default()),
+                server_time_offset_ms: AtomicI64::new(0),
             }),
         }
     }
@@ -250,6 +265,20 @@ impl HttpEnv {
             .await
             .map_err(|error| failed(endpoint, &error))?;
         let status = response.status().as_u16();
+        // `_sync_clock_from_header(resp.headers.get("Date"))`, before the body is read.
+        let date = response.headers().get(DATE).map(|value| {
+            value
+                .as_bytes()
+                .iter()
+                .map(|&byte| char::from(byte))
+                .collect::<String>()
+        });
+        let offset = self.inner.server_time_offset_ms.load(Ordering::Relaxed);
+        let synced = sync_clock_from_header(date.as_deref(), self.now_ms(), offset)
+            .map_err(|_| clock_overflow(endpoint))?;
+        self.inner
+            .server_time_offset_ms
+            .store(synced, Ordering::Relaxed);
         {
             let mut jar = self.jar();
             let now = SystemTime::now();
@@ -321,6 +350,7 @@ impl Env for HttpEnv {
         outer: &Map<String, Value>,
     ) -> Result<Value, Error> {
         let body = encode_request_body(outer);
+
         let timeout = self.inner.pool.timeout;
         let (status, text) = tokio::time::timeout(timeout, self.exchange(endpoint, body))
             .await
@@ -335,6 +365,10 @@ impl Env for HttpEnv {
                 )
             })??;
         decode_response_body(endpoint, status, &text)
+    }
+
+    fn server_time_offset_ms(&self) -> i64 {
+        self.inner.server_time_offset_ms.load(Ordering::Relaxed)
     }
 }
 

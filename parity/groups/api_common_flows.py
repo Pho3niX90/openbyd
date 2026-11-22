@@ -11,7 +11,10 @@ from parity.api_support import (
     CODES,
     ODD_CODES,
     VIN,
+    date_reply,
     error_reply,
+    http_date,
+    random_offset,
     flow_oracle,
     ok_reply,
     random_reply,
@@ -128,6 +131,22 @@ def recorded():
     yield "api.common.post_vehicle_json", scenario(
         guest_vins={"": True}, replies=[error_reply("8003"), ok], args=vehicle_args(vin="")
     )
+    # BYD's clock (#102): an offset stamps the request with our clock plus
+    # it, and rewrites the inner timeStamp, when there is one.
+    for offset in [60_000, -45_000, 1, 10**9]:
+        for args in [token_args(), token_args(now_ms=1234), token_args(inner={k: v for k, v in INNER.items()
+                                                                              if k != "timeStamp"})]:
+            yield "api.common.post_token_json", scenario(replies=[ok], args=args, server_time_offset_ms=offset)
+    # A reply's Date header moves the offset for the next request: the guest retry.
+    for drift in [0, 29_000, 31_000, -31_000, 3_600_000]:
+        yield "api.common.post_vehicle_json", scenario(
+            guest_vins={VIN: False}, replies=[date_reply(error_reply("1001"), http_date(1_700_000_000_000 + drift)), ok],
+            args=vehicle_args(),
+        )
+    yield "api.common.post_vehicle_json", scenario(
+        guest_vins={VIN: False}, server_time_offset_ms=90_000,
+        replies=[date_reply(error_reply("1001"), http_date(1_700_000_000_000)), ok], args=vehicle_args(),
+    )
 
 
 def random_inner(rng) -> dict:
@@ -154,6 +173,7 @@ def fuzz(rng):
         replies = [random_reply(rng, session) for _ in range(rng.choice([0, 1, 1, 1, 2]))]
         yield "api.common.post_token_json", {
             **base,
+            "server_time_offset_ms": random_offset(rng),
             "guest_vins": {},
             "user_type_settled": [],
             "replies": replies,
@@ -166,6 +186,7 @@ def fuzz(rng):
         script = random_vehicle_script(rng, session, common["endpoint"])
         yield "api.common.post_vehicle_json", {
             **base,
+            "server_time_offset_ms": random_offset(rng),
             "guest_vins": script["guest_vins"],
             "user_type_settled": [list(pair) for pair in script["user_type_settled"]],
             "replies": script["replies"],

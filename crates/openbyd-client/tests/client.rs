@@ -399,6 +399,8 @@ async fn the_request_observer_sees_every_request() {
             (LOGIN, code("0")),
             (HVAC, code("0")),
             (GPS_TRIGGER, code("1008")),
+            // The 1008 session probe (pyBYD #109): the session is fine.
+            ("/app/account/getAllListByUserId", code("0")),
             (HVAC, RequestOutcome::Transport { status: None }),
         ]
     );
@@ -536,7 +538,7 @@ fn every_method_is_send(client: &BydClient<ProductionEnv>) {
     send(client.rename_vehicle(vin, "x"));
     send(client.verify_command_access(vin, None));
     send(client.lock(vin, None));
-    send(client.remote_control(vin, RemoteCommand::Lock, None, None, 1, 0.0));
+    send(client.remote_control(vin, RemoteCommand::Lock, None, None, 1, Some(0.0)));
     send(client.set_battery_heat(vin, &BatteryHeatParams::new(true), None));
     send(client.start_charging(vin, ChargePollSettings::default()));
     send(client.save_charging_schedule(

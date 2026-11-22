@@ -5,12 +5,13 @@ use std::future::Future;
 use openbyd_protocol::error::Error;
 use openbyd_protocol::models::charging::ChargingStatus;
 use openbyd_protocol::models::control::{
-    BatteryHeatParams, ChargeChangeResult, ClimateScheduleParams, ClimateStartParams,
+    BatteryHeatParams, ChargeChangeResult, ClimateScheduleParams, ClimateStartParams, CommandAck,
     RemoteControlResult, SeatClimateParams,
 };
 use openbyd_protocol::models::energy::EnergyConsumption;
 use openbyd_protocol::models::gps::GpsInfo;
 use openbyd_protocol::models::hvac::HvacStatus;
+use openbyd_protocol::models::ota::OtaUpgradeInfo;
 use openbyd_protocol::models::realtime::VehicleRealtimeData;
 use openbyd_protocol::models::smart_charging::{AcCurrentLimit, SmartChargingSchedule};
 
@@ -151,4 +152,19 @@ pub trait CarBackend: Send + Sync + 'static {
         charge_way: &str,
         enabled: bool,
     ) -> impl Future<Output = Result<ChargeChangeResult, Error>> + Send;
+
+    /// `client.get_ota_version(vin)`.
+    fn get_ota_version(
+        &self,
+        vin: &str,
+    ) -> impl Future<Output = Result<OtaUpgradeInfo, Error>> + Send;
+
+    /// `client.set_ota_auto_upgrade(vin, enabled=..., auto_upgrade_time=..., command_pwd=...)`.
+    fn set_ota_auto_upgrade(
+        &self,
+        vin: &str,
+        enabled: bool,
+        auto_upgrade_time: &str,
+        command_pwd: Option<&str>,
+    ) -> impl Future<Output = Result<CommandAck, Error>> + Send;
 }

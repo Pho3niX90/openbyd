@@ -327,6 +327,15 @@ def recorded():
     for reply in COMMON_REPLIES:
         yield "api.standby.save_standby_plan", scenario(replies=[reply], vin=VIN, plan=ms.PLAN, schedule=SCHEDULES[1], guest_vins=GUEST)
     yield "api.standby.save_standby_plan", scenario(replies=[], vin=VIN, plan=ms.PLAN, schedule={"repeat": "off"})
+    # #91: a once run under 20 minutes ahead or over 30 days out is refused (6111).
+    for code in ["6111", 6111, " 6111", "6112"]:
+        yield "api.standby.save_standby_plan", scenario(
+            replies=[error_reply(code, "Hora no válida")], vin=VIN, plan=ms.PLAN, schedule=SCHEDULES[1]
+        )
+    yield "api.standby.save_standby_plan", scenario(
+        replies=[ok({"message": "La hora está a menos de 20 minutos; se omite hoy"})], vin=VIN, plan=ms.PLAN,
+        schedule=SCHEDULES[1],
+    )
     yield "api.standby.save_standby_plan", scenario(replies=[ok({})], vin="", plan=ms.NEW_PLAN, schedule={"repeat": "off"})
 
     # setDefault, delete, send

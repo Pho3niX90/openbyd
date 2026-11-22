@@ -910,16 +910,22 @@ impl<E: ClientEnv> BydClient<E> {
 
     /// [`Self::refresh_or_relogin`] for the session `current` (read by the
     /// caller in the same step as its own checks). The refreshed session
-    /// replaces it only if it is still the client's (or there is none), and
-    /// a failed refresh drops it only then: a session another call installed
-    /// meanwhile is kept, and `ensure_session` uses it rather than logging
-    /// in again.
+    /// replaces it only while `current` is still the client's session and
+    /// the client is open, and a failed refresh drops it only then.
+    ///
+    /// pyBYD, single-threaded, assigns the refreshed session after its await
+    /// unconditionally. openbyd's tasks really run in parallel, so meanwhile
+    /// another one may have installed a session (kept, and `ensure_session`
+    /// uses it rather than logging in again), cleared it
+    /// (`invalidate_session`, or a failed refresh now logging in) or closed
+    /// the client; a late refresh then installs nothing.
     async fn refresh_or_relogin_from(&self, current: Option<Arc<Session>>) -> Result<(), Error> {
         let still_current = |state: &State, session: &Arc<Session>| {
-            state
-                .session
-                .as_ref()
-                .is_none_or(|installed| Arc::ptr_eq(installed, session))
+            !state.closed
+                && state
+                    .session
+                    .as_ref()
+                    .is_some_and(|installed| Arc::ptr_eq(installed, session))
         };
         let Some(session) = current else {
             return self.ensure_session().await.map(drop);
@@ -1929,27 +1935,38 @@ mod tests {
             .count()
     }
 
-    /// A client whose request observer installs `fresh` as the session when
-    /// a request to `endpoint` completes: another task replacing the session
+    /// A client whose request observer applies `change` to the client's
+    /// state when a request to `endpoint` completes: another task acting
     /// while this one awaits it.
-    fn replaced_during(
+    fn changed_during(
         endpoint: &'static str,
-        fresh: &Arc<Session>,
+        change: impl Fn(&mut State) + Send + Sync + 'static,
         replies: Vec<Reply>,
+        mut options: ClientOptions,
     ) -> BydClient<Arc<ScriptedEnv>> {
         let holder: Arc<std::sync::OnceLock<Weak<Inner<Arc<ScriptedEnv>>>>> = Arc::default();
-        let mut options = ClientOptions::default();
-        let (seen, session) = (Arc::clone(&holder), Arc::clone(fresh));
+        let seen = Arc::clone(&holder);
         options.request_observer = Some(Arc::new(move |record: &RequestRecord| {
             if record.endpoint == endpoint
                 && let Some(inner) = seen.get().and_then(Weak::upgrade)
             {
-                BydClient { inner }.state().session = Some(Arc::clone(&session));
+                change(&mut BydClient { inner }.state());
             }
         }));
         let client = scripted(replies, options);
         holder.set(Arc::downgrade(&client.inner)).ok();
         client
+    }
+
+    /// [`changed_during`] installing `fresh` as the session.
+    fn replaced_during(
+        endpoint: &'static str,
+        fresh: &Arc<Session>,
+        replies: Vec<Reply>,
+    ) -> BydClient<Arc<ScriptedEnv>> {
+        let session = Arc::clone(fresh);
+        let install = move |state: &mut State| state.session = Some(Arc::clone(&session));
+        changed_during(endpoint, install, replies, ClientOptions::default())
     }
 
     fn sealed_for(encry_token: &str, data: Value) -> Reply {
@@ -2012,6 +2029,57 @@ mod tests {
         block_on(client.get_hvac_status(VIN)).unwrap().unwrap();
         assert!(Arc::ptr_eq(&client.session().unwrap(), &fresh));
         assert_eq!(logins(&client), 0);
+    }
+
+    #[test]
+    fn a_refresh_after_the_session_was_cleared_installs_nothing() {
+        // Another task drops the session (invalidate_session, or a failed
+        // refresh that is logging in) while the refresh is on its way: the
+        // late refreshed session is not installed, and the retry takes a
+        // session the usual way (here the relogin handler's).
+        let mut options = ClientOptions::default();
+        options.relogin = ReloginPolicy::Handler(Arc::new(|| Box::pin(async { Ok(tokens(None)) })));
+        let refresh = sealed(json!({"signToken": "sign3", "encryToken": "encry3"}));
+        let client = changed_during(
+            "/app/token/refresh",
+            |state| state.session = None,
+            vec![
+                Reply::Outer(json!({"code": "1030", "message": "refresh"})),
+                refresh,
+                sealed(json!({"acSwitch": 1})),
+            ],
+            options,
+        );
+        let mut saved = tokens(None);
+        saved.refresh_token = "R".into();
+        block_on(client.import_session(saved)).unwrap();
+        block_on(client.get_hvac_status(VIN)).unwrap().unwrap();
+        let session = client.session().unwrap();
+        assert_eq!(session.sign_token(), "sign");
+        assert!(
+            session.refresh_token().is_empty(),
+            "the handler's session, not the refreshed one"
+        );
+    }
+
+    #[test]
+    fn a_refresh_after_close_installs_nothing() {
+        let refresh = sealed(json!({"signToken": "sign3", "encryToken": "encry3"}));
+        let client = changed_during(
+            "/app/token/refresh",
+            |state| state.closed = true,
+            vec![
+                Reply::Outer(json!({"code": "1030", "message": "refresh"})),
+                refresh,
+            ],
+            ClientOptions::default(),
+        );
+        let mut saved = tokens(None);
+        saved.refresh_token = "R".into();
+        block_on(client.import_session(saved)).unwrap();
+        let _ = block_on(client.get_hvac_status(VIN));
+        let kept = client.state().session.clone();
+        assert!(kept.is_none_or(|session| session.sign_token() != "sign3"));
     }
 
     /// A client with a session and the MQTT channel running, with `mqtt` on

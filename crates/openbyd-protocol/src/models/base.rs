@@ -176,7 +176,6 @@ pub fn is_temp_sentinel(value: impl PyNumber) -> bool {
     value.to_f64() == -129.0
 }
 
-/// One entry of a model's `_SENTINEL_RULES`: sets the field to `None` when the predicate holds.
 /// pyBYD's `hours * 60 + minutes` for a time split over two fields
 /// (`time_to_full_minutes`, `time_to_scheduled_start_minutes`): `None`
 /// unless both are known. Python's result is unbounded; one beyond `i64` is
@@ -197,6 +196,7 @@ pub fn hours_and_minutes(
         .ok_or_else(|| ValidationError::raised("Unsupported", "int"))
 }
 
+/// One entry of a model's `_SENTINEL_RULES`: sets the field to `None` when the predicate holds.
 pub fn clear_if<T: Copy>(field: &mut Option<T>, predicate: impl Fn(T) -> bool) {
     if field.is_some_and(predicate) {
         *field = None;

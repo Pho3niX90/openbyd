@@ -461,7 +461,13 @@ class ClientTest {
                 restored.close();
             }
             SessionTokens nameless =
-                    new SessionTokens("", saved.signToken(), saved.encryToken(), saved.ttlRemaining(), saved.guestVins());
+                    new SessionTokens(
+                            "",
+                            saved.signToken(),
+                            saved.encryToken(),
+                            saved.refreshToken(),
+                            saved.ttlRemaining(),
+                            saved.guestVins());
             Throwable refusedSession = thrown(() -> Client.fromSession(nameless, withoutPassword, World.options()));
             assertInstanceOf(DataException.class, refusedSession);
             // With a password it logs in again when the session expires, as any client.

@@ -21,6 +21,7 @@ Files, one class each:
 
 from __future__ import annotations
 
+import json
 import re
 
 from gen.common import Writer, default_text, header
@@ -47,6 +48,8 @@ RESERVED = frozenset(
 
 #: Imports a file may need, by the name its code uses.
 IMPORTS = {
+    "JacksonInject": "com.fasterxml.jackson.annotation.JacksonInject",
+    "OptBoolean": "com.fasterxml.jackson.annotation.OptBoolean",
     "ArrayList": "java.util.ArrayList",
     "BiFunction": "java.util.function.BiFunction",
     "Collections": "java.util.Collections",
@@ -360,14 +363,32 @@ class Java:
         writer.indent()
         for index, entry in enumerate(item.fields):
             end = ") {" if index == len(item.fields) - 1 else ","
+            if entry.read_back_default() is not None:
+                # Injectable, so a strict mapper (FAIL_ON_MISSING_CREATOR_PROPERTIES) lets an
+                # older record leave it out; the constructor then fills in the default.
+                writer.line(f'@JsonProperty("{entry.name}")')
+                writer.line("        @JacksonInject(")
+                writer.line(f'                value = "{item.name}.{entry.name}",')
+                writer.line("                useInput = OptBoolean.TRUE,")
+                writer.line("                optional = OptBoolean.TRUE)")
+                writer.line(f"        {self.type(entry.type)} {name(entry.name)}{end}")
+                continue
             writer.line(f'@JsonProperty("{entry.name}") {self.type(entry.type)} {name(entry.name)}{end}')
         writer.dedent()
         required = [entry for entry in item.fields if not self.nullable(entry.type) and self.type(entry.type)[0].isupper()]
-        if required:
+        defaulted = [entry for entry in item.fields if entry.read_back_default() is not None]
+        if required or defaulted:
             writer.line()
-            self.doc(writer, "Refuses null where a value must be.")
+            what = "Fills in what an older record lacks and refuses" if defaulted else "Refuses"
+            self.doc(writer, f"{what} null where a value must be.")
             writer.line(f"public {item.name} {{")
             writer.indent()
+            for entry in defaulted:
+                writer.line(f"if ({name(entry.name)} == null) {{")
+                writer.indent()
+                writer.line(f"{name(entry.name)} = {json.dumps(entry.read_back_default())};")
+                writer.dedent()
+                writer.line("}")
             for entry in required:
                 writer.line(f'Objects.requireNonNull({name(entry.name)}, "{entry.name}");')
             writer.dedent()

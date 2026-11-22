@@ -6613,7 +6613,7 @@ internal sealed class SessionTokensJson() : WireConverter<SessionTokens>(ReadVal
         string _userId = null!;
         string _signToken = null!;
         string _encryToken = null!;
-        string _refreshToken = null!;
+        string _refreshToken = "";
         double? _ttlRemaining = default;
         IReadOnlyDictionary<string, bool> _guestVins = null!;
         while (Wire.NextName(ref reader, out var name))
@@ -6648,6 +6648,7 @@ internal sealed class SessionTokensJson() : WireConverter<SessionTokens>(ReadVal
                     throw Wire.UnknownField("SessionTokens", name);
             }
         }
+        seen[3] = true; // optional: an older record may lack it
         Wire.Complete(seen, Names, "SessionTokens");
         return new SessionTokens
         {

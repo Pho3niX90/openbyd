@@ -56,6 +56,11 @@ class RuntimeTest {
         SessionTokens session = read(tokens.formatted("null", "{\"TESTVIN0000000001\": true}"), SessionTokens.class);
         assertNull(session.ttlRemaining());
         assertEquals(Map.of(VIN, true), session.guestVins());
+        // A record saved before openbyd kept the refresh token reads with none.
+        assertEquals("", session.refreshToken());
+        String kept = "{\"user_id\": \"1\", \"sign_token\": \"s\", \"encry_token\": \"e\","
+                + " \"refresh_token\": \"r\", \"ttl_remaining\": null, \"guest_vins\": {}}";
+        assertEquals("r", read(kept, SessionTokens.class).refreshToken());
         assertThrows(JsonProcessingException.class, () -> read(tokens.formatted("\"5\"", "{}"), SessionTokens.class));
         // Null where the type has no room for it.
         assertThrows(JsonProcessingException.class, () -> read(tokens.formatted("5.0", "null"), SessionTokens.class));

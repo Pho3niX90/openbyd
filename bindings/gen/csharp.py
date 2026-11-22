@@ -23,6 +23,7 @@ Files:
 
 from __future__ import annotations
 
+import json
 import re
 
 from gen.common import Writer, default_text, header, wrap
@@ -37,7 +38,7 @@ OWNED = (ROOT,)
 RENAMED = {"params": "parameters"}
 
 #: Fields a record's `ToString` does not print.
-SECRETS = {"sign_token", "encry_token"}
+SECRETS = {"sign_token", "encry_token", "refresh_token"}
 
 #: The kinds whose C# type is a value type, so their nullable form is `Nullable<T>`.
 VALUE_KINDS = {"int", "float", "bool", "any", "union"}
@@ -278,7 +279,11 @@ class CSharp:
         for entry in item.fields:
             self.doc(writer, self.field_doc(entry))
             writer.line(f'[JsonPropertyName("{entry.name}")]')
-            writer.line(f"public required {self.type(entry.type)} {pascal(entry.name)} {{ get; init; }}")
+            fallback = entry.read_back_default()
+            if fallback is None:
+                writer.line(f"public required {self.type(entry.type)} {pascal(entry.name)} {{ get; init; }}")
+            else:
+                writer.line(f"public {self.type(entry.type)} {pascal(entry.name)} {{ get; init; }} = {json.dumps(fallback)};")
             writer.blank()
         if secrets:
             writer.line("private bool PrintMembers(StringBuilder builder)")
@@ -405,6 +410,8 @@ class CSharp:
         writer.line("seen.Clear();")
         for entry in item.fields:
             initial = "default" if self.is_value(entry.type) or entry.type.kind == "opt" else "null!"
+            if entry.read_back_default() is not None:
+                initial = json.dumps(entry.read_back_default())
             writer.line(f"{self.type(entry.type)} {self.local(entry)} = {initial};")
         writer.line("while (Wire.NextName(ref reader, out var name))")
         writer.line("{")
@@ -427,6 +434,9 @@ class CSharp:
         writer.line("}")
         writer.dedent()
         writer.line("}")
+        for index, entry in enumerate(item.fields):
+            if entry.read_back_default() is not None:
+                writer.line(f"seen[{index}] = true; // optional: an older record may lack it")
         writer.line(f'Wire.Complete(seen, Names, "{name}");')
         writer.line(f"return new {name}")
         writer.line("{")

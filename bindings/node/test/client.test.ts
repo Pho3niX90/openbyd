@@ -302,7 +302,14 @@ test("sessions are exported, restored and renewed", async () => {
   const first = world.client();
   await first.login();
   const saved = world.session(first);
-  assert.deepEqual(Object.keys(saved), ["user_id", "sign_token", "encry_token", "ttl_remaining", "guest_vins"]);
+  assert.deepEqual(Object.keys(saved), [
+    "user_id",
+    "sign_token",
+    "encry_token",
+    "refresh_token",
+    "ttl_remaining",
+    "guest_vins",
+  ]);
   assert.ok(saved.ttl_remaining !== null && saved.ttl_remaining > 0);
 
   const { password: _password, ...withoutPassword } = world.options();
@@ -324,6 +331,15 @@ test("sessions are exported, restored and renewed", async () => {
     Client.fromSession({ ...saved, user_id: "" }, withoutPassword),
     DataError,
   );
+  // A record saved before openbyd kept the refresh token still restores.
+  const { refresh_token: _refresh, ...old } = saved;
+  const fromOld = await Client.fromSession(old, withoutPassword);
+  try {
+    assert.equal(fromOld.exportSession()?.refresh_token, "");
+    assert.equal(fromOld.exportSession()?.sign_token, saved.sign_token);
+  } finally {
+    fromOld.close();
+  }
 
   // A relogin function hands over a new session when one is needed.
   let asked = 0;

@@ -111,6 +111,7 @@ export async function checks(client: Client, car: Car): Promise<void> {
       exact<typeof vin, string>(true);
       exact<typeof data, VehicleRealtimeData>(true);
     },
+    // refresh_token may be left out, as records saved by older versions lack it.
     relogin: async () => ({ user_id: "1", sign_token: "s", encry_token: "e", ttl_remaining: null, guest_vins: {} }),
   });
   // @ts-expect-error relogin returns a whole session

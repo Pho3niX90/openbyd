@@ -430,7 +430,13 @@ public sealed class ClientTests(ITestOutputHelper output)
         Assert.True(saved.TtlRemaining > 0);
         Assert.DoesNotContain(saved.SignToken, saved.ToString());
         Assert.DoesNotContain(saved.EncryToken, saved.ToString());
+        Assert.Contains("RefreshToken = ***", saved.ToString());
         Assert.Contains(saved.UserId, saved.ToString());
+        Assert.Contains("\"refresh_token\"", JsonSerializer.Serialize(saved));
+        // A record saved before openbyd kept the refresh token still reads, with none.
+        var old = JsonSerializer.Deserialize<SessionTokens>(
+            "{\"user_id\":\"1\",\"sign_token\":\"s\",\"encry_token\":\"e\",\"ttl_remaining\":null,\"guest_vins\":{}}");
+        Assert.Equal("", old?.RefreshToken);
 
         var withoutPassword = world.Config(password: "");
         var options = new ClientOptions { TestTls = true };

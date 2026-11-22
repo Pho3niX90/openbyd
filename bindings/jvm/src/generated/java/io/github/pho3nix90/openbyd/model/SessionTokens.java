@@ -2,8 +2,10 @@
 // 4444b54b440e84e4acdc6f16cf7fed8919f7e2a7. Do not edit: change the spec and run the generator.
 package io.github.pho3nix90.openbyd.model;
 
+import com.fasterxml.jackson.annotation.JacksonInject;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import com.fasterxml.jackson.annotation.OptBoolean;
 import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
@@ -28,12 +30,20 @@ public record SessionTokens(
         @JsonProperty("user_id") String userId,
         @JsonProperty("sign_token") String signToken,
         @JsonProperty("encry_token") String encryToken,
-        @JsonProperty("refresh_token") String refreshToken,
+        @JsonProperty("refresh_token")
+                @JacksonInject(
+                        value = "SessionTokens.refresh_token",
+                        useInput = OptBoolean.TRUE,
+                        optional = OptBoolean.TRUE)
+                String refreshToken,
         @JsonProperty("ttl_remaining") @Nullable Double ttlRemaining,
         @JsonProperty("guest_vins") Map<String, Boolean> guestVins) {
 
-    /** Refuses null where a value must be. */
+    /** Fills in what an older record lacks and refuses null where a value must be. */
     public SessionTokens {
+        if (refreshToken == null) {
+            refreshToken = "";
+        }
         Objects.requireNonNull(userId, "user_id");
         Objects.requireNonNull(signToken, "sign_token");
         Objects.requireNonNull(encryToken, "encry_token");

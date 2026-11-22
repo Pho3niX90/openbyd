@@ -2501,7 +2501,7 @@ public sealed record SessionTokens
     /// Optional on import: older records without it still import. Default <c>""</c>.
     /// </summary>
     [JsonPropertyName("refresh_token")]
-    public required string RefreshToken { get; init; }
+    public string RefreshToken { get; init; } = "";
 
     /// <summary>Seconds the session has left; null for no expiry.</summary>
     [JsonPropertyName("ttl_remaining")]
@@ -2516,7 +2516,7 @@ public sealed record SessionTokens
         builder.Append("UserId = ").Append((object?)UserId);
         builder.Append(", SignToken = ***");
         builder.Append(", EncryToken = ***");
-        builder.Append(", RefreshToken = ").Append((object?)RefreshToken);
+        builder.Append(", RefreshToken = ***");
         builder.Append(", TtlRemaining = ").Append((object?)TtlRemaining);
         builder.Append(", GuestVins = ").Append((object?)GuestVins);
         return true;

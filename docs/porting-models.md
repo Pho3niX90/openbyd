@@ -215,8 +215,11 @@ Model behaviour (`BydBaseModel`):
 - **Integers are `i64`.** pydantic accepts arbitrarily large integers; openbyd
   answers those with the error kind `Unsupported`. Generated payloads keep JSON
   integers within `[-2^63, 2^64-1]` (what `serde_json::Value` holds) and values
-  that become a model `int` within `±2^53`, so property arithmetic stays in range
-  (`ChargingStatus::time_to_full_minutes` returns `None` on overflow).
+  that become a model `int` within `±2^53`, so property arithmetic stays in range.
+  Where a property's Python int would not fit (`hours * 60 + minutes` in
+  `time_to_full_minutes` and `time_to_scheduled_start_minutes`), parsing refuses the
+  payload as `Unsupported` too (`base::hours_and_minutes`), so a parsed model's
+  properties always hold; `skip_unrepresentable_integers` leaves those cases out.
 - **Timestamps before 3001.** `datetime.fromtimestamp` raises `OSError` on
   Windows from 3001-01-19 but works to year 9999 on Linux. openbyd ports the
   Linux behaviour (`ValueError` past 9999, `OSError` when `gmtime` overflows,

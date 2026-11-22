@@ -1462,22 +1462,24 @@ impl VehicleRealtimeData {
     }
 
     /// Minutes until the next scheduled charge start; `None` unless the car
-    /// reports a pending scheduled start, and when the sum does not fit in
-    /// `i64` (Python would return a larger integer).
+    /// reports a pending scheduled start. A parsed model always holds the
+    /// sum ([`base::hours_and_minutes`] refuses one beyond `i64`); on fields
+    /// set by hand that overflow, `None`.
     pub fn time_to_scheduled_start_minutes(&self) -> Option<i64> {
-        self.charge_start_time_hour?
-            .checked_mul(60)?
-            .checked_add(self.charge_start_time_min?)
+        base::hours_and_minutes(self.charge_start_time_hour, self.charge_start_time_min)
+            .ok()
+            .flatten()
     }
 
     /// Total estimated minutes until fully charged.
     ///
-    /// `None` when either component is unavailable, and also when the sum
-    /// does not fit in `i64` (Python would return a larger integer).
+    /// `None` when either component is unavailable. A parsed model always
+    /// holds the sum ([`base::hours_and_minutes`] refuses one beyond `i64`);
+    /// on fields set by hand that overflow, `None`.
     pub fn time_to_full_minutes(&self) -> Option<i64> {
-        self.full_hour?
-            .checked_mul(60)?
-            .checked_add(self.full_minute?)
+        base::hours_and_minutes(self.full_hour, self.full_minute)
+            .ok()
+            .flatten()
     }
 
     /// Whether the interior temperature reading is valid.
@@ -1765,6 +1767,9 @@ impl BydModel for VehicleRealtimeData {
             base::clear_if(field, base::is_negative);
         }
         base::clear_if(&mut m.rate, is_rate_sentinel);
+        // The minute properties are Python ints: refuse one openbyd cannot hold.
+        base::hours_and_minutes(model.full_hour, model.full_minute)?;
+        base::hours_and_minutes(model.charge_start_time_hour, model.charge_start_time_min)?;
         Ok(model)
     }
 
@@ -1967,12 +1972,17 @@ mod tests {
 
     #[test]
     fn properties_and_overflow() {
-        let data = parse(
-            json!({"fullHour": i64::MAX, "fullMinute": 1, "batteryHeatState": 2,
-                   "leftFrontDoorLock": 0, "rightFrontDoorLock": 2}),
+        let mut data = parse(
+            json!({"batteryHeatState": 2, "leftFrontDoorLock": 0, "rightFrontDoorLock": 2}),
             0,
         );
+        // Fields set by hand past what the sum can hold give no minutes.
+        data.full_hour = Some(i64::MAX);
+        data.full_minute = Some(1);
+        data.charge_start_time_hour = Some(i64::MIN);
+        data.charge_start_time_min = Some(0);
         assert_eq!(data.time_to_full_minutes(), None);
+        assert_eq!(data.time_to_scheduled_start_minutes(), None);
         assert_eq!(data.is_battery_heating(), Some(true));
         assert_eq!(data.is_locked(), Some(true));
         assert_eq!(data.is_charger_connected(), None);
@@ -1980,6 +1990,40 @@ mod tests {
             is_steering_wheel_heating(Some(StearingWheelHeat::Off)),
             Some(false)
         );
+    }
+
+    #[test]
+    fn minutes_python_cannot_fit_in_i64_are_unsupported() {
+        // pyBYD answers a larger int; openbyd refuses the payload, as it does
+        // an input integer beyond i64.
+        let context = json!({"energy_type": {"EnergyType": 0}});
+        let refused = |raw: Value| {
+            VehicleRealtimeData::parse(&raw, &context)
+                .unwrap_err()
+                .exception
+        };
+        for raw in [
+            json!({"fullHour": i64::MAX, "fullMinute": 1}),
+            json!({"chargeStartTimeHour": i64::MAX / 60 + 1, "chargeStartTimeMin": 0}),
+            json!({"chargeStartTimeHour": i64::MAX / 60, "chargeStartTimeMin": i64::MAX}),
+            json!({"chargeStartTimeHour": i64::MIN / 60 - 1, "chargeStartTimeMin": 0}),
+            json!({"chargeStartTimeHour": 1_u64 << 63, "chargeStartTimeMin": 0}),
+        ] {
+            assert_eq!(refused(raw.clone()), "Unsupported", "{raw}");
+        }
+        // Within i64, and with one side missing, the payload parses.
+        let largest = parse(
+            json!({"chargeStartTimeHour": i64::MAX / 60, "chargeStartTimeMin": i64::MAX % 60}),
+            0,
+        );
+        assert_eq!(largest.time_to_scheduled_start_minutes(), Some(i64::MAX));
+        let one_sided = parse(json!({"chargeStartTimeHour": i64::MAX}), 0);
+        assert_eq!(one_sided.time_to_scheduled_start_minutes(), None);
+        let sentinel = parse(
+            json!({"chargeStartTimeHour": -1, "chargeStartTimeMin": -1}),
+            0,
+        );
+        assert_eq!(sentinel.time_to_scheduled_start_minutes(), Some(-61));
     }
 
     #[test]

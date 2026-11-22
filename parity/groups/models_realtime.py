@@ -45,6 +45,7 @@ from parity.models_support import (
     random_numeric_text,
     random_scalar,
     register_enum,
+    skip_unrepresentable_integers,
 )
 
 group = Group("models_realtime")
@@ -155,7 +156,12 @@ HYBRID = {
     "nearestEnergyConsumption": "5.0", "nearestEnergyConsumptionUnit": "L/100km", **SHARK_BR,
     "recent50kmEnergy": "6.1+8.4", "time": "2024-01-01T10:00:00Z",
 }
-SAMPLES = [FULL, CHARGING, HYBRID, SEAL_UK, SHARK_BR, ASLEEP]
+SEAL_WAITING = {  # Seal plugged in, waiting for its scheduled start (upstream #112, issue #20)
+    "onlineState": 1, "chargingState": 15, "chargeState": 9, "waitStatus": 1, "chargeStartTimeHour": 6,
+    "chargeStartTimeMin": 20, "bookingChargeState": 1, "bookingChargingHour": 1, "bookingChargingMinute": 0,
+    "fullHour": -1, "fullMinute": -1, "elecPercent": 62, "time": 1700000000,
+}
+SAMPLES = [FULL, CHARGING, HYBRID, SEAL_UK, SHARK_BR, ASLEEP, SEAL_WAITING]
 
 cases = ModelCases(VehicleRealtimeData, SAMPLES)
 # The generic recorded cases vary one field at a time around a small payload,
@@ -248,6 +254,32 @@ UPSTREAM_CASES = [
     *({"airRunState": value} for value in [0, 1, 2, 3, -1, "1", "1__0", "x", 1.0, 1.5, True, None, "--", "", [],
                                             2**53]),
 ]
+# Upstream #112: chargeState 9 waits for a scheduled start, and the countdown is
+# chargeStartTimeHour * 60 + chargeStartTimeMin when both are present (no sentinel
+# rule: -1 stays -1). Past i64 openbyd refuses the payload as Unsupported where
+# pyBYD answers a larger int; skip_unrepresentable_integers leaves those out, and
+# the Rust tests pin openbyd's side.
+COUNTDOWN = [-1, 0, 5, 59, 60, "5", "0", " 7 ", "x", "--", "", None, 1.0, 1.5, True, [], 2**53, -(2**53),
+             2**63 - 1, -(2**63), 2**63, 2**64 - 1]
+COUNTDOWN_CASES = [
+    {"chargeState": 9, "waitStatus": 1, "chargeStartTimeHour": 6, "chargeStartTimeMin": 20},
+    {"chargeState": 9},
+    {"chargeState": "9", "waitStatus": "1"},
+    {"chargeState": 9, "chargingState": 15, "waitStatus": 0},
+    {"chargeStartTimeHour": 0, "chargeStartTimeMin": 0},
+    {"chargeStartTimeHour": 0, "chargeStartTimeMin": "5"},
+    {"chargeStartTimeHour": -1, "chargeStartTimeMin": -1},
+    {"chargeStartTimeHour": 2**53, "chargeStartTimeMin": 2**53},
+    {"chargeStartTimeHour": -(2**53), "chargeStartTimeMin": -(2**53)},
+    {"chargeStartTimeHour": (2**63 - 1) // 60, "chargeStartTimeMin": (2**63 - 1) % 60},
+    {"chargeStartTimeHour": (2**63 - 1) // 60, "chargeStartTimeMin": 60},
+    {"chargeStartTimeHour": 2**63 - 1, "chargeStartTimeMin": 1},
+    {"chargeStartTimeHour": 2**63, "chargeStartTimeMin": 0},
+    {"chargeStartTimeHour": 2**64 - 1, "chargeStartTimeMin": 2**64 - 1},
+    *({"chargeStartTimeHour": value} for value in COUNTDOWN),
+    *({"chargeStartTimeMin": value} for value in COUNTDOWN),
+    *({"waitStatus": value} for value in [0, 1, 2, -1, "1", "--", None, 1.5, True]),
+]
 READY = [
     {"onlineState": 0}, {"onlineState": 0, "time": 5}, {"onlineState": 0.0, "time": 5}, {"onlineState": "0", "time": 5},
     {"onlineState": False, "time": 5}, {"onlineState": 3, "time": 5}, {"onlineState": -0.0, "time": 5},
@@ -270,8 +302,8 @@ READY = [
 def recorded():
     generic = list(ModelCases(VehicleRealtimeData, [COMPACT, *SAMPLES]).recorded())
     for index, payload in enumerate(generic):
-        # The first cases are the samples and the non-dict inputs: keep them all.
-        if index < 14 or index % RECORDED_EVERY == 0:
+        # The first cases are the samples, {} and the non-dict inputs: keep them all.
+        if index < len(SAMPLES) + 8 or index % RECORDED_EVERY == 0:
             yield CALL, {"raw": payload, "context": CONTEXTS[index % len(CONTEXTS)]}
     for index, sample in enumerate(SAMPLES):
         for context in CONTEXTS[index % 3::3]:
@@ -295,7 +327,7 @@ def recorded():
             yield CALL, {"raw": {key: value}, "context": None}
     for payload in ALIAS_CASES + PROPERTY_CASES:
         yield CALL, {"raw": payload, "context": energy(2)}
-    for payload in UPSTREAM_CASES:
+    for payload in UPSTREAM_CASES + COUNTDOWN_CASES:
         yield CALL, {"raw": payload, "context": None}
     for value in STEERING:
         yield CALL, {"raw": {"steeringWheelHeatState": value}, "context": None}
@@ -385,3 +417,6 @@ def fuzz_is_ready_raw(rng):
         if json_safe(info):
             yield "models.realtime.VehicleRealtimeData.is_ready_raw", {"vehicle_info": info}
 
+
+# Countdowns past i64 (COUNTDOWN_CASES): pyBYD's larger int, openbyd's Unsupported.
+skip_unrepresentable_integers(group)

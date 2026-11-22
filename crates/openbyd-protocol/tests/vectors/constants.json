@@ -689,5 +689,13 @@
 {"call":"constants.resolve_poll_delays","args":{"poll_attempts":[3],"poll_interval":null,"default_ladder":[2,4]},"error":"TypeError"},
 {"call":"constants.resolve_poll_delays","args":{"poll_attempts":[3],"poll_interval":null,"default_ladder":[0.0,0.5]},"error":"TypeError"},
 {"call":"constants.resolve_poll_delays","args":{"poll_attempts":[3],"poll_interval":null,"default_ladder":[1.0,0.5,0.5,2.0,2.0,2.0,5.0,5.0,5.0,10.0]},"error":"TypeError"},
-{"call":"constants.resolve_poll_delays","args":{"poll_attempts":3,"poll_interval":null,"default_ladder":5},"error":"TypeError"}
+{"call":"constants.resolve_poll_delays","args":{"poll_attempts":3,"poll_interval":null,"default_ladder":5},"error":"TypeError"},
+{"call":"constants.resolve_poll_delays","args":{"poll_attempts":4611686018427387904,"poll_interval":1.5},"error":"MemoryError"},
+{"call":"constants.resolve_poll_delays","args":{"poll_attempts":4611686018427387904,"poll_interval":null},"error":"MemoryError"},
+{"call":"constants.resolve_poll_delays","args":{"poll_attempts":9223372036854775807,"poll_interval":1.5},"error":"MemoryError"},
+{"call":"constants.resolve_poll_delays","args":{"poll_attempts":9223372036854775807,"poll_interval":null},"error":"MemoryError"},
+{"call":"constants.resolve_poll_delays","args":{"poll_attempts":9223372036854775808,"poll_interval":1.5},"error":"OverflowError"},
+{"call":"constants.resolve_poll_delays","args":{"poll_attempts":9223372036854775808,"poll_interval":null},"error":"MemoryError"},
+{"call":"constants.resolve_poll_delays","args":{"poll_attempts":18446744073709551615,"poll_interval":1.5},"error":"OverflowError"},
+{"call":"constants.resolve_poll_delays","args":{"poll_attempts":18446744073709551615,"poll_interval":null},"error":"OverflowError"}
 ]}

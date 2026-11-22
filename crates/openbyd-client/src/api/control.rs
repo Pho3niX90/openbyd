@@ -22,7 +22,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 use openbyd_protocol::coerce::ValidationError;
-use openbyd_protocol::constants::{COMMAND_POLL_DELAYS_S, resolve_poll_delays};
+use openbyd_protocol::constants::{COMMAND_POLL_DELAYS_S, poll_delays};
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::models::base::BydModel;
 use openbyd_protocol::models::control::{
@@ -455,7 +455,7 @@ fn failure_message(data: &Value) -> String {
 ///    rejection (`controlState` 2) fails with code `"2"`. A waiter that
 ///    fails, gives nothing or a result still pending falls back to polling.
 /// 4. Up to `poll_attempts` polls, each after its delay from
-///    [`resolve_poll_delays`] when above 0.
+///    [`poll_delays`] when above 0.
 ///    API errors are skipped, except an expired session; others end the
 ///    attempt. The last reply decides: `controlState` 2 is code `"2"`, a
 ///    reply that never became final is code `"timeout"`.
@@ -579,7 +579,7 @@ pub async fn poll_remote_control_once<E: Env>(
     // Phase 2: poll.
     let mut latest = result;
     let mut reached_terminal = false;
-    let delays = resolve_poll_delays(
+    let delays = poll_delays(
         options.poll_attempts,
         options.poll_interval,
         &COMMAND_POLL_DELAYS_S,

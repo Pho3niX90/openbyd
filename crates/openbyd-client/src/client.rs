@@ -161,7 +161,7 @@ use std::time::{Duration, Instant};
 
 use openbyd_protocol::coerce::IntEnum;
 use openbyd_protocol::config::BydConfig;
-use openbyd_protocol::constants::{COMMAND_POLL_DELAYS_S, resolve_poll_delays};
+use openbyd_protocol::constants::{COMMAND_POLL_DELAYS_S, poll_delays};
 use openbyd_protocol::envelope::{build_login_request, parse_login_response};
 use openbyd_protocol::error::{Error, ErrorKind};
 use openbyd_protocol::models::base::BydModel;
@@ -1410,7 +1410,7 @@ impl<E: ClientEnv> BydClient<E> {
             }
         }
         let mut unavailable = 0;
-        let delays = resolve_poll_delays(
+        let delays = poll_delays(
             read.poll_attempts,
             read.poll_interval,
             &COMMAND_POLL_DELAYS_S,

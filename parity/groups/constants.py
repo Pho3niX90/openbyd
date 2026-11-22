@@ -47,7 +47,7 @@ def time_span_to_minutes(code) -> int | None:
     return _constants.time_span_to_minutes(code)
 
 
-@group.oracle("constants.resolve_poll_delays", errors=(TypeError, IndexError))
+@group.oracle("constants.resolve_poll_delays", errors=(TypeError, IndexError, MemoryError, OverflowError))
 def resolve_poll_delays(poll_attempts, poll_interval, **ladder) -> list:
     if "default_ladder" in ladder:
         if not isinstance(ladder["default_ladder"], list):
@@ -93,6 +93,11 @@ def recorded():
         for ladder in LADDERS[1:]:
             yield "constants.resolve_poll_delays", poll_delays_args(attempts, None, ladder)
     yield "constants.resolve_poll_delays", poll_delays_args(3, None, 5)
+    # Lists too long to size (no allocation is tried): MemoryError, and
+    # beyond an index, OverflowError.
+    for attempts in [2**62, 2**63 - 1, 2**63, 2**64 - 1]:
+        for interval in [1.5, None]:
+            yield "constants.resolve_poll_delays", poll_delays_args(attempts, interval, None)
 
 
 def random_number(rng):

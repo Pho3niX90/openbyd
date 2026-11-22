@@ -79,12 +79,12 @@ impl<E: ClientEnv> BydClient<E> {
         };
         let saved = authed!(self, |cx| save_standby_plan(cx, vin, plan, schedule))?;
         let mut plans = self.get_standby_plans(vin).await?;
-        // `saved.get("message") or None`. pyBYD copies a non-string message
-        // in unchecked; it is kept here as Python's `str()` of it.
+        // `model_copy(update={"message": saved.get("message") or None})`:
+        // not validated, so a message that is not text stays what BYD sent.
         plans.message = saved
             .get("message")
             .filter(|message| crate::api::control::truthy(message))
-            .map(openbyd_protocol::pyjson::py_str);
+            .cloned();
         Ok(plans)
     }
 

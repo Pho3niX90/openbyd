@@ -304,7 +304,11 @@ def recorded():
         yield case("save_standby_plan", {"replies": [SAVED, LIST_PRESET]}, plan=ms.NEW_PLAN, schedule=schedule)
     # #91: the save's message comes back with the list; a refused once run is 6111.
     for saved in [reply({"message": "La hora está a menos de 20 minutos; se omite hoy"}), reply({"message": ""}),
-                  reply({}), reply({"message": None}), reply([])]:
+                  reply({}), reply({"message": None}), reply([]),
+                  # pyBYD copies a message of another type in unchecked
+                  reply({"message": {"warning": 1}}), reply({"message": 5}), reply({"message": 0}),
+                  reply({"message": [1, "x"]}), reply({"message": []}), reply({"message": True}),
+                  reply({"message": False}), reply({"message": 1.5})]:
         yield case("save_standby_plan", {"replies": [saved, LIST_PRESET]}, plan=PRESET, schedule=SCHEDULES[0])
     yield case("save_standby_plan", {"replies": [error_reply("6111", "Hora no válida")]}, plan=PRESET, schedule=SCHEDULES[0])
     yield case("create_standby_plan", {"replies": [LIST_PRESET, error_reply("6111")]}, name="Test plan", commands=COMMANDS,

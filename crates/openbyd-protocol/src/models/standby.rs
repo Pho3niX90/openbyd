@@ -1227,7 +1227,11 @@ pub struct StandbyPlanList {
     ///
     /// Worth showing: a daily or weekly run less than 20 min ahead is saved
     /// but skips today, and this is the only place that says so (#91).
-    pub message: Option<String>,
+    ///
+    /// Normally text. pyBYD copies the save's message in without checking
+    /// it, so a message of another type (an object, a number) is kept as the
+    /// JSON BYD sent, as pyBYD's dump shows it.
+    pub message: Option<Value>,
 }
 
 impl BydModel for StandbyPlanList {
@@ -1244,7 +1248,7 @@ impl BydModel for StandbyPlanList {
             plans: fields.get("plans", Vec::new(), |value| {
                 coerce::list(value, |item| StandbyPlan::parse(item, context))
             }),
-            message: fields.opt("message", coerce::string),
+            message: fields.opt("message", coerce::string).map(Value::String),
         };
         fields.finish()?;
         Ok(model)

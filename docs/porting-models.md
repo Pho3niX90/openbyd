@@ -118,8 +118,8 @@ Python (`parity/models_support.py`):
   pyBYD's integers are unbounded and openbyd's are `i64`, so a conversion such as
   `int(1e300)` gives an answer openbyd can only call `Unsupported`. Call it once at
   the end of a group module and every case whose pyBYD answer holds an integer
-  outside `(-bound, bound)` is left out of the recorded and fuzz sources (errors and
-  `raw` are not looked at). It filters on the answer; if a case must be dropped
+  outside `[-bound, bound)` (exactly i64 with the default bound) is left out of the
+  recorded and fuzz sources (errors and `raw` are not looked at). It filters on the answer; if a case must be dropped
   because of its input even when pyBYD raises, filter in the group, as
   `models_control` does for its event models.
 

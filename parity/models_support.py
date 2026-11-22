@@ -680,13 +680,14 @@ def _answer_ints(value: Any) -> Iterator[int]:
 
 
 def answer_is_representable(group: Group, call: str, args: dict[str, Any], bound: int = 2**63) -> bool:
-    """Whether every integer in pyBYD's answer to this case fits inside ``(-bound, bound)``."""
+    """Whether every integer in pyBYD's answer to this case fits in ``[-bound, bound)``,
+    which with the default bound is exactly i64."""
     answer = group.answer(call, args)
-    return all(-bound < number < bound for number in _answer_ints(answer.get("ok")))
+    return all(-bound <= number < bound for number in _answer_ints(answer.get("ok")))
 
 
 def skip_unrepresentable_integers(group: Group, bound: int = 2**63) -> None:
-    """Leave out the cases where pyBYD answers an integer outside ``(-bound, bound)``.
+    """Leave out the cases where pyBYD answers an integer outside ``[-bound, bound)``.
 
     openbyd's integers are ``i64`` (docs/porting-models.md, "Representation
     limits"), but pyBYD's are unbounded: a conversion such as ``int(1e300)`` or

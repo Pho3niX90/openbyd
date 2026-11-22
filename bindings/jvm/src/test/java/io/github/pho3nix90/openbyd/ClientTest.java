@@ -620,6 +620,8 @@ class ClientTest {
                             "weeklyDays", List.of(),
                             "controlParams", commands);
             world.server.reply(saveEndpoint, Reply.data(Map.of()));
+            // The first save answers a message that is not text: it comes back as sent.
+            world.server.script(saveEndpoint, Reply.data(Map.of("message", Map.of("warning", 1))));
             world.server.reply(setDefaultEndpoint, Reply.data(Map.of()));
             world.server.reply(deleteEndpoint, Reply.data(Map.of()));
             world.server.reply(sendEndpoint, Reply.data(Map.of("requestSerial", "RUN1")));
@@ -646,6 +648,7 @@ class ClientTest {
             StandbyPlanList saved =
                     await(client.saveStandbyPlan(VIN, plan, new StandbyScheduleOptions().schedule(daily)));
             assertEquals("101", saved.plans().get(0).id());
+            assertEquals(Map.of("warning", 1), saved.message());
             Map<?, ?> saveInner = assertInstanceOf(Map.class, world.server.requests(saveEndpoint).get(0).inner());
             assertEquals("1", saveInner.get("executeType"));
             assertTrue(assertInstanceOf(Number.class, saveInner.get("executeTime")).longValue() > 0);

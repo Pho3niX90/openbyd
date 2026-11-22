@@ -572,6 +572,8 @@ public sealed class ClientTests(ITestOutputHelper output)
             }
             """);
         world.Server.Reply(saveEndpoint, Reply.Data(new JsonObject()));
+        // The first save answers a message that is not text: it comes back as sent.
+        world.Server.Script(saveEndpoint, Reply.Data(World.Json("""{"message": {"warning": 1}}""")));
         world.Server.Reply(setDefaultEndpoint, Reply.Data(new JsonObject()));
         world.Server.Reply(deleteEndpoint, Reply.Data(new JsonObject()));
         world.Server.Reply(sendEndpoint, Reply.Data(World.Json("""{"requestSerial": "RUN1"}""")));
@@ -600,6 +602,7 @@ public sealed class ClientTests(ITestOutputHelper output)
                 Zone = "Europe/Madrid",
             });
         Assert.Equal("101", saved.Plans[0].Id);
+        Assert.Equal(1, saved.Message?.GetProperty("warning").GetInt32());
         var saveInner = world.Server.Requests(saveEndpoint)[0].Inner;
         Assert.Equal("1", saveInner.GetProperty("executeType").GetString());
         Assert.True(saveInner.GetProperty("executeTime").GetInt64() > 0);

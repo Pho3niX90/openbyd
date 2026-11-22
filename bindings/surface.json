@@ -3840,7 +3840,7 @@
     {
      "name": "message",
      "type": {
-      "opt": "str"
+      "opt": "any"
      },
      "required": true
     }

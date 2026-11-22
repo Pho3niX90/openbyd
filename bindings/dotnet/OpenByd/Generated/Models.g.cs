@@ -2235,9 +2235,12 @@ public sealed record StandbyPlanList : IBydModel
     [JsonPropertyName("plans")]
     public required IReadOnlyList<StandbyPlan> Plans { get; init; }
 
-    /// <summary>pyBYD's <c>message</c>.</summary>
+    /// <summary>
+    /// BYD's message about the list: usually text, but after a save the reply's <c>message</c> as BYD
+    /// sent it (any JSON value). Null when there is none.
+    /// </summary>
     [JsonPropertyName("message")]
-    public required string? Message { get; init; }
+    public required JsonElement? Message { get; init; }
 }
 
 /// <summary>Result of running a plan now (<c>send</c> → <c>send-result</c>).</summary>

@@ -429,6 +429,8 @@ test("standby plans round-trip, including daily schedules with zone", async () =
     executeType: "1",
   };
   world.server.reply(SAVE, { data: {} });
+  // The first save answers a message that is not text: it comes back as sent.
+  world.server.script(SAVE, [{ data: { message: { warning: 1 } } }]);
   world.server.reply(SET_DEFAULT, { data: {} });
   world.server.reply(DELETE, { data: {} });
   world.server.reply(SEND, { data: { requestSerial: "RUN1" } });
@@ -456,6 +458,7 @@ test("standby plans round-trip, including daily schedules with zone", async () =
     },
   });
   assert.equal(saved.plans[0]?.id, "101");
+  assert.deepEqual(saved.message, { warning: 1 });
   const saveInner = world.server.requests(SAVE)[0]?.inner as { executeType: string; executeTime: number };
   assert.equal(saveInner.executeType, "1");
   assert.ok(saveInner.executeTime > 0);

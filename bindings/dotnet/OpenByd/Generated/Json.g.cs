@@ -5879,7 +5879,7 @@ internal sealed class StandbyPlanListJson() : WireConverter<StandbyPlanList>(Rea
         IReadOnlyDictionary<string, JsonElement> _raw = null!;
         string _vin = null!;
         IReadOnlyList<StandbyPlan> _plans = null!;
-        string? _message = default;
+        JsonElement? _message = default;
         while (Wire.NextName(ref reader, out var name))
         {
             switch (name)
@@ -5898,7 +5898,7 @@ internal sealed class StandbyPlanListJson() : WireConverter<StandbyPlanList>(Rea
                     break;
                 case "message":
                     Wire.Mark(seen, 3, name);
-                    _message = Wire.Opt<string>(ref reader, Wire.Str);
+                    _message = Wire.OptValue<JsonElement>(ref reader, Wire.Any);
                     break;
                 default:
                     throw Wire.UnknownField("StandbyPlanList", name);
@@ -5924,7 +5924,7 @@ internal sealed class StandbyPlanListJson() : WireConverter<StandbyPlanList>(Rea
         writer.WritePropertyName("plans"u8);
         Wire.WriteList<StandbyPlan>(writer, value.Plans, StandbyPlanJson.WriteValue);
         writer.WritePropertyName("message"u8);
-        Wire.WriteOpt<string>(writer, value.Message, Wire.WriteStr);
+        Wire.WriteOptValue<JsonElement>(writer, value.Message, Wire.WriteAny);
         writer.WriteEndObject();
     }
 }

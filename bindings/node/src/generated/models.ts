@@ -1225,7 +1225,11 @@ export interface StandbyPlanList {
   readonly raw: JsonObject;
   readonly vin: string;
   readonly plans: StandbyPlan[];
-  readonly message: string | null;
+  /**
+   * BYD's message about the list: usually text, but after a save the reply's `message` as BYD
+   * sent it (any JSON value). Null when there is none.
+   */
+  readonly message: JsonValue | null;
 }
 
 /**

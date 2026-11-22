@@ -58,6 +58,20 @@ INPUT_MODELS = {
     "StandbySchedule",
 }
 
+#: pyBYD output fields whose type openbyd widens, as (type, doc): what openbyd
+#: answers that pyBYD's annotation does not cover.
+OUTPUT_FIELD_TYPES: dict[str, dict[str, tuple[Type, str]]] = {
+    "StandbyPlanList": {
+        # A save keeps BYD's message as sent (pyBYD reads it from the reply
+        # with `.get`), so it can be any JSON value, not only a string.
+        "message": (
+            opt(ANY),
+            "BYD's message about the list: usually text, but after a save the reply's `message` as BYD sent it "
+            "(any JSON value). Null when there is none.",
+        ),
+    },
+}
+
 #: Extra fields openbyd adds to pyBYD's parameter models.
 EXTRA_INPUT_FIELDS: dict[str, tuple[Field, ...]] = {
     "StandbySchedule": (
@@ -107,6 +121,15 @@ def add_pybyd_models(surface: Surface) -> None:
                 extra = EXTRA_INPUT_FIELDS.get(cls_name)
                 if extra:
                     struct = dataclasses.replace(struct, fields=(*struct.fields, *extra))
+                widened = OUTPUT_FIELD_TYPES.get(cls_name, {})
+                if widened:
+                    names = {entry.name for entry in struct.fields}
+                    assert set(widened) <= names, f"{cls_name}: no field {sorted(set(widened) - names)}"
+                    struct = dataclasses.replace(struct, fields=tuple(
+                        dataclasses.replace(entry, type=widened[entry.name][0], doc=widened[entry.name][1])
+                        if entry.name in widened else entry
+                        for entry in struct.fields
+                    ))
                 surface.add(struct)
             elif issubclass(cls, enum.Enum):
                 surface.add(enum_from_class(cls, name))

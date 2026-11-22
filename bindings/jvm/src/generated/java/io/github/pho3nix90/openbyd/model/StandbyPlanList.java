@@ -15,13 +15,15 @@ import org.jspecify.annotations.Nullable;
  * <p>pyBYD's {@code StandbyPlanList}, as {@code model_dump(mode="json")} gives it.
  *
  * @param raw The reply this was parsed from, as BYD sent it.
+ * @param message BYD's message about the list: usually text, but after a save the reply's
+ *     {@code message} as BYD sent it (any JSON value). Null when there is none.
  */
 @JsonPropertyOrder({"raw", "vin", "plans", "message"})
 public record StandbyPlanList(
         @JsonProperty("raw") Map<String, @Nullable Object> raw,
         @JsonProperty("vin") String vin,
         @JsonProperty("plans") List<StandbyPlan> plans,
-        @JsonProperty("message") @Nullable String message) {
+        @JsonProperty("message") @Nullable Object message) {
 
     /** Refuses null where a value must be. */
     public StandbyPlanList {

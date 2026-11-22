@@ -235,7 +235,7 @@ PROPERTY_CASES = [
 # Upstream #94 and #96: onlineState 0 is offline and any other positive int online
 # (the string and float spellings of an unmapped value stay unknown); powerGear 2
 # is "starting"; the lower tailgate half counts as a door; repairModeSwitch may be
-# an int; airRunState is a plain int.
+# an int. Upstream #100: airRunState is an AirRunState (ON 1, OFF 2, else UNKNOWN).
 ONLINE = [0, 1, 2, 3, 7, -1, -2, "0", "1", "2", " 2 ", "x", 0.0, 1.0, 2.0, 2.5, True, False, None, [], 2**63,
           2**64 - 1, -(2**63), 1e300]
 UPSTREAM_CASES = [

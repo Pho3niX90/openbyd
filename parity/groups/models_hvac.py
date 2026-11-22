@@ -72,8 +72,8 @@ def recorded():
         yield CALL, {"raw": {"acSwitch": value, "status": value}, "context": None}
     for value in [-129, -129.0, "-129", -128.5, -130, 0, "--", "NAN"]:
         yield CALL, {"raw": {"tempInCar": value, "tempOutCar": value}, "context": None}
-    # Upstream #94: vehicleStatusPush's airStatusDto spells cycleChoice "cycleModel",
-    # and airRunState is kept as a plain int.
+    # Upstream #94: vehicleStatusPush's airStatusDto spells cycleChoice "cycleModel".
+    # (airRunState is an AirRunState since upstream #100.)
     for value in [0, 1, 2, 3, -1, "2", "--", None, 1.5]:
         yield CALL, {"raw": {"cycleModel": value}, "context": None}
         yield CALL, {"raw": {"statusNow": {"cycleModel": value}}, "context": None}

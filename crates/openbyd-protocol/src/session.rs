@@ -320,17 +320,18 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
             // sign_token and encry_token are required keywords that become
             // Session fields (a str: null is a ValidationError); refresh_token
             // may be None, which keeps the session's own.
-            let required = |name: &str| -> Result<String, ParityError> {
-                match args.0.get(name) {
-                    None => Err(ParityError::new(
+            // Python binds the keywords before the Session validates any:
+            // a missing one is a TypeError whatever the other holds.
+            for name in ["sign_token", "encry_token"] {
+                if args.0.get(name).is_none() {
+                    return Err(ParityError::new(
                         "TypeError",
                         format!("missing required keyword argument {name:?}"),
-                    )),
-                    Some(value) => Ok(lax_str(value, name)?),
+                    ));
                 }
-            };
-            let sign = required("sign_token")?;
-            let encry = required("encry_token")?;
+            }
+            let sign = lax_str(args.value("sign_token"), "sign_token")?;
+            let encry = lax_str(args.value("encry_token"), "encry_token")?;
             let refresh = match args.value("refresh_token") {
                 Value::Null => None,
                 value => Some(lax_str(value, "refresh_token")?),
@@ -428,6 +429,8 @@ mod tests {
             "ValidationError"
         );
         assert_eq!(kind(json!({"encry_token": "e"})), "TypeError");
+        assert_eq!(kind(json!({"sign_token": null})), "TypeError");
+        assert_eq!(kind(json!({"encry_token": 5})), "TypeError");
         let kept = call(json!({"sign_token": " s ", "encry_token": "e", "refresh_token": null}));
         assert_eq!(kept.unwrap()["dump"]["sign_token"], "s");
     }

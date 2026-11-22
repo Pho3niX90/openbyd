@@ -117,6 +117,11 @@ def recorded():
             yield "session.with_refreshed_tokens", {**base, name: value}
     for name in ["sign_token", "encry_token"]:
         yield "session.with_refreshed_tokens", {key: value for key, value in base.items() if key != name}
+    # One missing and the other invalid: the missing keyword (TypeError) wins.
+    for present, missing in [("sign_token", "encry_token"), ("encry_token", "sign_token")]:
+        for bad in [None, 5]:
+            case = {key: value for key, value in base.items() if key != missing}
+            yield "session.with_refreshed_tokens", {**case, present: bad}
 
 
 @group.fuzz

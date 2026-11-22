@@ -56,10 +56,10 @@ pub trait Env: Send + Sync {
     /// reply's `Date` header showed (pyBYD's
     /// `SecureTransport.server_time_offset_ms`): 0 until a drift beyond
     /// [`openbyd_protocol::constants::SERVER_TIME_DRIFT_THRESHOLD_MS`] is
-    /// seen. Requests are stamped with our clock plus this.
-    fn server_time_offset_ms(&self) -> i64 {
-        0
-    }
+    /// seen. Requests are stamped with our clock plus this. Every
+    /// environment must report it: a wrapper that forgot to forward it would
+    /// sign with the local clock again.
+    fn server_time_offset_ms(&self) -> i64;
 }
 
 /// A boxed future, as [`ClientEnv`] passes them around.

@@ -367,6 +367,45 @@ async fn a_restored_client_never_sends_the_password() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_1003_is_retried_with_the_clock_of_the_date_header() {
+    // pyBYD #102 end to end: BYD's clock is two hours ahead; its Date header
+    // sets the offset, and the call retried after 1003 is signed with it.
+    let world = World::start([Account::new(USER, PASSWORD)]).await;
+    let client = world.client(world.config(USER, false), ClientOptions::default());
+    client.login().await.unwrap();
+    const AHEAD: i64 = 2 * 3600 * 1000;
+    world.server.set_clock_offset(Some(AHEAD));
+    world.server.script(
+        VEHICLES,
+        [
+            Reply::code("1003"),
+            Reply::Data(json!([{"vin": VIN, "energyType": "0"}])),
+        ],
+    );
+    let local = |name: &str, request: &openbyd_client::testing::Request| -> i64 {
+        let outer = request.outer.as_ref().unwrap();
+        outer[name].as_str().unwrap().parse().unwrap()
+    };
+    let before = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as i64;
+    let vehicles = client.get_vehicles().await.unwrap();
+    assert_eq!(vehicles.len(), 1);
+    let sent = world.server.requests_to(VEHICLES);
+    assert_eq!(sent.len(), 2);
+    // The first request went out on our clock, the retry on BYD's.
+    assert!(local("reqTimestamp", &sent[0]) < before + AHEAD / 2);
+    let retried = local("reqTimestamp", &sent[1]);
+    assert!(retried >= before + AHEAD - 60_000, "{retried} {before}");
+    let inner = sent[1].inner.as_ref().unwrap();
+    let stamp: i64 = inner["timeStamp"].as_str().unwrap().parse().unwrap();
+    assert_eq!(stamp, retried);
+    assert!(openbyd_client::Env::server_time_offset_ms(client.env()) > AHEAD - 60_000);
+    world.server.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn the_request_observer_sees_every_request() {
     let world = World::start([Account::new(USER, PASSWORD)]).await;
     world.server.reply(GPS_TRIGGER, Reply::code("1008"));

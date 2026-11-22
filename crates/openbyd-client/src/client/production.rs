@@ -110,6 +110,10 @@ impl Env for ProductionEnv {
     ) -> Result<Value, Error> {
         self.http.post_secure(endpoint, outer).await
     }
+
+    fn server_time_offset_ms(&self) -> i64 {
+        self.http.server_time_offset_ms()
+    }
 }
 
 /// A duration tokio accepts, or `None` for "no limit".

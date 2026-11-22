@@ -277,6 +277,8 @@ struct State {
     before_each: Option<Hook>,
     cookies: Vec<String>,
     issued: u64,
+    /// How far the `Date` header is from the real clock, when set.
+    clock_offset_ms: Option<i64>,
 }
 
 impl State {
@@ -414,6 +416,13 @@ impl FakeBydServer {
     /// verified (so it can expire sessions the request is checked against).
     pub fn before_each(&self, hook: impl Fn() + Send + Sync + 'static) {
         self.shared.state().before_each = Some(Arc::new(hook));
+    }
+
+    /// Sends a `Date` header `offset_ms` away from the real clock with every
+    /// reply (`None`, the default, leaves hyper's own), as a BYD server
+    /// whose clock is off would.
+    pub fn set_clock_offset(&self, offset_ms: Option<i64>) {
+        self.shared.state().clock_offset_ms = offset_ms;
     }
 
     /// Switches the recording of every request ([`FakeBydServer::requests`])
@@ -946,7 +955,21 @@ async fn handle(
         hyper::header::CONTENT_TYPE,
         hyper::header::HeaderValue::from_static("application/json;charset=UTF-8"),
     );
-    let all = shared.state().cookies.clone();
+    let (all, clock_offset_ms) = {
+        let state = shared.state();
+        (state.cookies.clone(), state.clock_offset_ms)
+    };
+    if let Some(offset) = clock_offset_ms {
+        let now = std::time::SystemTime::now();
+        let shifted = if offset >= 0 {
+            now + Duration::from_millis(offset.unsigned_abs())
+        } else {
+            now - Duration::from_millis(offset.unsigned_abs())
+        };
+        if let Ok(value) = httpdate::fmt_http_date(shifted).parse() {
+            headers.insert(hyper::header::DATE, value);
+        }
+    }
     for cookie in all.iter().chain(&cookies) {
         if let Ok(value) = cookie.parse() {
             headers.append(SET_COOKIE, value);

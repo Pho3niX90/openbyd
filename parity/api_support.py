@@ -815,6 +815,8 @@ async def _client_method(client: Any, method: str, args: dict) -> Any:  # noqa: 
         return jsonable(await getattr(client, method)(vin, **charge))
     if method == "get_ota_version":
         return jsonable(await client.get_ota_version(vin))
+    if method == "get_maintenance_history":
+        return jsonable(await client.get_maintenance_history(vin))
     if method == "set_ota_auto_upgrade":
         time_arg = args.get("auto_upgrade_time")
         return jsonable(

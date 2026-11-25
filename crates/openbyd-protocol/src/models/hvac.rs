@@ -15,13 +15,14 @@ use crate::constants;
 use crate::parity::Outcome;
 
 byd_enum! {
-    /// A/C compressor switch, separate from the overall [`HvacOverallStatus`].
+    /// A/C button setting (`ON` = A/C, `OFF` = fan only), separate from the
+    /// overall [`HvacOverallStatus`]. Remembered while the climate is off.
     AcSwitch {
         /// No mapped member.
         Unknown = -1 => "UNKNOWN",
-        /// Compressor off.
+        /// Fan only.
         Off = 1 => "OFF",
-        /// Compressor on.
+        /// A/C enabled.
         On = 2 => "ON",
     }
 }
@@ -103,7 +104,9 @@ pub struct HvacStatus {
     pub raw: Map<String, Value>,
 
     // --- A/C state ---
-    /// A/C switch state.
+    /// A/C button setting, not whether the climate runs: on the Seal it
+    /// stays `ON` with the climate off and reads `OFF` in fan-only mode
+    /// (issue #20). Use [`Self::status`] / [`Self::air_run_state`] for running.
     #[serde(serialize_with = "base::ser_opt_int_enum")]
     pub ac_switch: Option<AcSwitch>,
     /// Overall HVAC status.
@@ -236,7 +239,10 @@ impl HvacStatus {
         self.status == Some(HvacOverallStatus::On)
     }
 
-    /// Whether the A/C compressor is on, `None` when not reported.
+    /// Whether the A/C button is on, `None` when not reported.
+    ///
+    /// This is the setting, kept while the climate is off; pair it with
+    /// [`Self::is_ac_on`] to know if the compressor may actually run.
     pub fn is_compressor_on(&self) -> Option<bool> {
         match self.ac_switch {
             None | Some(AcSwitch::Unknown) => None,

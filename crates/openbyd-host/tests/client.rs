@@ -262,6 +262,25 @@ fn reads_return_pybyds_dumps() {
     assert_eq!(homepage["status"]["soc"].as_f64(), Some(80.0));
     assert!(homepage["schedule"].is_object());
 
+    world.reply(
+        "/maintenance?s=App.AppMaintenance.getInfoFromOthers",
+        json!({"data": {"ret": 200, "data": {"list": [{
+            "ro_no": "RO-1",
+            "total_mileage": 12345,
+            "last_balance_date": 1_791_771_512_000_i64,
+            "shop_name": "BYD Test",
+            "customer_email": "owner@example.com"
+        }]}}}),
+    );
+    let maintenance = ok(&client, "get_maintenance_history", vin());
+    assert_eq!(maintenance["records"][0]["order_no"], "RO-1");
+    assert_eq!(maintenance["records"][0]["mileage"], 12345);
+    assert!(
+        maintenance["records"][0]["raw"]
+            .get("customer_email")
+            .is_none()
+    );
+
     let session = ok(&client, "ensure_session", Value::Null);
     assert!(session["sign_token"].is_string());
     assert!(session["ttl"].as_f64().unwrap() > 0.0);

@@ -1,4 +1,4 @@
-{"group": "models_realtime", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
+{"group": "models_realtime", "upstream_commit": "ae5f75e67ae4b96836b6ee3ffed46b30494fd38a", "cases": [
 {"call":"models.realtime.OnlineState","args":{"value":-1},"ok":{"name":"UNKNOWN","value":-1}},
 {"call":"models.realtime.OnlineState","args":{"value":0},"ok":{"name":"OFFLINE","value":0}},
 {"call":"models.realtime.OnlineState","args":{"value":1},"ok":{"name":"ONLINE","value":1}},

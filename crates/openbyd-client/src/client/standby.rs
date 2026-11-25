@@ -209,6 +209,7 @@ impl<E: ClientEnv> BydClient<E> {
                         poll_interval: Some(settings.poll_interval),
                         signal_retries: 2,
                         dispatched: Some(&dispatched),
+                        require_ready: false,
                     })
                     .await?;
                 let mut result: StandbyPlanRunResult = parse_model(&raw)?;

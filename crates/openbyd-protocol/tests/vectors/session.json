@@ -1,4 +1,4 @@
-{"group": "session", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
+{"group": "session", "upstream_commit": "ae5f75e67ae4b96836b6ee3ffed46b30494fd38a", "cases": [
 {"call":"session.Session","args":{"session":{"user_id":"1234567","sign_token":"SIGNTOKEN-synthetic","encry_token":"ENCRYTOKEN-synthetic","created_at":100.0,"ttl":43200.0},"now":100.0},"ok":{"user_id":"1234567","sign_token":"SIGNTOKEN-synthetic","encry_token":"ENCRYTOKEN-synthetic","refresh_token":"","created_at":100.0,"ttl":43200.0}},
 {"call":"session.Session","args":{"session":{"user_id":"1234567","sign_token":"SIGNTOKEN-synthetic","encry_token":"ENCRYTOKEN-synthetic","created_at":100.0,"ttl":43200.0},"now":43300.0},"ok":{"user_id":"1234567","sign_token":"SIGNTOKEN-synthetic","encry_token":"ENCRYTOKEN-synthetic","refresh_token":"","created_at":100.0,"ttl":43200.0}},
 {"call":"session.Session","args":{"session":{"user_id":"1234567","sign_token":" padded\t","encry_token":"ENCRYTOKEN-synthetic","created_at":100.0,"ttl":"60"},"now":159.5},"ok":{"user_id":"1234567","sign_token":"padded","encry_token":"ENCRYTOKEN-synthetic","refresh_token":"","created_at":100.0,"ttl":60.0}},

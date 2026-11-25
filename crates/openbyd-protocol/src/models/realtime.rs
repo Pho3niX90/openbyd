@@ -1132,7 +1132,9 @@ pub struct VehicleRealtimeData {
     /// observed non-zero. Do not assume this is a cumulative energy counter.
     #[serde(serialize_with = "base::ser_opt_float")]
     pub total_power: Option<f64>,
-    /// Instantaneous battery power (W).
+    /// Instantaneous battery power (W). Positive while charging (into the
+    /// pack), negative while driving or discharging; opposite sign to
+    /// [`Self::rate`]. Observed on a Seal (MEA), see issue #20.
     #[serde(serialize_with = "base::ser_opt_float")]
     pub gl: Option<f64>,
     /// Lifetime AVERAGE EV consumption rate, kWh/100km; despite the name
@@ -1179,7 +1181,9 @@ pub struct VehicleRealtimeData {
     pub ect: Option<i64>,
     /// Engine coolant temperature (deg C).
     pub ect_value: Option<i64>,
-    /// Power warning. 0=normal, >0=warning.
+    /// Unmapped, NOT a warning lamp. Reads `2` on healthy cars whether
+    /// parked, charging or driving (Seal, Sealion 7); `0` only in asleep
+    /// placeholders. See issue #20.
     pub pwr: Option<i64>,
 
     // --- Feature states ---
@@ -1317,7 +1321,9 @@ pub struct VehicleRealtimeData {
     pub charging_system: Option<i64>,
     /// Steering system warning. 0=normal.
     pub steering_system: Option<i64>,
-    /// OK/ready indicator. 0=off.
+    /// Cluster OK (ready to drive) light. 0=off, 1=on. Differs from
+    /// [`Self::power_gear`] while plugged in: a car switched on with the cable
+    /// in reads `power_gear` ON but `ok_light` 0 (Seal, issue #20).
     pub ok_light: Option<i64>,
 
     // --- Features (extended) ---

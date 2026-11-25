@@ -921,6 +921,14 @@ impl PyClient {
         read!(self, py, |client| client.get_booking_list(&vin))
     }
 
+    fn get_maintenance_history<'py>(
+        &self,
+        py: Python<'py>,
+        vin: String,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        read!(self, py, |client| client.get_maintenance_history(&vin))
+    }
+
     fn get_ota_version<'py>(&self, py: Python<'py>, vin: String) -> PyResult<Bound<'py, PyAny>> {
         read!(self, py, |client| client.get_ota_version(&vin))
     }

@@ -891,7 +891,10 @@ async fn handle(
     let (parts, body) = incoming.into_parts();
     let body = body.collect().await.map_err(|_| Dropped)?.to_bytes();
     let mut request = Request {
-        endpoint: parts.uri.path().to_owned(),
+        endpoint: parts
+            .uri
+            .path_and_query()
+            .map_or_else(|| parts.uri.path().to_owned(), |pq| pq.as_str().to_owned()),
         headers: parts
             .headers
             .iter()

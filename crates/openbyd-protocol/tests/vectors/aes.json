@@ -1,4 +1,4 @@
-{"group": "aes", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
+{"group": "aes", "upstream_commit": "ae5f75e67ae4b96836b6ee3ffed46b30494fd38a", "cases": [
 {"call":"aes.aes_encrypt_hex","args":{"plaintext":"","key_hex":"000102030405060708090A0B0C0D0E0F"},"ok":"954F64F2E4E86E9EEE82D20216684899"},
 {"call":"aes.aes_encrypt_hex","args":{"plaintext":"a","key_hex":"000102030405060708090A0B0C0D0E0F"},"ok":"FE123486508B0EB503A8468388EF5812"},
 {"call":"aes.aes_encrypt_hex","args":{"plaintext":"exactly sixteen!","key_hex":"000102030405060708090A0B0C0D0E0F"},"ok":"B30D304C8F13E60FDCF2DB6E9F36E5A07D4FD119CEFCE44529E3FCD354FC7E99"},

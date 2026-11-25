@@ -11,8 +11,8 @@ use serde_json::{Map, Value, json};
 
 pub use openbyd_protocol::api::common::{
     ENDPOINT_NOT_SUPPORTED_CODES, GUEST_NOT_DECLARED_CODE, NOT_A_GUEST_CODE, SERVICE_BUSY_CODES,
-    USER_TYPE_GUEST, VEHICLE_UNREACHABLE_CODES, build_inner_base, decode_respond_data,
-    raise_for_code, random_hex,
+    USER_TYPE_GUEST, USER_TYPE_OWNER, VEHICLE_UNREACHABLE_CODES, build_inner_base,
+    decode_respond_data, raise_for_code, random_hex,
 };
 
 use crate::api::Context;
@@ -111,7 +111,11 @@ pub async fn post_vehicle_json<E: Env>(
     codes: ErrorCodes<'_>,
 ) -> Result<Value, Error> {
     let guest = cx.session.is_guest(vin);
-    let declared = guest.then_some(USER_TYPE_GUEST);
+    let declared = Some(if guest {
+        USER_TYPE_GUEST
+    } else {
+        USER_TYPE_OWNER
+    });
     let first = match post_token_json(cx, endpoint, inner, now_ms, Some(vin), codes, declared).await
     {
         Ok(decoded) => return Ok(decoded),
@@ -131,7 +135,11 @@ pub async fn post_vehicle_json<E: Env>(
     let mut retry_inner = inner.clone();
     retry_inner.insert("random".into(), json!(random_hex(&cx.env.random_bytes())));
     retry_inner.insert("timeStamp".into(), json!(retry_ms.to_string()));
-    let other = if guest { None } else { Some(USER_TYPE_GUEST) };
+    let other = Some(if guest {
+        USER_TYPE_OWNER
+    } else {
+        USER_TYPE_GUEST
+    });
     match post_token_json(
         cx,
         endpoint,

@@ -727,6 +727,7 @@ fn every_method_is_send(client: &BydClient<ProductionEnv>) {
     send(client.toggle_smart_charging(vin, true));
     send(client.get_ota_version(vin));
     send(client.set_ota_auto_upgrade(vin, true, "2:00", None));
+    send(client.get_maintenance_history(vin));
     send(client.get_empower_detail(vin, None));
     send(client.import_session(SessionTokens {
         user_id: String::new(),

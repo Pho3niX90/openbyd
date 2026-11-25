@@ -106,17 +106,24 @@ def num(*values: Any, allow_zero: bool = False) -> float | None:
     return None
 
 
-def view(realtime: dict, charging: dict, gps: dict, hvac: dict, hybrid: bool) -> dict[str, Any]:
+def view(realtime: dict | tuple[str, str | None], charging: dict, gps: dict, hvac: dict, hybrid: bool) -> dict[str, Any]:
     """The values a backend derives from the dumps of the four replies: which raw
     field carries which meaning, as the owner's worker reads them."""
-    raw = realtime["raw"]
-    placeholder = "time" in raw and not float(raw.get("time") or 0) > 0 and not any(
-        num(raw.get(key)) for key in ("leftFrontTirepressure", "enduranceMileage", "elecPercent")
-    )
-    online_state = realtime["online_state"]
-    asleep = online_state != 1 or placeholder
+    if isinstance(realtime, tuple):
+        assert realtime == ("BydDataUnavailableError", "not_ready")
+        asleep = True
+        placeholder = True
+        online_state = 0
+        raw: dict[str, Any] = {}
+    else:
+        raw = realtime["raw"]
+        placeholder = "time" in raw and not float(raw.get("time") or 0) > 0 and not any(
+            num(raw.get(key)) for key in ("leftFrontTirepressure", "enduranceMileage", "elecPercent")
+        )
+        online_state = realtime["online_state"]
+        asleep = online_state != 1 or placeholder
     speed = None if asleep else num(realtime["speed"], allow_zero=True)
-    gear = realtime["power_gear"]
+    gear = None if asleep else realtime["power_gear"]
     if asleep:
         vehicle_on = None
     elif speed is not None and speed >= 1:
@@ -128,7 +135,7 @@ def view(realtime: dict, charging: dict, gps: dict, hvac: dict, hybrid: bool) ->
     else:
         vehicle_on = None
     reported = num(raw.get("chargePower"))
-    rate = num(realtime["rate"], allow_zero=True)
+    rate = None if asleep else num(realtime["rate"], allow_zero=True)
     pack = None if raw.get("gl") in (None, -999, -9) else float(raw["gl"])
     if asleep:
         power = None
@@ -213,9 +220,16 @@ def make_client(library: str, replay: Any, account: str, mqtt: bool = False, **c
     return openbyd.Client(**config, _test_tls=True, **callbacks)
 
 
-async def read_car(client: Any, vin: str) -> dict[str, dict[str, Any]]:
+async def read_car(client: Any, vin: str) -> dict[str, Any]:
+    try:
+        realtime: Any = dump(await client.get_vehicle_realtime(vin, **POLL))
+    except Exception as error:  # noqa: BLE001 -- asleep placeholder raises not_ready since pyBYD #110
+        if type(error).__name__ == "BydDataUnavailableError" and getattr(error, "code", None) == "not_ready":
+            realtime = ("BydDataUnavailableError", "not_ready")
+        else:
+            raise
     return {
-        "realtime": dump(await client.get_vehicle_realtime(vin, **POLL)),
+        "realtime": realtime,
         "charging": dump(await client.get_charging_status(vin)),
         "gps": dump(await client.get_gps_info(vin, **POLL)),
         "hvac": dump(await client.get_hvac_status(vin)),

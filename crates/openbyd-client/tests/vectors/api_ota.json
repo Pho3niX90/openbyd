@@ -1,4 +1,4 @@
-{"group": "api_ota", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
+{"group": "api_ota", "upstream_commit": "ae5f75e67ae4b96836b6ee3ffed46b30494fd38a", "cases": [
 {"call":"api.ota.normalize_ota_upgrade_time","args":{"value":"2:00"},"ok":"2:00"},
 {"call":"api.ota.normalize_ota_upgrade_time","args":{"value":"02:00"},"ok":"2:00"},
 {"call":"api.ota.normalize_ota_upgrade_time","args":{"value":"00:05"},"ok":"0:05"},

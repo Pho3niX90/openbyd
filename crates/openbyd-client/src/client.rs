@@ -174,6 +174,7 @@ use openbyd_protocol::models::energy::EnergyConsumption;
 use openbyd_protocol::models::gps::GpsInfo;
 use openbyd_protocol::models::hvac::HvacStatus;
 use openbyd_protocol::models::latest_config::{VehicleCapabilities, VehicleLatestConfig};
+use openbyd_protocol::models::maintenance::MaintenanceHistory;
 use openbyd_protocol::models::message_center::{NotificationCategory, VehicleMsgItemInfo};
 use openbyd_protocol::models::ota::OtaUpgradeInfo;
 use openbyd_protocol::models::push_notification::PushNotificationState;
@@ -194,7 +195,7 @@ use crate::api::smart_charging::{
 use crate::api::standby::{SendFetchFn, is_send_ready};
 use crate::api::vehicle::parse_model;
 use crate::api::{
-    booking, charging, energy, gps, hvac, latest_config, login, message_center, ota,
+    booking, charging, energy, gps, hvac, latest_config, login, maintenance, message_center, ota,
     push_notifications, realtime, smart_charging, vehicle, vehicle_settings,
 };
 use crate::env::{BoxFuture, ClientEnv, Env, MqttSink};
@@ -1371,6 +1372,29 @@ impl<E: ClientEnv> BydClient<E> {
     // Reads
     // -----------------------------------------------------------------------
 
+    /// Checks `require_ready` before handing back a payload that did not pass
+    /// `is_ready` earlier (pyBYD's `_finish` inside `_trigger_and_poll`).
+    fn finish_read(read: &TriggeredRead<'_>, raw: Value) -> Result<Value, Error> {
+        if read.require_ready {
+            let ready = match &raw {
+                Value::Object(map) => read.fetch.is_ready(map)?,
+                _ => false,
+            };
+            if !ready {
+                return Err(Error::api(
+                    ErrorKind::BydDataUnavailableError,
+                    format!(
+                        "{} returned no usable data for vin={}",
+                        read.label, read.vin
+                    ),
+                    "not_ready",
+                    read.poll_endpoint,
+                ));
+            }
+        }
+        Ok(raw)
+    }
+
     /// pyBYD's `_trigger_and_poll`: trigger, wait for the MQTT push, then
     /// poll over HTTP. Returns the payload to validate.
     async fn trigger_and_poll(&self, read: TriggeredRead<'_>) -> Result<Value, Error> {
@@ -1394,7 +1418,7 @@ impl<E: ClientEnv> BydClient<E> {
             return Ok(merged);
         }
         if !truthy(&serial) {
-            return Ok(merged);
+            return Self::finish_read(&read, merged);
         }
         self.add_data_poll_serial(&serial)?;
         let result = self.wait_then_poll(cx, &read, merged, serial.clone()).await;
@@ -1426,7 +1450,7 @@ impl<E: ClientEnv> BydClient<E> {
             if let Some(Value::String(code)) = raw.get("code")
                 && MQTT_DATA_UNAVAILABLE_CODES.contains(&code.as_str())
             {
-                return Ok(merged);
+                return Self::finish_read(read, merged);
             }
         }
         let mut unavailable = 0;
@@ -1465,7 +1489,7 @@ impl<E: ClientEnv> BydClient<E> {
                 Err(_) => unavailable = 0,
             }
         }
-        Ok(merged)
+        Self::finish_read(read, merged)
     }
 
     /// pyBYD's `self._data_poll_serials.add(serial)`: a list or object is
@@ -1520,6 +1544,9 @@ impl<E: ClientEnv> BydClient<E> {
                         poll_interval: Some(settings.poll_interval),
                         signal_retries: settings.signal_retries,
                         dispatched: None,
+                        // A sleeping car answers onlineState=1 with time=0 and every
+                        // field zeroed; surfacing that reads as 0% SoC (pyBYD#20).
+                        require_ready: true,
                     })
                     .await?;
                 VehicleRealtimeData::parse_owned(raw, &context)
@@ -1568,6 +1595,7 @@ impl<E: ClientEnv> BydClient<E> {
                         poll_interval: Some(settings.poll_interval),
                         signal_retries: settings.signal_retries,
                         dispatched: None,
+                        require_ready: false,
                     })
                     .await?;
                 parse_model(&raw)
@@ -1720,6 +1748,13 @@ impl<E: ClientEnv> BydClient<E> {
         ))
     }
 
+    /// Past workshop visits (service history) (pyBYD's `get_maintenance_history`).
+    pub async fn get_maintenance_history(&self, vin: &str) -> Result<MaintenanceHistory, Error> {
+        authed!(self, probe, |cx| maintenance::fetch_maintenance_history(
+            cx, vin
+        ))
+    }
+
     // -----------------------------------------------------------------------
     // MQTT start and stop
     // -----------------------------------------------------------------------
@@ -1807,6 +1842,9 @@ struct TriggeredRead<'a> {
     signal_retries: i64,
     /// pyBYD's `on_trigger_dispatched`: set once the trigger was accepted.
     dispatched: Option<&'a AtomicBool>,
+    /// Raise `BydDataUnavailableError` (`code="not_ready"`) instead of
+    /// returning a payload that never passed `is_ready`.
+    require_ready: bool,
 }
 
 /// The `fetch_fn` and `is_ready` of a `_trigger_and_poll`.

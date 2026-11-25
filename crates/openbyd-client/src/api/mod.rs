@@ -14,6 +14,7 @@ pub mod gps;
 pub mod hvac;
 pub mod latest_config;
 pub mod login;
+pub mod maintenance;
 pub mod message_center;
 pub mod ota;
 pub mod push_notifications;
@@ -75,6 +76,7 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
             hvac::parity_call,
             latest_config::parity_call,
             login::parity_call,
+            maintenance::parity_call,
             message_center::parity_call,
             ota::parity_call,
             push_notifications::parity_call,

@@ -557,6 +557,7 @@ impl<E: ClientEnv> BydClient<E> {
                         poll_interval: settings.poll_interval,
                         signal_retries: 2,
                         dispatched: Some(&dispatched),
+                        require_ready: false,
                     })
                     .await?;
                 let result: ChargeChangeResult = parse_model(&raw)?;
@@ -623,6 +624,7 @@ impl<E: ClientEnv> BydClient<E> {
                         poll_interval: settings.poll_interval,
                         signal_retries: 2,
                         dispatched: Some(&dispatched),
+                        require_ready: false,
                     })
                     .await?;
                 let result: ChargeChangeResult = parse_model(&raw)?;

@@ -618,7 +618,7 @@ mod tests {
     fn login_round_trip() {
         let config = BydConfig::new("user@example.com", "pa$$ \"wörd\" 🚗");
         let outer = build_login_request(&config, 1_700_000_000_000, &[7; 16], 1_700_000_000_005);
-        assert_eq!(outer["appName"], "pyBYD+0.0.89");
+        assert_eq!(outer["appName"], "pyBYD+0.0.91");
         assert!(encode_request_body(&outer).starts_with("{\"request\": \"F"));
         let token = json!({"userId": 5, "signToken": "s", "encryToken": "e"});
         let respond = aes_encrypt_hex(

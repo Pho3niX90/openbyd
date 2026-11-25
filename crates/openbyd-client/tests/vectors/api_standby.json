@@ -1,4 +1,4 @@
-{"group": "api_standby", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
+{"group": "api_standby", "upstream_commit": "ae5f75e67ae4b96836b6ee3ffed46b30494fd38a", "cases": [
 {"call":"api.standby.constants","args":{},"ok":{"LIST_ENDPOINT":"/control/standby-vehicles/list","SAVE_ENDPOINT":"/control/standby-vehicles/save","SET_DEFAULT_ENDPOINT":"/control/standby-vehicles/setDefault","DELETE_ENDPOINT":"/control/standby-vehicles/delete","SEND_ENDPOINT":"/control/standby-vehicles/send","SEND_RESULT_ENDPOINT":"/control/standby-vehicles/send-result"}},
 {"call":"api.standby.is_send_ready","args":{"payload":{}},"ok":false},
 {"call":"api.standby.is_send_ready","args":{"payload":{"res":1}},"ok":false},

@@ -51,6 +51,10 @@ def recorded():
         {"ret": 200, "data": None, "list": [CAPTURED_RECORD]},
         {"ret": 500, "data": None, "msg": "Internal error"},
         {"ret": 500, "data": None, "msg": ""},
+        {"ret": 500.0, "data": None, "msg": "float"},
+        {"ret": True, "data": None, "msg": "bool"},
+        {"ret": [1], "data": None},
+        {"ret": {"k": 1}, "data": None},
         {"ret": "200", "data": {"list": []}},
         {"ret": None, "msg": 0},
         {"list": RECORD_SAMPLES[:2]},
@@ -68,7 +72,7 @@ def _random_payload(rng):
     choice = rng.random()
     if choice < 0.25:
         return {
-            "ret": rng.choice([200, 200.0, 500, 404, "200", None, 0]),
+            "ret": rng.choice([200, 200.0, 500, 500.0, 404, "200", None, 0, True, [1], {"k": 1}]),
             "data": rng.choice([None, [], {"list": [CAPTURED_RECORD]}]),
             "msg": rng.choice(["", "ok", "fail", None, 123]),
         }

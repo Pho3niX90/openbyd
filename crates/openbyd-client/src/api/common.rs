@@ -85,9 +85,9 @@ fn retryable(error: &Error) -> bool {
     error.is_a(ErrorKind::BydApiError) && !error.is_a(ErrorKind::BydSessionExpiredError)
 }
 
-/// Posts a request that reaches the car, declaring this account a guest
-/// (`userType: "1"`) when the session believes it is one for `vin`, as
-/// pyBYD's `post_vehicle_json`.
+/// Posts a request that reaches the car, declaring the session's role for
+/// `vin` (`"0"` for an owner, `"1"` for a guest), as pyBYD's
+/// `post_vehicle_json`.
 ///
 /// When the cloud answers with the code that means "wrong `userType`"
 /// (1001 to an undeclared guest, 8003 to an owner claiming to be a guest),
@@ -285,6 +285,31 @@ mod tests {
             }
         });
         assert!(session.is_guest("V1") && session.is_guest("V2"));
+    }
+
+    #[test]
+    fn owner_sends_signed_user_type_zero() {
+        let config = BydConfig::new("user@example.com", "p");
+        let session = Session::new("1", "s", "e", 0.0, 1.0);
+        let env = ScriptedEnv::new(0, "owner", vec![Reply::Outer(json!({"code": "0"}))]);
+        let cx = Context::new(&env, &config, &session);
+        let inner = Map::new();
+        assert_eq!(
+            block_on(post_vehicle_json(
+                cx,
+                "/e",
+                &inner,
+                "TESTVIN0000000001",
+                None,
+                ErrorCodes::default(),
+            ))
+            .unwrap()
+            .unwrap(),
+            json!({})
+        );
+        let steps = env.steps();
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0]["outer"]["userType"], "0");
     }
 
     #[test]

@@ -58,6 +58,17 @@ public sealed class ClientTests(ITestOutputHelper output)
         Assert.Equal(80, homepage.Status.Soc);
         Assert.NotNull(homepage.Schedule.Vin);
 
+        const string maintenanceEndpoint = "/maintenance?s=App.AppMaintenance.getInfoFromOthers";
+        world.Server.Reply(maintenanceEndpoint, Reply.Data(World.Json(
+            """{"ret": 200, "data": {"list": [{"ro_no": "RO-1", "total_mileage": 12345, "last_balance_date": 1791771512000, "shop_name": "BYD Test", "customer_email": "owner@example.com"}]}}""")));
+        var maintenance = await client.GetMaintenanceHistoryAsync(Vin);
+        var visit = Assert.Single(maintenance.Records);
+        Assert.Equal("RO-1", visit.OrderNo);
+        Assert.Equal(12345, visit.Mileage);
+        Assert.Equal("BYD Test", visit.ShopName);
+        Assert.False(visit.Raw.ContainsKey("customer_email"));
+        Assert.Single(world.Server.Requests(maintenanceEndpoint));
+
         var session = await client.EnsureSessionAsync();
         Assert.NotEmpty(session.SignToken);
         Assert.True(session.Ttl > 0);

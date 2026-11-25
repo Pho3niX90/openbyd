@@ -1,6 +1,5 @@
 //! Vehicle service history models (`pybyd/models/maintenance.py`).
 
-use chrono::NaiveDate;
 use serde::Serialize;
 use serde_json::{Map, Value};
 
@@ -64,13 +63,9 @@ fn utc_micros(datetime: PyDateTime) -> i128 {
     i128::from(datetime.local.and_utc().timestamp_micros()) - i128::from(datetime.offset_us)
 }
 
-/// `datetime.min.replace(tzinfo=UTC)` in microseconds since the Unix epoch.
-fn oldest_utc_micros() -> i128 {
-    let min = NaiveDate::from_ymd_opt(1, 1, 1)
-        .and_then(|date| date.and_hms_opt(0, 0, 0))
-        .expect("0001-01-01T00:00:00 is a valid NaiveDateTime");
-    i128::from(min.and_utc().timestamp_micros())
-}
+/// `datetime.min.replace(tzinfo=UTC)` (`0001-01-01T00:00:00Z`) in microseconds
+/// since the Unix epoch.
+const OLDEST_UTC_MICROS: i128 = -62_135_596_800_000_000;
 
 /// Service history list returned by `App.AppMaintenance.getInfoFromOthers`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -92,10 +87,9 @@ impl MaintenanceHistory {
     pub fn latest(&self) -> Option<&MaintenanceRecord> {
         let mut iter = self.records.iter();
         let mut best = iter.next()?;
-        let oldest = oldest_utc_micros();
-        let mut best_key = best.service_date.map_or(oldest, utc_micros);
+        let mut best_key = best.service_date.map_or(OLDEST_UTC_MICROS, utc_micros);
         for record in iter {
-            let key = record.service_date.map_or(oldest, utc_micros);
+            let key = record.service_date.map_or(OLDEST_UTC_MICROS, utc_micros);
             if key > best_key {
                 best = record;
                 best_key = key;
@@ -188,5 +182,12 @@ mod tests {
         assert!(empty.latest().is_none());
         assert_eq!(empty.properties()["latest"], Value::Null);
         assert!(parity_call("models.maintenance.Other", &json!({})).is_none());
+
+        let min_utc = chrono::NaiveDate::from_ymd_opt(1, 1, 1)
+            .and_then(|date| date.and_hms_opt(0, 0, 0))
+            .unwrap()
+            .and_utc()
+            .timestamp_micros();
+        assert_eq!(OLDEST_UTC_MICROS, i128::from(min_utc));
     }
 }

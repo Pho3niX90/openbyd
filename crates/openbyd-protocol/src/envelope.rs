@@ -252,8 +252,8 @@ fn login_refresh_token(inner: &Value, token: &Map<String, Value>) -> String {
 /// `build_token_outer_envelope`. Returns the payload and the content key
 /// that decrypts the reply's `respondData`.
 ///
-/// `user_type` is sent *and signed* when given (`"1"` for a guest
-/// account): the cloud answers 1007 to an unsigned one.
+/// `user_type` is sent *and signed* when given (`"0"` for an owner, `"1"`
+/// for a guest): the cloud answers 1007 to an unsigned one.
 pub fn build_token_outer_envelope(
     config: &BydConfig,
     session: &Session,
@@ -685,5 +685,24 @@ mod tests {
             decode_respond_data("/e", &json!({"respondData": ""}), &key).unwrap(),
             json!({})
         );
+    }
+
+    #[test]
+    fn owner_sends_signed_user_type_zero() {
+        let config = BydConfig::new("user@example.com", "p");
+        let session = Session::new("42", "sign", "encry", 0.0, 1.0);
+        let inner = crate::api::common::build_inner_base(
+            &config,
+            1,
+            &[1; 16],
+            Some("TESTVIN0000000001"),
+            None,
+        );
+        let (owner_outer, _) =
+            build_token_outer_envelope(&config, &session, &inner, 1, Some("0"), 2);
+        let (plain_outer, _) = build_token_outer_envelope(&config, &session, &inner, 1, None, 2);
+        assert_eq!(owner_outer["userType"], "0");
+        assert!(!plain_outer.contains_key("userType"));
+        assert_ne!(owner_outer["sign"], plain_outer["sign"]);
     }
 }

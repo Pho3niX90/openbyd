@@ -155,6 +155,12 @@ async fn login_and_a_full_poll_cycle() {
     client.get_hvac_status(VIN).await.expect("hvac");
     assert_eq!(world.logins(), 1);
     assert_eq!(world.server.requests_to(REALTIME_RESULT).len(), 1);
+    let hvac_requests = world.server.requests_to(HVAC);
+    let hvac_outer = hvac_requests[0].outer.as_ref().expect("outer payload");
+    assert_eq!(
+        hvac_outer.get("userType").and_then(Value::as_str),
+        Some("0")
+    );
 
     client.async_close();
     assert!(!client.mqtt_is_running());

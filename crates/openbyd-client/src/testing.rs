@@ -184,7 +184,7 @@ impl Reply {
 /// One request the server received, decoded.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Request {
-    /// The path, for example `/app/account/login`.
+    /// The path and any query string, for example `/app/account/login`.
     pub endpoint: String,
     /// The headers, names in lowercase, in the order received.
     pub headers: Vec<(String, String)>,

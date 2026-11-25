@@ -544,6 +544,10 @@ class Client:
         """The scheduled-climate timers."""
         return await self._native.get_booking_list(vin)
 
+    async def get_maintenance_history(self, vin: str) -> dict[str, Any]:
+        """Past workshop visits (service history)."""
+        return await self._native.get_maintenance_history(vin)
+
     async def get_ota_version(self, vin: str) -> dict[str, Any]:
         """The OTA firmware version, release notes and night auto-upgrade settings."""
         return await self._native.get_ota_version(vin)

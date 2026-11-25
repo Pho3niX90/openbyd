@@ -125,11 +125,19 @@ async fn check_car(
     t: u32,
 ) {
     let at = format!("{vin} at t={t}");
-    let realtime = client.get_vehicle_realtime(vin, quick()).await.expect(&at);
-    check_realtime(&realtime, want, energy, &at);
-    let stamp = START_UNIX + i64::from(t);
+    let realtime = client.get_vehicle_realtime(vin, quick()).await;
     if want.online {
+        let realtime = realtime.expect(&at);
+        check_realtime(&realtime, want, energy, &at);
+        let stamp = START_UNIX + i64::from(t);
         assert_eq!(realtime.raw["time"], json!(stamp), "{at}");
+    } else {
+        let error = realtime.expect_err(&format!("{at}: asleep"));
+        assert_eq!(
+            (error.kind(), error.code()),
+            (ErrorKind::BydDataUnavailableError, "not_ready"),
+            "{at}: asleep"
+        );
     }
 
     let charging = client.get_charging_status(vin).await.expect(&at);
@@ -604,6 +612,15 @@ async fn the_demo_scenario_replays() {
                 let result = client.get_vehicle_realtime(&car.vin, quick()).await;
                 match lookup.error {
                     Some(code) => assert_eq!(result.unwrap_err().code(), code, "{at}"),
+                    None if !lookup.state.online => {
+                        let error = result.expect_err(&format!("{at}: asleep"));
+                        assert_eq!(
+                            (error.kind(), error.code()),
+                            (ErrorKind::BydDataUnavailableError, "not_ready"),
+                            "{at}: asleep"
+                        );
+                        reads += 1;
+                    }
                     None => {
                         check_realtime(&result.expect(&at), lookup.state, car.energy, &at);
                         reads += 1;

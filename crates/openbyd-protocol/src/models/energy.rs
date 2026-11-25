@@ -45,7 +45,7 @@ fn to_int(value: &Value) -> Result<Option<i64>, ValidationError> {
         Err(ValidationError::new("value_error"))
     } else if number.is_infinite() {
         Err(ValidationError::raised("OverflowError", "overflow"))
-    } else if number <= -LIMIT || number >= LIMIT {
+    } else if number < -LIMIT || number >= LIMIT {
         // Python holds an arbitrarily large int; openbyd's integers are i64.
         Err(ValidationError::unsupported_int())
     } else {
@@ -336,6 +336,16 @@ mod tests {
         assert_eq!(
             to_int(&json!("inf")).unwrap_err().exception,
             "OverflowError"
+        );
+        assert_eq!(
+            to_int(&json!(-9_223_372_036_854_775_808.0_f64)).unwrap(),
+            Some(i64::MIN)
+        );
+        assert_eq!(
+            to_int(&json!(9_223_372_036_854_775_808.0_f64))
+                .unwrap_err()
+                .exception,
+            "Unsupported"
         );
         assert_eq!(to_int(&json!(1e300)).unwrap_err().exception, "Unsupported");
         assert_eq!(to_int(&json!(-1e300)).unwrap_err().exception, "Unsupported");

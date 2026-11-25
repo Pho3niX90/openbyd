@@ -20,7 +20,7 @@ pub const ZERO_IMEI_MD5: &str = "00000000000000000000000000000000";
 
 /// The login request's `appName` that pyBYD sends at the pinned commit:
 /// `pyBYD+` and the package version without its dev suffix.
-pub const DEFAULT_APP_NAME: &str = "pyBYD+0.0.89";
+pub const DEFAULT_APP_NAME: &str = "pyBYD+0.0.91";
 
 /// Device identity fields sent with every request.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -644,7 +644,7 @@ mod tests {
         let config = BydConfig::new(" user@example.com ", "secret");
         assert_eq!(config.username, "user@example.com");
         assert_eq!(config.device.imei_md5, md5_hex("user@example.com"));
-        assert_eq!(config.app_name, "pyBYD+0.0.89");
+        assert_eq!(config.app_name, "pyBYD+0.0.91");
         let shown = format!("{config:?}");
         assert!(!shown.contains("secret"));
         let mut with_pin = config.clone();

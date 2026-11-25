@@ -120,6 +120,29 @@ class ClientTest {
             assertEquals(80L, homepage.status().soc());
             assertNotNull(homepage.schedule().vin());
 
+            String maintenanceEndpoint = "/maintenance?s=App.AppMaintenance.getInfoFromOthers";
+            world.server.reply(
+                    maintenanceEndpoint,
+                    Reply.data(Map.of(
+                            "ret", 200,
+                            "data",
+                                    Map.of(
+                                            "list",
+                                            List.of(Map.of(
+                                                    "ro_no", "RO-1",
+                                                    "total_mileage", 12345,
+                                                    "last_balance_date", 1791771512000L,
+                                                    "shop_name", "BYD Test",
+                                                    "customer_email", "owner@example.com"))))));
+            var maintenance = await(client.getMaintenanceHistory(VIN));
+            assertEquals(1, maintenance.records().size());
+            var visit = maintenance.records().get(0);
+            assertEquals("RO-1", visit.orderNo());
+            assertEquals(12345L, visit.mileage());
+            assertEquals("BYD Test", visit.shopName());
+            assertFalse(visit.raw().containsKey("customer_email"));
+            assertEquals(1, world.server.requests(maintenanceEndpoint).size());
+
             SessionInfo session = await(client.ensureSession());
             assertFalse(session.signToken().isEmpty());
             assertTrue(session.ttl() > 0);

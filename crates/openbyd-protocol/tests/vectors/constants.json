@@ -1,4 +1,4 @@
-{"group": "constants", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
+{"group": "constants", "upstream_commit": "ae5f75e67ae4b96836b6ee3ffed46b30494fd38a", "cases": [
 {"call":"constants.values","args":{},"ok":{"USER_AGENT":"okhttp/4.12.0","SESSION_EXPIRED_CODES":["1002","1011","3001","3003"],"TOKEN_REFRESH_CODES":["1030"],"SERVER_TIME_DIFF_CODES":["1003"],"SERVER_TIME_DRIFT_THRESHOLD_MS":30000,"COMMAND_POLL_DELAYS_S":[1.0,0.5,0.5,2.0,2.0,2.0,5.0,5.0,5.0,10.0],"DEFAULT_TEMP_OFFSET_C":14.0,"VALID_CLIMATE_DURATIONS":[10,15,20,25,30]}},
 {"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":null},"ok":14.0},
 {"call":"constants.temp_offset_from_range","args":{"range_min":null,"range_max":31},"ok":14.0},

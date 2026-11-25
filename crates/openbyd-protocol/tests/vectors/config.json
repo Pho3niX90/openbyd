@@ -1,4 +1,4 @@
-{"group": "config", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
+{"group": "config", "upstream_commit": "ae5f75e67ae4b96836b6ee3ffed46b30494fd38a", "cases": [
 {"call":"config.DeviceProfile","args":{"kwargs":{}},"ok":{"ostype":"and","imei":"BANGCLE01234","mac":"00:00:00:00:00:00","model":"POCO F1","sdk":"35","mod":"Xiaomi","imei_md5":"00000000000000000000000000000000","mobile_brand":"XIAOMI","mobile_model":"POCO F1","device_type":"0","network_type":"wifi","os_type":"15","os_version":"35"}},
 {"call":"config.DeviceProfile","args":{"kwargs":{"imei":" 1 ","mod":"\u001cx\u001c"}},"ok":{"ostype":"and","imei":"1","mac":"00:00:00:00:00:00","model":"POCO F1","sdk":"35","mod":"\u001cx\u001c","imei_md5":"00000000000000000000000000000000","mobile_brand":"XIAOMI","mobile_model":"POCO F1","device_type":"0","network_type":"wifi","os_type":"15","os_version":"35"}},
 {"call":"config.DeviceProfile","args":{"kwargs":{"imei":1}},"error":"ValidationError"},

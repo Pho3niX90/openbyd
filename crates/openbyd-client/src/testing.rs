@@ -184,7 +184,7 @@ impl Reply {
 /// One request the server received, decoded.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Request {
-    /// The path, for example `/app/account/login`.
+    /// The path and any query string, for example `/app/account/login`.
     pub endpoint: String,
     /// The headers, names in lowercase, in the order received.
     pub headers: Vec<(String, String)>,
@@ -891,7 +891,10 @@ async fn handle(
     let (parts, body) = incoming.into_parts();
     let body = body.collect().await.map_err(|_| Dropped)?.to_bytes();
     let mut request = Request {
-        endpoint: parts.uri.path().to_owned(),
+        endpoint: parts
+            .uri
+            .path_and_query()
+            .map_or_else(|| parts.uri.path().to_owned(), |pq| pq.as_str().to_owned()),
         headers: parts
             .headers
             .iter()

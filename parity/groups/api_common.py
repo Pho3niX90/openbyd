@@ -36,6 +36,7 @@ def constants() -> dict:
         "ENDPOINT_NOT_SUPPORTED_CODES": sorted(_common.ENDPOINT_NOT_SUPPORTED_CODES),
         "SERVICE_BUSY_CODES": sorted(_common.SERVICE_BUSY_CODES),
         "VEHICLE_UNREACHABLE_CODES": sorted(_common.VEHICLE_UNREACHABLE_CODES),
+        "USER_TYPE_OWNER": _common.USER_TYPE_OWNER,
         "USER_TYPE_GUEST": _common.USER_TYPE_GUEST,
         "GUEST_NOT_DECLARED_CODE": _common.GUEST_NOT_DECLARED_CODE,
         "NOT_A_GUEST_CODE": _common.NOT_A_GUEST_CODE,

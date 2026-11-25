@@ -219,6 +219,45 @@ def test_notifications() -> None:
     compare(failing("/app/messageCenter/getUnReadMessageList", Reply.code("1001")), lambda client, _: client.get_all_notifications())
 
 
+def test_maintenance_history() -> None:
+    endpoint = "/maintenance?s=App.AppMaintenance.getInfoFromOthers"
+    captured = {
+        "ret": 200,
+        "data": {
+            "list": [
+                {
+                    "ro_no": "RO-OLD",
+                    "total_mileage": 50210,
+                    "last_balance_date": 1760000000000,
+                    "shop_name": "BYD Test",
+                    "dealer_code": "D001",
+                    "repair_type_code": "JSXM",
+                    "customer_email": "owner@example.com",
+                    "shop_address": "123 Synthetic Rd",
+                    "shop_phone": "555-0100",
+                    "latitude": 52.0,
+                    "longitude": 4.0,
+                },
+                {
+                    "ro_no": "RO-NEW",
+                    "total_mileage": 99678,
+                    "last_balance_date": 1791771512000,
+                    "shop_name": "BYD Test",
+                },
+            ]
+        },
+        "msg": "操作成功",
+    }
+    got = compare(data(endpoint, captured), lambda client, _: client.get_maintenance_history(VIN))
+    assert "result" in got
+    assert "customer_email" not in got["result"]["records"][0]["raw"]
+    compare(data(endpoint, {"ret": 200, "data": {"list": []}}), lambda client, _: client.get_maintenance_history(VIN))
+    compare(data(endpoint, {"ret": 500, "msg": "fail"}), lambda client, _: client.get_maintenance_history(VIN))
+    for reply in (Reply.code("1001"), Reply.status(502)):
+        got_err = compare(failing(endpoint, reply), lambda client, _: client.get_maintenance_history(VIN))
+        assert "error" in got_err
+
+
 def test_settings_and_push_switches() -> None:
     compare(data("/control/vehicle/modifyAutoAlias", {}), lambda client, _: client.rename_vehicle(VIN, name="Seal"))
     compare(data("/control/vehicle/modifyAutoAlias", {"result": 1}), lambda client, _: client.rename_vehicle(VIN, name="比亚迪"))

@@ -515,6 +515,7 @@ def client_methods() -> list[Method]:
             returns=ref("CommandAck"),
         ),
         read("get_booking_list", ref("BookingList"), "The scheduled-climate timers."),
+        read("get_maintenance_history", ref("MaintenanceHistory"), "Past workshop visits (service history)."),
         # Firmware and guest grants
         read("get_ota_version", ref("OtaUpgradeInfo"), "The OTA firmware version, release notes and night auto-upgrade settings."),
         Method(

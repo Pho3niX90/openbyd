@@ -11,8 +11,8 @@ use openbyd_protocol::coerce::ValidationError;
 use openbyd_protocol::error::Error;
 use openbyd_protocol::models::base::{BydBaseModel, BydModel};
 use openbyd_protocol::models::{
-    booking, charging, command_gating, control, energy, gps, hvac, latest_config, message_center,
-    ota, push_notification, realtime, smart_charging, standby, token, vehicle,
+    booking, charging, command_gating, control, energy, gps, hvac, latest_config, maintenance,
+    message_center, ota, push_notification, realtime, smart_charging, standby, token, vehicle,
 };
 use openbyd_protocol::mqtt;
 use pyo3::exceptions::PyKeyError;
@@ -231,6 +231,16 @@ const MODELS: &[(&str, Run, Raw)] = &[
     (
         "LatestConfigFunction",
         run::<latest_config::LatestConfigFunction>,
+        MayBeReply,
+    ),
+    (
+        "MaintenanceHistory",
+        run::<maintenance::MaintenanceHistory>,
+        MayBeReply,
+    ),
+    (
+        "MaintenanceRecord",
+        run::<maintenance::MaintenanceRecord>,
         MayBeReply,
     ),
     ("MqttBootstrap", run::<mqtt::MqttBootstrap>, NeverReply),

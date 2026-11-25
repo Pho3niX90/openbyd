@@ -1,4 +1,4 @@
-{"group": "state", "upstream_commit": "4444b54b440e84e4acdc6f16cf7fed8919f7e2a7", "cases": [
+{"group": "state", "upstream_commit": "ae5f75e67ae4b96836b6ee3ffed46b30494fd38a", "cases": [
 {"call":"state._has_valid_coordinates","args":{"gps":{"latitude":52.0,"longitude":4.0,"speed":60.0}},"ok":true},
 {"call":"state._has_valid_coordinates","args":{"gps":{}},"ok":false},
 {"call":"state._has_valid_coordinates","args":{"gps":{"latitude":0.001,"longitude":0.002}},"ok":false},

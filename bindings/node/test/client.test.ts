@@ -79,6 +79,31 @@ test("reads return pyBYD's dumps, typed", async () => {
   assert.equal(homepage.status.soc, 80);
   assert.equal(typeof homepage.schedule.vin, "string");
 
+  const maintenanceEndpoint = "/maintenance?s=App.AppMaintenance.getInfoFromOthers";
+  world.server.reply(maintenanceEndpoint, {
+    data: {
+      ret: 200,
+      data: {
+        list: [
+          {
+            ro_no: "RO-1",
+            total_mileage: 12345,
+            last_balance_date: 1791771512000,
+            shop_name: "BYD Test",
+            customer_email: "owner@example.com",
+          },
+        ],
+      },
+    },
+  });
+  const maintenance = await client.getMaintenanceHistory(VIN);
+  assert.equal(maintenance.records.length, 1);
+  assert.equal(maintenance.records[0]?.order_no, "RO-1");
+  assert.equal(maintenance.records[0]?.mileage, 12345);
+  assert.equal(maintenance.records[0]?.shop_name, "BYD Test");
+  assert.equal("customer_email" in (maintenance.records[0]?.raw ?? {}), false);
+  assert.equal(world.server.requests(maintenanceEndpoint).length, 1);
+
   const session = await client.ensureSession();
   assert.equal(typeof session.sign_token, "string");
   assert.ok(session.ttl > 0);

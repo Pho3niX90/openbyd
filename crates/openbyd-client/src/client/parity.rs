@@ -506,6 +506,7 @@ async fn run_method(
         }),
         "rename_vehicle" => model!(client.rename_vehicle(vin()?, args.str("name")?)),
         "get_booking_list" => model!(client.get_booking_list(vin()?)),
+        "get_maintenance_history" => model!(client.get_maintenance_history(vin()?)),
         "get_ota_version" => model!(client.get_ota_version(vin()?)),
         "set_ota_auto_upgrade" => {
             let time = match args.value("auto_upgrade_time") {

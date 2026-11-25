@@ -11,8 +11,8 @@ use serde_json::{Map, Value, json};
 
 pub use openbyd_protocol::api::common::{
     ENDPOINT_NOT_SUPPORTED_CODES, GUEST_NOT_DECLARED_CODE, NOT_A_GUEST_CODE, SERVICE_BUSY_CODES,
-    USER_TYPE_GUEST, VEHICLE_UNREACHABLE_CODES, build_inner_base, decode_respond_data,
-    raise_for_code, random_hex,
+    USER_TYPE_GUEST, USER_TYPE_OWNER, VEHICLE_UNREACHABLE_CODES, build_inner_base,
+    decode_respond_data, raise_for_code, random_hex,
 };
 
 use crate::api::Context;
@@ -85,9 +85,9 @@ fn retryable(error: &Error) -> bool {
     error.is_a(ErrorKind::BydApiError) && !error.is_a(ErrorKind::BydSessionExpiredError)
 }
 
-/// Posts a request that reaches the car, declaring this account a guest
-/// (`userType: "1"`) when the session believes it is one for `vin`, as
-/// pyBYD's `post_vehicle_json`.
+/// Posts a request that reaches the car, declaring the session's role for
+/// `vin` (`"0"` for an owner, `"1"` for a guest), as pyBYD's
+/// `post_vehicle_json`.
 ///
 /// When the cloud answers with the code that means "wrong `userType`"
 /// (1001 to an undeclared guest, 8003 to an owner claiming to be a guest),
@@ -111,7 +111,11 @@ pub async fn post_vehicle_json<E: Env>(
     codes: ErrorCodes<'_>,
 ) -> Result<Value, Error> {
     let guest = cx.session.is_guest(vin);
-    let declared = guest.then_some(USER_TYPE_GUEST);
+    let declared = Some(if guest {
+        USER_TYPE_GUEST
+    } else {
+        USER_TYPE_OWNER
+    });
     let first = match post_token_json(cx, endpoint, inner, now_ms, Some(vin), codes, declared).await
     {
         Ok(decoded) => return Ok(decoded),
@@ -131,7 +135,11 @@ pub async fn post_vehicle_json<E: Env>(
     let mut retry_inner = inner.clone();
     retry_inner.insert("random".into(), json!(random_hex(&cx.env.random_bytes())));
     retry_inner.insert("timeStamp".into(), json!(retry_ms.to_string()));
-    let other = if guest { None } else { Some(USER_TYPE_GUEST) };
+    let other = Some(if guest {
+        USER_TYPE_OWNER
+    } else {
+        USER_TYPE_GUEST
+    });
     match post_token_json(
         cx,
         endpoint,
@@ -277,6 +285,31 @@ mod tests {
             }
         });
         assert!(session.is_guest("V1") && session.is_guest("V2"));
+    }
+
+    #[test]
+    fn owner_sends_signed_user_type_zero() {
+        let config = BydConfig::new("user@example.com", "p");
+        let session = Session::new("1", "s", "e", 0.0, 1.0);
+        let env = ScriptedEnv::new(0, "owner", vec![Reply::Outer(json!({"code": "0"}))]);
+        let cx = Context::new(&env, &config, &session);
+        let inner = Map::new();
+        assert_eq!(
+            block_on(post_vehicle_json(
+                cx,
+                "/e",
+                &inner,
+                "TESTVIN0000000001",
+                None,
+                ErrorCodes::default(),
+            ))
+            .unwrap()
+            .unwrap(),
+            json!({})
+        );
+        let steps = env.steps();
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0]["outer"]["userType"], "0");
     }
 
     #[test]

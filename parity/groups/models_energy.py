@@ -67,6 +67,8 @@ nearest_cases = register_model(
          "otherDistribution": {"a": 1}},
         {"evUnit": "kW.h/100km", "evValueUnit": "KWH", "oilUnit": "unknown/100 km", "oilValueUnit": "l",
          "driveDistribution": "١٢"},
+        # -2^63 as a float is exact i64::MIN; python int(float) accepts it (nightly issue #16).
+        {"driveDistribution": -(2.0**63), "electDistribution": -9223372036854775808},
     ],
 )
 

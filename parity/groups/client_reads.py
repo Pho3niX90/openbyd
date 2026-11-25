@@ -27,6 +27,7 @@ from parity.api_support import (
 )
 from parity.flow_cases import corpus, keep_representable
 from parity.groups.models_ota import CAPTURED_IDLE
+from parity.groups.api_maintenance import CAPTURED_HISTORY
 from parity.framework import Group
 from parity.groups.config import SAMPLE_CONFIG, SAMPLE_SESSION
 
@@ -44,7 +45,7 @@ SIMPLE = [
 ]
 OTHERS = [
     "get_ac_current_limit", "set_push_state", "get_notifications", "get_all_notifications", "rename_vehicle",
-    "get_ota_version", "set_ota_auto_upgrade", "get_empower_detail",
+    "get_ota_version", "set_ota_auto_upgrade", "get_empower_detail", "get_maintenance_history",
 ]
 METHODS = POLLED + SIMPLE + OTHERS
 for name in METHODS:
@@ -243,7 +244,7 @@ def upstream_109_cases():
     """pyBYD #109: every read-only vehicle endpoint probes a 1008; writes never do."""
     vehicles = ok_reply(SAMPLE_SESSION, [VEHICLE])
     dead = [error_reply("1008"), error_reply("1002"), *login_replies()]
-    for method in SIMPLE + ["get_ac_current_limit", "get_ota_version"]:
+    for method in SIMPLE + ["get_ac_current_limit", "get_ota_version", "get_maintenance_history"]:
         yield f"client.{method}", client_case(state=logged_in(vehicles=[VEHICLE]), replies=[*dead, ok_reply(SAMPLE_SESSION, {})],
                                               vin=VIN)
         yield f"client.{method}", client_case(state=logged_in(vehicles=[VEHICLE]), replies=[error_reply("1008"), vehicles],
@@ -290,6 +291,30 @@ def guest_and_ota_cases():
     # OTA (pyBYD #99): the version, and the night auto-upgrade behind the PIN.
     yield "client.get_ota_version", client_case(state=logged_in(), replies=[ok_reply(SAMPLE_SESSION, CAPTURED_IDLE)], vin=VIN)
     yield "client.get_ota_version", client_case(state=logged_in(), replies=[error_reply("1001")], vin=VIN)
+    # Maintenance history (pyBYD #114).
+    yield "client.get_maintenance_history", client_case(
+        state=logged_in(), replies=[ok_reply(SAMPLE_SESSION, CAPTURED_HISTORY)], vin=VIN
+    )
+    yield "client.get_maintenance_history", client_case(
+        state=logged_in(), replies=[ok_reply(SAMPLE_SESSION, {"ret": 500, "msg": "fail"})], vin=VIN
+    )
+    yield "client.get_maintenance_history", client_case(state=logged_in(), replies=[error_reply("1001")], vin=VIN)
+    # Asleep placeholder (pyBYD #110): realtime rejects zeroed onlineState=1 payloads.
+    placeholder = {
+        "onlineState": 1, "time": 0, "elecPercent": 0, "enduranceMileage": 0,
+        "leftFrontTirepressure": 0.0, "tirePressUnit": 3, "tempInCar": 0, "leftFrontDoorLock": 0,
+        "requestSerial": "S1",
+    }
+    yield "client.get_vehicle_realtime", client_case(
+        state=logged_in(vehicles=[VEHICLE], mqtt=False),
+        replies=[ok_reply(SAMPLE_SESSION, placeholder)] * 3,
+        vin=VIN, poll_attempts=2, poll_interval=0.0,
+    )
+    yield "client.get_vehicle_realtime", client_case(
+        state=logged_in(vehicles=[VEHICLE], mqtt=False),
+        replies=[ok_reply(SAMPLE_SESSION, placeholder), ok_reply(SAMPLE_SESSION, placeholder), ready(REALTIME)],
+        vin=VIN, poll_attempts=2, poll_interval=0.0,
+    )
     for kwargs, replies in [
         ({"enabled": True, "command_pwd": "123456"}, [ok_reply(SAMPLE_SESSION, {})]),
         ({"enabled": False, "auto_upgrade_time": "03:30", "command_pwd": "0123456789abcdef0123456789ABCDEF"},

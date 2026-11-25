@@ -19,7 +19,9 @@ pub const ENDPOINT_NOT_SUPPORTED_CODES: [&str; 1] = ["1001"];
 pub const SERVICE_BUSY_CODES: [&str; 1] = ["1008"];
 /// Vehicle temporarily unreachable (deep sleep, offline): keep the last value.
 pub const VEHICLE_UNREACHABLE_CODES: [&str; 1] = ["6002"];
-/// The outer `userType` of an account the car was shared with. Owners leave the field out.
+/// The outer `userType` of an owner account.
+pub const USER_TYPE_OWNER: &str = "0";
+/// The outer `userType` of an account the car was shared with.
 pub const USER_TYPE_GUEST: &str = "1";
 /// What a guest gets when it does not declare itself.
 pub const GUEST_NOT_DECLARED_CODE: &str = "1001";
@@ -139,6 +141,7 @@ pub(crate) fn parity_call(name: &str, args: &Value) -> Option<Outcome> {
             "ENDPOINT_NOT_SUPPORTED_CODES": ENDPOINT_NOT_SUPPORTED_CODES,
             "SERVICE_BUSY_CODES": SERVICE_BUSY_CODES,
             "VEHICLE_UNREACHABLE_CODES": VEHICLE_UNREACHABLE_CODES,
+            "USER_TYPE_OWNER": USER_TYPE_OWNER,
             "USER_TYPE_GUEST": USER_TYPE_GUEST,
             "GUEST_NOT_DECLARED_CODE": GUEST_NOT_DECLARED_CODE,
             "NOT_A_GUEST_CODE": NOT_A_GUEST_CODE,

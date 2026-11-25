@@ -61,7 +61,7 @@ pub const EVENTS: [&str; 6] = [
 ];
 
 /// The methods [`Client::call`] runs.
-pub const ASYNC_METHODS: [&str; 76] = [
+pub const ASYNC_METHODS: [&str; 77] = [
     "login",
     "ensure_session",
     "import_session",
@@ -85,6 +85,7 @@ pub const ASYNC_METHODS: [&str; 76] = [
     "get_all_notifications",
     "rename_vehicle",
     "get_booking_list",
+    "get_maintenance_history",
     "get_ota_version",
     "set_ota_auto_upgrade",
     "get_empower_detail",
@@ -848,6 +849,7 @@ impl Client {
             }
             "rename_vehicle" => dump(&client.rename_vehicle(vin, &args.str("name")?).await?)?,
             "get_booking_list" => dump(&client.get_booking_list(vin).await?)?,
+            "get_maintenance_history" => dump(&client.get_maintenance_history(vin).await?)?,
             "get_ota_version" => dump(&client.get_ota_version(vin).await?)?,
             "set_ota_auto_upgrade" => {
                 let time = args
